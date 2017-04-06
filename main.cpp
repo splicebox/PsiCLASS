@@ -31,7 +31,8 @@ bool CompSplitSite( struct _splitSite a, struct _splitSite b )
 	else if ( a.pos != b.pos )
 		return a.pos < b.pos ;
 	else
-		return b.type - a.type ; // We want the end of exons comes first, since we are scanning the genome from left to right.
+		return a.type < b.type ; // We want the start of exons comes first, since we are scanning the genome from left to right,
+					 // so we can terminate the extension early and create a single-base subexon later.
 }
 
 int CompDouble( const void *p1, const void *p2 )
@@ -62,6 +63,16 @@ void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
 	}
 	for ( i = size - 1 ; i >= k ; --i )
 		sites.pop_back() ;
+
+	// For the sites that corresponds to the start of an exon, we remove the adjust to it and 
+	/*for ( i = 1 ; i < size ; ++i )
+	{
+		if ( sites[i].pos == sites[i - 1].pos && sites[i - 1].type == 2 )
+		{
+			if ( sites[i].type == 1 )	
+				++sites[i].pos ;
+		}
+	}*/
 }
 
 void GradientDescentGammaDistribution( double &k, double &theta, double initK, double initTheta, double *x, double *z, int n ) 
@@ -140,24 +151,6 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 		if ( iterCnt == 1000 )
 			break ;
 	}
-}
-
-double LogGammaDensity( double x, double k, double theta )
-{
-	return -k * log( theta ) + ( k - 1 ) * log( x ) - x / theta - lgamma( k ) ;
-}
-
-double MixtureGammaAssignment( double x, double pi, double* k, double *theta )
-{
-	if ( pi == 1 )
-		return 0 ;
-	else if ( pi == 0 )
-		return 1 ;
-
-	double lf0 = LogGammaDensity( x, k[0], theta[0] ) ;
-	double lf1 = LogGammaDensity( x, k[1], theta[1] ) ; 
-	
-	return (double)1.0 / ( 1.0 + exp( lf1 + log( 1 - pi ) - lf0 - log( pi ) ) ) ;
 }
 
 
@@ -246,7 +239,7 @@ int main( int argc, char *argv[] )
 		ss.type = 2 ;
 		splitSites.push_back( ss ) ;
 
-		ss.pos = end - 1 ; // Note the adjust to the right-end.
+		ss.pos = end ; 
 		ss.type = 1 ;
 		splitSites.push_back( ss ) ;
 	}
@@ -283,14 +276,14 @@ int main( int argc, char *argv[] )
 		double flankingLen = 0 ;
 		int idx = i ;
 		double anchorAvg = 0 ;
-		if ( idx >= 1 )
+		if ( idx >= 1 && regions.exonBlocks[idx-1].chrId == regions.exonBlocks[idx].chrId )
 		{
 			flankingAvg += regions.exonBlocks[idx-1].depthSum ;
 			flankingLen += ( regions.exonBlocks[idx-1].end - regions.exonBlocks[idx-1].start + 1 ) ;
 			//printf( "left %d: %d %d %"PRId64"\n", idx - 1, regions.exonBlocks[idx-1].start, regions.exonBlocks[idx-1].end, regions.exonBlocks[idx-1].depthSum) ;
 			anchorAvg = regions.exonBlocks[idx-1].depthSum / ( regions.exonBlocks[idx-1].end - regions.exonBlocks[idx-1].start + 1 ) ;
 		}
-		if ( idx < blockCnt - 1 )
+		if ( idx < blockCnt - 1 && regions.exonBlocks[idx + 1].chrId == regions.exonBlocks[idx].chrId )
 		{
 			flankingAvg += regions.exonBlocks[idx+1].depthSum ;
 			flankingLen += ( regions.exonBlocks[idx+1].end - regions.exonBlocks[idx+1].start + 1 ) ;
@@ -323,14 +316,14 @@ int main( int argc, char *argv[] )
 		double anchorAvg = 0 ;	
 		double avgDepth = (double)irBlocks[i].depthSum / (irBlocks[i].end - irBlocks[i].start + 1 ) ;
 		cov[i] = 10000000 ;
-		if ( idx >= 1 )
+		if ( idx >= 1 && regions.exonBlocks[idx-1].chrId == regions.exonBlocks[idx].chrId )
 		{
 			flankingAvg += regions.exonBlocks[idx-1].depthSum ;
 			flankingLen += ( regions.exonBlocks[idx-1].end - regions.exonBlocks[idx-1].start + 1 ) ;
 			//printf( "left %d: %d %d %"PRId64"\n", idx - 1, regions.exonBlocks[idx-1].start, regions.exonBlocks[idx-1].end, regions.exonBlocks[idx-1].depthSum) ;
 			anchorAvg = regions.exonBlocks[idx-1].depthSum / ( regions.exonBlocks[idx-1].end - regions.exonBlocks[idx-1].start + 1 ) ;
 		}
-		if ( idx < blockCnt - 1 )
+		if ( idx < blockCnt - 1 && regions.exonBlocks[idx + 1].chrId == regions.exonBlocks[idx].chrId )
 		{
 			flankingAvg += regions.exonBlocks[idx+1].depthSum ;
 			flankingLen += ( regions.exonBlocks[idx+1].end - regions.exonBlocks[idx+1].start + 1 ) ;
@@ -475,17 +468,17 @@ int main( int argc, char *argv[] )
 		}
 		else
 			p = -1 ;
-		printf( "%d %d: avg: %lf ratio: %lf p: %lf\n", irBlocks[i].start, irBlocks[i].end, irBlocks[i].depthSum / (double)( irBlocks[i].end - irBlocks[i].start + 1 ), covRatio[i], 
-				p ) ;	
+		//printf( "%d %d: avg: %lf ratio: %lf p: %lf\n", irBlocks[i].start, irBlocks[i].end, irBlocks[i].depthSum / (double)( irBlocks[i].end - irBlocks[i].start + 1 ), covRatio[i], 
+		//		p ) ;	
 		irClassifier[ irBlockIdx[i] ] = p ;
 	}
 
-	/*for ( int i = 0 ; i < blockCnt ; ++i )
+	for ( int i = 0 ; i < blockCnt ; ++i )
 	{
 		struct _block &e = regions.exonBlocks[i] ;
 		double avgDepth = (double)e.depthSum / ( e.end - e.start + 1 ) ;
 		printf( "%s %" PRId64 " %" PRId64 " %d %d %lf %lf\n", alignments.GetChromName( e.chrId ), e.start + 1, e.end + 1, e.leftType, e.rightType, avgDepth, irClassifier[i] ) ;
-	}*/
+	}
 
 	delete[] cov ;
 	delete[] covRatio ;

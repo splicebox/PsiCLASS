@@ -44,7 +44,7 @@ while ( <FP1> )
 }
 close FP1 ;
 
-open FP1, $ARGV[0] ;
+open FP1, $ARGV[1] ;
 while ( <FP1> )
 {
 	chomp ;
@@ -53,7 +53,7 @@ while ( <FP1> )
 	my $key = $cols[0]." ".$cols[1]." ".$cols[2] ;
 	next if ( !defined $intronInfo{ $key } ) ;
 	my @infoCols = @{ $intronInfo{ $key } } ;
-	$infoCols[4] = $cols[4] if ( $infoCols[4] eq "?" ) ;
+	$infoCols[4] = $cols[4] if ( $infoCols[4] ne "+" || $infoCols[4] ne "-" ) ;
 	$infoCols[9] |= 2  ;
 
 	@{ $intronInfo{ $key } } = @infoCols ;
@@ -63,6 +63,8 @@ close FP1 ;
 foreach my $key (sort sortIntron keys %intronInfo )
 {
 	my @infoCols = @{ $intronInfo{ $key } } ;
+	#print join( " ", @infoCols ), "\n" ;
+
 	next if ( $infoCols[9] != 3 ) ;
 	pop @infoCols ;
 	print join( " ", @infoCols ), "\n" ;

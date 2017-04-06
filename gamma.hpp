@@ -27,4 +27,8 @@ long double digammal(long double x) ;
 
 //https://people.sc.fsu.edu/~jburkardt/cpp_src/asa121/asa121.hpp
 double trigamma ( double x, int *ifault );
+
+
+double LogGammaDensity( double x, double k, double theta ) ;
+double MixtureGammaAssignment( double x, double pi, double* k, double *theta ) ;
 #endif

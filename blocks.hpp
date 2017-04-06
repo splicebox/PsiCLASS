@@ -241,8 +241,8 @@ class Blocks
 
 			/*for ( int i = 0 ; i < (int)exonBlocks.size() ; ++i )
 			  {
-			  printf( "%d %d %d\n", exonBlocks[i].start, exonBlocks[i].end, exonBlocks[i].support.GetCount() ) ;
-			  }*/	
+			  printf( "%d %d\n", exonBlocks[i].start, exonBlocks[i].end ) ;
+			  }*/
 
 			if ( exonBlocks.size() > 0 )
 			{
@@ -300,7 +300,7 @@ class Blocks
 					int rightType = 0 ;
 					if ( j > tag )	
 					{
-						start = end + 1 ; // end is from previous stage
+						start = splitSites[j - 1].pos ; // end is from previous stage
 						leftType = splitSites[j - 1].type ;
 					}
 					else
@@ -313,6 +313,11 @@ class Blocks
 					}
 					else
 						end = rawExonBlocks[i].end ;
+
+					if ( leftType == 2 )
+						++start ;
+					if ( rightType == 1 )
+						--end ;
 
 					struct _block tmpB ;
 					tmpB = rawExonBlocks[i] ;
@@ -334,11 +339,14 @@ class Blocks
 					{
 						exonBlocks.pop_back() ;
 					}*/
-					if ( start >= end )
+					if ( start > end )
 					{
 						exonBlocks.pop_back() ;
-						--end ;
 					}
+					/*else if ( start == end )
+					{
+
+					}*/
 				}
 			}
 		}
