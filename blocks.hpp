@@ -23,7 +23,7 @@ extern int gMinDepth ;
 struct _splitSite // means the next position belongs to another block
 {
 	int64_t pos ;
-	int strand ;
+	char strand ;
 	int chrId ;
 	int type ; // 1-start of an exon. 2-end of an exon.
 
@@ -44,6 +44,8 @@ struct _block
 	
 	double leftRatio, rightRatio ; // the adjusted ratio-like value to the left and right anchor subexons.      
 	double ratio ;
+
+	char leftStrand, rightStrand ;
 
 	int *depth ;
 
@@ -111,7 +113,11 @@ class Blocks
 				int *depth = exonBlocks[tag].depth ;
 				for ( i = 1 ; i < len ; ++i )
 					depth[i] = depth[i - 1] + depth[i] ;
-
+				/*if ( exonBlocks[tag].start == 1562344 )
+				{
+					for ( i = 0 ; i < len ; ++i )
+						printf( "%d\n", depth[i] ) ;
+				}*/
 				// Adjust boundary accordingly. TODO: create new subexons if there is hollow.
 				int64_t adjustStart = exonBlocks[tag].start ; 
 				int64_t adjustEnd = exonBlocks[tag].end ;
@@ -122,7 +128,7 @@ class Blocks
 						if ( depth[i] < gMinDepth )
 							break ;
 					++i ;
-					if ( exonBlocks[tag].rightType == 2 && i + exonBlocks[tag].start < exonBlocks[tag].rightSplice )
+					if ( exonBlocks[tag].rightType == 2 && i + exonBlocks[tag].start > exonBlocks[tag].rightSplice )
 						i = exonBlocks[tag].rightSplice - exonBlocks[tag].start ;
 					adjustStart = i  + exonBlocks[tag].start ;
 				}
@@ -159,9 +165,10 @@ class Blocks
 				delete[] exonBlocks[tag].depth ;
 				exonBlocks[tag].depth = NULL ;
 				
+				//if ( exonBlocks[tag].start == 1562344 )
+				//	printf( "%d %d\n", adjustStart, adjustEnd ) ;
 				if ( ( len > 1 && adjustEnd - adjustStart + 1 <= 1 ) || ( adjustEnd - adjustStart + 1 <= 0 ) )
 					return ;
-				
 				exonBlocks[tag].start = adjustStart ;
 				exonBlocks[tag].end = adjustEnd ;
 				newExonBlocks.push_back( exonBlocks[tag] ) ;
@@ -357,9 +364,14 @@ class Blocks
 				for ( int i = 0 ; i < cnt ; ++i )
 				{
 					exonBlocks[i].contigId = exonBlocks[i].chrId ;
-
+					
 					exonBlocks[i].leftType = 0 ;
 					exonBlocks[i].rightType = 0 ;
+					exonBlocks[i].depth = NULL ;
+					exonBlocks[i].nextCnt = 0 ;
+					exonBlocks[i].prevCnt = 0 ;
+					exonBlocks[i].leftStrand = '.' ;
+					exonBlocks[i].rightStrand = '.' ;
 				}
 			}
 			return exonBlocks.size() ;
@@ -393,6 +405,7 @@ class Blocks
 				int64_t start = rawExonBlocks[i].start ;
 				int64_t end = rawExonBlocks[i].end ;
 				//printf( "%lld %lld\n", start, end ) ;
+				//printf( "%s %s: %d %d\n", alignments.GetChromName( splitSites[tag].chrId ), alignments.GetChromName( rawExonBlocks[i].chrId ), tag, l ) ;
 				for ( j = tag ; j <= l ; ++j )
 				{
 					int leftType = 0 ;
@@ -566,6 +579,7 @@ class Blocks
 
 		void AddIntronInformation( std::vector<struct _splitSite> &sites )
 		{
+			// Add the connection information and the strand information.
 			int i, j, k, tag ;
 			tag = 0 ;
 			int scnt = sites.size() ;
@@ -576,6 +590,8 @@ class Blocks
 			{
 				exonBlocks[i].prevCnt = exonBlocks[i].nextCnt = 0 ;
 				exonBlocks[i].prev = exonBlocks[i].next = NULL ;
+
+				exonBlocks[i].leftStrand = exonBlocks[i].rightStrand = '.' ;
 			}
 
 			for ( i = 0 ; i < scnt ; )	
@@ -590,9 +606,11 @@ class Blocks
 				// [i,j-1] are the indices of the sites with same coordinate
 
 				int cnt = j - i ;
+				// Locate the first subexon that can overlap with this site
 				while ( tag < exonBlockCnt )
 				{
-					if ( exonBlocks[tag].chrId == sites[i].chrId && exonBlocks[tag].end >= sites[i].pos )
+					if ( ( exonBlocks[tag].chrId == sites[i].chrId && exonBlocks[tag].end >= sites[i].pos ) 
+						|| exonBlocks[tag].chrId > sites[i].chrId )
 						break ;
 					++tag ;
 				}
@@ -621,6 +639,7 @@ class Blocks
 				{
 					exonBlocks[tag].prevCnt = 0 ;
 					exonBlocks[tag].prev = new int[cnt] ;
+					exonBlocks[tag].leftStrand = sites[i].strand ;
 
 					// And we also need to put the "next" here.
 					// Here we assume the oppositePos sorted in increasing order
@@ -646,6 +665,7 @@ class Blocks
 				{
 					exonBlocks[tag].nextCnt = 0 ; // cnt ; it should reach cnt after putting the ids in
 					exonBlocks[tag].next = new int[cnt] ;
+					exonBlocks[tag].rightStrand = sites[i].strand ;
 				}
 
 				i = j ;
@@ -667,6 +687,7 @@ class Blocks
 						exonBlocks[i + 1].leftType = 0 ;
 				}
 			}
+			MergeNearBlocks() ;
 		}
 
 		double PickLeftAndRightRatio( const struct _block &b )
@@ -710,12 +731,18 @@ class Blocks
 				if ( ( exonBlocks[i].leftType == 0 && exonBlocks[i].rightType == 1 ) || 
 					exonBlocks[i].leftType == 1 )
 				{
-					// For the case (...[, the ratio is actuall the leftratio of the subexon on its right. 	
+					// For the case (...[, the leftRatio is actuall the leftratio of the subexon on its right. 	
 					int len = 0 ;
 					double depthSum = 0 ;
 					int tag = i ;
 					if ( exonBlocks[tag].leftType == 0 )	
+					{
+						double avgDepth = GetAvgDepth( exonBlocks[i] ) ;
+						double anchorAvg = GetAvgDepth( exonBlocks[i + 1] ) ;
+						if ( avgDepth > 1 && anchorAvg > 1 )
+							exonBlocks[i].rightRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
 						++tag ;
+					}
 					for ( j = 0 ; j < exonBlocks[tag].prevCnt ; ++j )
 					{
 						int k = exonBlocks[tag].prev[j] ;
@@ -739,7 +766,13 @@ class Blocks
 					double depthSum = 0 ;
 					int tag = i ;
 					if ( exonBlocks[tag].rightType == 0 )	
+					{
+						double avgDepth = GetAvgDepth( exonBlocks[i] ) ;
+						double anchorAvg = GetAvgDepth( exonBlocks[i - 1] ) ;
+						if ( avgDepth > 1 && anchorAvg > 1 )
+							exonBlocks[i].leftRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
 						--tag ;
+					}
 					for ( j = 0 ; j < exonBlocks[tag].nextCnt ; ++j )
 					{
 						int k = exonBlocks[tag].next[j] ;

@@ -133,7 +133,8 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 		Hessian[1][1] = sumZ * k / ( theta * theta ) - 2 * sumZX / ( theta * theta * theta ) ;
 
 		double det = Hessian[0][0] * Hessian[1][1] - Hessian[0][1] * Hessian[1][0] ;
-		/*printf( "%lf %lf %lf %lf\n", sumZ, k, theta, sumZX ) ;	
+		/*printf( "%s iter %d:\n", __func__, iterCnt ) ;
+		printf( "%lf %lf %lf %lf\n", sumZ, k, theta, sumZX ) ;	
 		printf( "%lf %lf %lf\n", gradK, gradTheta, det ) ;	
 		printf( "%lf %lf %lf %lf\n", Hessian[0][0], Hessian[0][1], Hessian[1][0], Hessian[1][1] ) ;*/
 	
@@ -188,6 +189,10 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 			//double lf1 = -k[1] * log( theta[1] ) + ( k[1] - 1 ) * log( cov[i]) - cov[i] / theta[1] - lgamma( k[1] ); 
 			//z[i] = exp( lf0 + log( pi ) ) / ( exp( lf0 + log( pi ) ) + exp( lf1 + log( 1 - pi ) ) ) ;
 			z[i] = MixtureGammaAssignment( x[i], pi, k, theta ) ;
+			/*if ( isnan( z[i] ) )
+			{
+				printf( "nan: %lf %lf %lf %lf\n", x[i], pi, k, theta ) ;
+			}*/
 			oneMinusZ[i] = 1 - z[i] ;
 			sum += z[i] ;
 		}
@@ -200,6 +205,10 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 		GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], x, oneMinusZ,  n ) ;
 
 		double diff ;
+		if ( isnan( npi ) || isnan( nk[0] ) || isnan( nk[1] ) || isnan( ntheta[0] ) || isnan( ntheta[1] ) )
+		{
+			return -1 ;
+		}
 		diff = ABS( npi - pi ) + ABS( nk[0] - k[0] ) + ABS( nk[1] - k[1] )
 			+ ABS( ntheta[0] - ntheta[0] ) + ABS( ntheta[1] - ntheta[1] ) ;
 		if ( diff < 1e-4 )
@@ -209,7 +218,7 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 		k[1] = nk[1] ;
 		theta[0] = ntheta[0] ;
 		theta[1] = ntheta[1] ;
-
+		
 		//printf( "%lf %lf %lf %lf %lf\n", pi, k[0], theta[0], k[1], theta[1] ) ;
 		++t ;
 		if ( iter != -1 && t >= iter )
@@ -218,6 +227,83 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 	delete[] z ;
 	delete[] oneMinusZ ;
 	return 0 ;
+}
+
+void RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double kRatio[2], 
+	double thetaRatio[2], double &piCov, double kCov[2], double thetaCov[2] )
+{
+	int i ;
+
+	piRatio = 0.8 ; // mixture coefficient for model 0 and 1
+	kRatio[0] = 1 ;
+	kRatio[1] = 5 ;
+	thetaRatio[0] = 0.05 ;
+	thetaRatio[1] = 0.1 ;
+
+	MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio ) ;
+	// Test whether we should use single gamma distribution model or mixture model.
+	// TODO: use a subset of all candidate to speed up this procedure.
+	// Try fit a single gamma distribution model
+	double sk, stheta ;
+	double *all1 = new double[n] ;
+	for ( i = 0 ; i < n ; ++i )
+		all1[i] = 1 ;
+
+	if ( piRatio >= 0.5 )
+		GradientDescentGammaDistribution( sk, stheta, kRatio[0], thetaRatio[0], covRatio, all1, n ) ;
+	else
+		GradientDescentGammaDistribution( sk, stheta, kRatio[1], thetaRatio[1], covRatio, all1, n ) ;
+	//sk = k[0] ;
+	//stheta = theta[0] ;
+	delete[] all1 ;
+	//printf( "%lf %lf\n", sk, stheta ) ;
+	double loglikelihoodMixture = 0 ;
+	double loglikelihoodSingle = 0 ;
+	for ( i = 0 ; i < n ; ++i )
+	{
+		double lf0 = LogGammaDensity( covRatio[i], kRatio[0], thetaRatio[0] ) ;
+		double lf1 = LogGammaDensity( covRatio[i], kRatio[1], thetaRatio[1] ) ;
+		double lfs = LogGammaDensity( covRatio[i], sk, stheta ) ;
+		
+		loglikelihoodMixture += log( exp( log( piRatio ) + lf0 ) + exp( log( 1 - piRatio ) + lf1 ) ) ;
+		loglikelihoodSingle += lfs ;
+	}
+	//printf( "llmixture: %lf llsingle: %lf\n", loglikelihoodMixture, loglikelihoodSingle ) ;
+
+	double bicMixture = 2 * log( n ) * 5 - 2 * loglikelihoodMixture ;
+	double bicSingle = 2 * log( n ) * 2 - 2 * loglikelihoodSingle ;
+	//printf( "bic: %lf %lf\n", bicMixture, bicSingle ) ;
+	
+	//double aicMixture = 2 * 5 - 2 * loglikelihoodMixture ;
+	//double aicSingle = 2 * 2 - 2 * loglikelihoodSingle ;
+	//printf( "aic: %lf %lf\n", aicMixture, aicSingle ) ;
+	
+	piCov = piRatio ; // mixture coefficient for model 0 and 1
+	kCov[0] = 1 ;
+	kCov[1] = 5 ;
+	thetaCov[0] = 3 ;
+	thetaCov[1] = 3 ;
+	
+	if ( bicSingle < bicMixture )
+	{
+		piRatio = 1 ;
+		kRatio[0] = sk ;
+		thetaRatio[0] = stheta ;
+		kRatio[1] = 0 ;
+		thetaRatio[1] = 0 ;
+
+		piCov =1 ;
+		kCov[0] = 0 ;
+		thetaCov[0] = 0 ;
+		kCov[1] = 0 ;
+		thetaCov[1] = 0 ;
+	}
+	else
+	{
+		// only do one iteration of EM, so that pi does not change.
+		MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 1 ) ;	
+		piCov = piRatio ;
+	}
 }
 
 int main( int argc, char *argv[] )
@@ -279,11 +365,13 @@ int main( int argc, char *argv[] )
 		ss.chrId = chrId ;
 		ss.type = 2 ;
 		ss.oppositePos = end ;
+		ss.strand = strand[0] ;
 		splitSites.push_back( ss ) ;
 
 		ss.pos = end ; 
 		ss.type = 1 ;
 		ss.oppositePos = start ;
+		ss.strand = strand[0] ;
 		splitSites.push_back( ss ) ;
 	}
 	fclose( fp ) ;
@@ -302,22 +390,28 @@ int main( int argc, char *argv[] )
 	// Split the blocks using split site
 	regions.SplitBlocks( alignments, splitSites ) ;
 	//printf( "%d\n", regions.exonBlocks.size() ) ;
-
+	/*for ( i = 0 ; i < 1 ; ++i )
+	{
+		struct _block &e = regions.exonBlocks[ regions.exonBlocks.size() - 1 ] ;
+		printf( "%s %" PRId64 " %" PRId64 " %d %d\n", alignments.GetChromName( e.chrId ), e.start + 1, e.end + 1,  e.leftType, e.rightType ) ;
+	}
+	return 0 ;*/
 	// Recompute the coverage for each block. 
 	alignments.Rewind() ;
+	//printf( "Before computeDepth: %d\n", regions.exonBlocks.size() ) ;
 	regions.ComputeDepth( alignments ) ;
-	//printf( "%d\n", regions.exonBlocks.size() ) ;
+	//printf( "After computeDepth: %d\n", regions.exonBlocks.size() ) ;
 
 	// Merge blocks that may have a hollow coverage by accident.
 	regions.MergeNearBlocks() ;
-	//printf( "%d\n", regions.exonBlocks.size() ) ;
+	//printf( "After merge: %d\n", regions.exonBlocks.size() ) ;
 	
 	// Put the intron informations
 	regions.AddIntronInformation( allSplitSites ) ;
 
 	// Compute the average ratio against the left and right connected subexons.
 	regions.ComputeRatios() ;
-	
+	//printf( "Finish building regions.\n" ) ;	
 	if ( noStats ) 
 	{ 
 		// just output the subexons.
@@ -334,7 +428,35 @@ int main( int argc, char *argv[] )
 		{
 			struct _block &e = regions.exonBlocks[i] ;
 			double avgDepth = (double)e.depthSum / ( e.end - e.start + 1 ) ;
-			printf( "%s %" PRId64 " %" PRId64 " %d %d %lf -1 -1\n", alignments.GetChromName( e.chrId ), e.start + 1, e.end + 1, e.leftType, e.rightType, avgDepth ) ;
+			printf( "%s %" PRId64 " %" PRId64 " %d %d %lf -1 -1 -1 -1 ", alignments.GetChromName( e.chrId ), e.start + 1, e.end + 1, e.leftType, e.rightType, avgDepth ) ;
+			int prevCnt = e.prevCnt ;
+			if ( i > 0 && e.start == regions.exonBlocks[i - 1].end + 1 &&
+					e.leftType == regions.exonBlocks[i - 1].rightType )
+			{
+				printf( "%d ", prevCnt + 1 ) ;
+				for ( j = 0 ; j < prevCnt ; ++j )
+					printf( "%" PRId64 " ", regions.exonBlocks[ e.prev[j] ].end + 1 ) ;
+				printf( "%" PRId64 " ", regions.exonBlocks[i - 1].end + 1 ) ;
+			}
+			else
+			{
+				printf( "%d ", prevCnt ) ;
+				for ( j = 0 ; j < prevCnt ; ++j )
+					printf( "%" PRId64 " ", regions.exonBlocks[ e.prev[j] ].end + 1 ) ;
+			}
+
+			int nextCnt = e.nextCnt ;
+			if ( i < blockCnt - 1 && e.end == regions.exonBlocks[i + 1].start - 1 &&
+					e.rightType == regions.exonBlocks[i + 1].leftType )
+			{
+				printf( "%d %" PRId64 " ", nextCnt + 1, regions.exonBlocks[i + 1].start + 1 ) ;
+			}
+			else
+				printf( "%d ", nextCnt ) ;
+			for ( j = 0 ; j < nextCnt ; ++j )
+				printf( "%" PRId64 " ", regions.exonBlocks[ e.next[j] ].start + 1 ) ;
+			printf( "\n" ) ;
+
 		}
 		return 0 ;
 	}
@@ -364,7 +486,7 @@ int main( int argc, char *argv[] )
 			double ratio = regions.PickLeftAndRightRatio( regions.exonBlocks[i] ) ;
 
 			//printf( "%lf %lf\n", regions.exonBlocks[i].leftRatio, regions.exonBlocks[i].rightRatio ) ;
-			if ( ratio >= 0 )
+			if ( ratio > 0 )
 			{
 				regions.exonBlocks[i].ratio = ratio ;
 				irBlocks.push_back( regions.exonBlocks[i] ) ;
@@ -374,25 +496,18 @@ int main( int argc, char *argv[] )
 		else if ( ( ltype == 0 && rtype == 1 ) || ( ltype == 2 && rtype == 0 ) )
 		{
 			// subexons like (...[ or ]...)
-			double anchorAvg = 0 ;
+			double ratio ;
 			if ( ltype == 0 )
 			{
-				if ( idx < blockCnt - 1 && regions.exonBlocks[idx + 1].chrId == regions.exonBlocks[idx].chrId )
-				{
-					anchorAvg = regions.exonBlocks[idx+1].depthSum / ( regions.exonBlocks[idx+1].end - regions.exonBlocks[idx+1].start + 1 ) ;
-				}
+				ratio = regions.exonBlocks[i].rightRatio ;
 			}
 			else if ( ltype == 2 )
 			{
-				
-				if ( idx >= 1 && regions.exonBlocks[idx-1].chrId == regions.exonBlocks[idx].chrId )
-				{
-					anchorAvg = regions.exonBlocks[idx-1].depthSum / ( regions.exonBlocks[idx-1].end - regions.exonBlocks[idx-1].start + 1 ) ;
-				}
+				ratio = regions.exonBlocks[i].leftRatio ;	
 			}
-			if ( anchorAvg > 1 && avgDepth > 1 )
+			if ( ratio != -1 )
 			{
-				regions.exonBlocks[i].ratio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
+				regions.exonBlocks[i].ratio = ratio ;
 				overhangBlocks.push_back( regions.exonBlocks[i] ) ;
 				overhangBlocks[ overhangBlocks.size() - 1].contigId = i ;
 			}
@@ -408,13 +523,15 @@ int main( int argc, char *argv[] )
 	int irBlockCnt = irBlocks.size() ;
 	double *cov = new double[irBlockCnt] ;
 	double *covRatio = new double[ irBlockCnt ] ;
+	double piRatio, kRatio[2], thetaRatio[2] ;
+	double piCov, kCov[2], thetaCov[2] ;
 	for ( i = 0 ; i < irBlockCnt ; ++i )
 	{
 		double avgDepth = regions.GetAvgDepth( irBlocks[i] ) ;
 		//cov[i] = ( avgDepth - 1 ) / ( flankingAvg - 1 ) ;
 		cov[i] = avgDepth - 1 ;
 
-		covRatio[i] = irBlocks[i].leftRatio < irBlocks[i].rightRatio ? irBlocks[i].leftRatio : irBlocks[i].rightRatio ; 
+		covRatio[i] = regions.PickLeftAndRightRatio( irBlocks[i] ) ; 
 		//cov[i] = avgDepth / anchorAvg ;
 		//printf( "%"PRId64" %d %d: %lf %lf\n", irBlocks[i].depthSum, irBlocks[i].start, irBlocks[i].end, avgDepth, cov[i] ) ;
 	}
@@ -432,96 +549,7 @@ int main( int argc, char *argv[] )
 	}
 	fclose( fp ) ;*/
 	//printf( "hi\n" ) ;
-	double piRatio = 0.8 ; // mixture coefficient for model 0 and 1
-	double kRatio[2] = {1, 5} ;
-	double thetaRatio[2] = {0.05, 0.1 } ;
-
-	MixtureGammaEM( covRatio, irBlockCnt, piRatio, kRatio, thetaRatio ) ;
-
-	// Test whether we should use single gamma distribution model or mixture model.
-	// TODO: use a subset of all candidate to speed up this procedure.
-	// Try fit a single gamma distribution model
-	double sk, stheta ;
-	double *all1 = new double[irBlockCnt] ;
-	for ( i = 0 ; i < irBlockCnt ; ++i )
-		all1[i] = 1 ;
-
-	if ( piRatio >= 0.5 )
-		GradientDescentGammaDistribution( sk, stheta, kRatio[0], thetaRatio[0], covRatio, all1, irBlockCnt ) ;
-	else
-		GradientDescentGammaDistribution( sk, stheta, kRatio[1], thetaRatio[1], covRatio, all1, irBlockCnt ) ;
-	//sk = k[0] ;
-	//stheta = theta[0] ;
-	delete[] all1 ;
-	//printf( "%lf %lf\n", sk, stheta ) ;
-	double loglikelihoodMixture = 0 ;
-	double loglikelihoodSingle = 0 ;
-	for ( i = 0 ; i < irBlockCnt ; ++i )
-	{
-		double lf0 = LogGammaDensity( covRatio[i], kRatio[0], thetaRatio[0] ) ;
-		double lf1 = LogGammaDensity( covRatio[i], kRatio[1], thetaRatio[1] ) ;
-		double lfs = LogGammaDensity( covRatio[i], sk, stheta ) ;
-		
-		loglikelihoodMixture += log( exp( log( piRatio ) + lf0 ) + exp( log( 1 - piRatio ) + lf1 ) ) ;
-		loglikelihoodSingle += lfs ;
-	}
-	//printf( "llmixture: %lf llsingle: %lf\n", loglikelihoodMixture, loglikelihoodSingle ) ;
-	/*int simulateTimes = 1000 ;
-	double *simulateLogDiff = new double[simulateTimes] ;
-	std::mt19937 generator(1701) ;
-	std::gamma_distribution<double> gammaDistn( sk, stheta ) ;
-
-	for ( j = 0 ; j < simulateTimes ; ++j )
-	{
-		double llmixture = 0 ;
-		double llsingle = 0 ;
-		for ( i = 0 ; i < irBlockCnt ; ++i )			
-		{
-			double x = gammaDistn( generator ) ;
-			llmixture += log( exp( log( pi ) + LogGammaDensity( x, k[0], theta[0] ) ) + exp( log( 1 - pi ) + LogGammaDensity( x, k[1], theta[1] ) ) ) ;
-			llsingle += LogGammaDensity( x, sk, stheta ) ;
-		}
-		printf( "%lf %lf\n", llmixture, llsingle ); 
-		simulateLogDiff[j] = llmixture - llsingle ;
-	}
-	qsort( simulateLogDiff, simulateTimes, sizeof( double ), CompDouble ) ;
-
-	double testDiff = loglikelihoodMixture - loglikelihoodSingle ;
-	printf( "%lf %lf\n", simulateLogDiff[int( 0.95 * simulateTimes )], testDiff ) ;
-	delete []simulateLogDiff ;*/
-
-	double bicMixture = 2 * log( irBlockCnt ) * 5 - 2 * loglikelihoodMixture ;
-	double bicSingle = 2 * log( irBlockCnt ) * 2 - 2 * loglikelihoodSingle ;
-	//printf( "bic: %lf %lf\n", bicMixture, bicSingle ) ;
-	
-	//double aicMixture = 2 * 5 - 2 * loglikelihoodMixture ;
-	//double aicSingle = 2 * 2 - 2 * loglikelihoodSingle ;
-	//printf( "aic: %lf %lf\n", aicMixture, aicSingle ) ;
-	
-	double piCov = piRatio ; // mixture coefficient for model 0 and 1
-	double kCov[2] = {1, 5} ;
-	double thetaCov[2] = {3, 3 } ;
-	
-	if ( bicSingle < bicMixture )
-	{
-		piRatio = 1 ;
-		kRatio[0] = sk ;
-		thetaRatio[0] = stheta ;
-		kRatio[1] = 0 ;
-		thetaRatio[1] = 0 ;
-
-		piCov =1 ;
-		kCov[0] = 0 ;
-		thetaCov[0] = 0 ;
-		kCov[1] = 0 ;
-		thetaCov[1] = 0 ;
-	}
-	else
-	{
-		// only do one iteration of EM, so that pi does not change.
-		MixtureGammaEM( cov, irBlockCnt, piCov, kCov, thetaCov, 1 ) ;	
-		piCov = piRatio ;
-	}
+	RatioAndCovEM( covRatio, cov, irBlockCnt, piRatio, kRatio, thetaRatio, piCov, kCov, thetaCov ) ;
 
 	for ( i = 0 ; i < irBlockCnt ; ++i )
 	{
@@ -544,6 +572,43 @@ int main( int argc, char *argv[] )
 	}
 
 	// Process the classifier for overhang subexons and the subexons to see whether we need soft boundary
+	int overhangBlockCnt = overhangBlocks.size() ;
+	delete []cov ;
+	delete []covRatio ;
+	cov = new double[ overhangBlockCnt ] ;
+	covRatio = new double[overhangBlockCnt] ;
+	double overhangPiRatio, overhangKRatio[2], overhangThetaRatio[2] ;
+	double overhangPiCov, overhangKCov[2], overhangThetaCov[2] ;
+
+	for ( i = 0 ; i < overhangBlockCnt ; ++i )	
+	{
+		covRatio[i] = overhangBlocks[i].ratio ;
+		cov[i] = regions.GetAvgDepth( overhangBlocks[i] ) ;
+	}
+	RatioAndCovEM( covRatio, cov, overhangBlockCnt, overhangPiRatio, overhangKRatio, overhangThetaRatio, overhangPiCov, overhangKCov, overhangThetaCov ) ;
+
+	for ( i = 0 ; i < overhangBlockCnt ; ++i )
+	{
+		//double lf0 = -k[0] * log( theta[0] ) + ( k[0] - 1 ) * log( cov[i]) - cov[i] / theta[0] - lgamma( k[0] ) ;
+		//double lf1 = -k[1] * log( theta[1] ) + ( k[1] - 1 ) * log( cov[i]) - cov[i] / theta[1] - lgamma( k[1] ) ;
+
+		double p1, p2, p ;
+		if ( overhangPiRatio != 1 )
+		{
+			p1 = MixtureGammaAssignment( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
+			p2 = MixtureGammaAssignment( cov[i], overhangPiCov, overhangKCov, overhangThetaCov  ) ;
+			p = p1>p2 ? p1 : p2 ;
+		}
+		else
+			p = -1 ;
+
+		int idx = overhangBlocks[i].contigId ;
+		if ( regions.exonBlocks[idx].rightType == 0 )
+			leftClassifier[ idx ] = p ;
+		else
+			rightClassifier[ idx ] = p ;
+	}
+
 	for ( i = 0 ; i < blockCnt ; ++i )		
 	{
 		struct _block &e = regions.exonBlocks[i] ;
@@ -584,12 +649,17 @@ int main( int argc, char *argv[] )
 	printf( "#%s\n", buffer ) ;
 	printf( "#fitted_ir_parameter_ratio: pi: %lf k0: %lf theta0: %lf k1: %lf theta1: %lf\n", piRatio, kRatio[0], thetaRatio[0], kRatio[1], thetaRatio[1] ) ;
 	printf( "#fitted_ir_parameter_cov: pi: %lf k0: %lf theta0: %lf k1: %lf theta1: %lf\n", piCov, kCov[0], thetaCov[0], kCov[1], thetaCov[1] ) ;
+	
+	printf( "#fitted_overhang_parameter_ratio: pi: %lf k0: %lf theta0: %lf k1: %lf theta1: %lf\n", overhangPiRatio, overhangKRatio[0], overhangThetaRatio[0], overhangKRatio[1], overhangThetaRatio[1] ) ;
+	printf( "#fitted_overhang_parameter_cov: pi: %lf k0: %lf theta0: %lf k1: %lf theta1: %lf\n", overhangPiCov, overhangKCov[0], overhangThetaCov[0], overhangKCov[1], overhangThetaCov[1] ) ;
+
 
 	for ( int i = 0 ; i < blockCnt ; ++i )
 	{
 		struct _block &e = regions.exonBlocks[i] ;
 		double avgDepth = regions.GetAvgDepth( e ) ;
-		printf( "%s %" PRId64 " %" PRId64 " %d %d %lf %lf %lf %lf %lf ", alignments.GetChromName( e.chrId ), e.start + 1, e.end + 1, e.leftType, e.rightType, avgDepth, 
+		printf( "%s %" PRId64 " %" PRId64 " %d %d %c %c %lf %lf %lf %lf %lf ", alignments.GetChromName( e.chrId ), e.start + 1, e.end + 1, e.leftType, e.rightType, 
+			e.leftStrand, e.rightStrand, avgDepth, 
 			e.leftRatio, e.rightRatio, leftClassifier[i], rightClassifier[i] ) ;
 		int prevCnt = e.prevCnt ;
 		if ( i > 0 && e.start == regions.exonBlocks[i - 1].end + 1 &&

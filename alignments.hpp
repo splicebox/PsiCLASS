@@ -41,7 +41,7 @@ private:
 	}
 public:
 	struct _pair segments[MAX_SEG_COUNT] ;		
-	unsigned int segCnt ;
+	int segCnt ;
 
 	Alignments() { b = NULL ; opened = false ; allowSupplementary = false ;}
 	~Alignments() {}
@@ -87,6 +87,7 @@ public:
 					return 0 ;
 				if ( b->core.flag & 0xC )
 					continue ;
+
 				//if ( ( b->core.flag & 0x900 ) == 0 )
 					break ;
 			}
@@ -94,6 +95,10 @@ public:
 			segCnt = 0 ;
 			start = b->core.pos ; //+ 1 ;
 			rawCigar = bam1_cigar( b ) ; 
+			// Check whether the query length is compatible with the read
+			if ( bam_cigar2qlen( &b->core, rawCigar ) != b->core.l_qseq ) 
+				continue ;
+
 			for ( i = 0 ; i < b->core.n_cigar ; ++i )
 			{
 				int op = rawCigar[i] & BAM_CIGAR_MASK ;
@@ -134,7 +139,7 @@ public:
 			  printf( "\n" ) ;*/
 			
 			// Check whether the mates are compatible
-			int mChrId = b->core.mtid ;
+			//int mChrId = b->core.mtid ;
 			int64_t mPos = b->core.mpos ;
 
 			if ( b->core.mtid == b->core.tid )
