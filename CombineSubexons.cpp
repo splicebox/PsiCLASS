@@ -298,12 +298,12 @@ int main( int argc, char *argv[] )
 		}
 	}
 	subexons.push_back( rawSubexons[k] ) ;		
-	
+
 	// Create the dummy intervals.
 	seCnt = subexons.size() ;
 	std::vector<struct _intronicInfo> intronicInfos ;
 	std::vector<struct _seInterval> seIntervals ;
-	for ( i = 0 ; i < seCnt - 1 ; ++i )
+	for ( i = 0 ; i < seCnt ; ++i )
 	{
 		struct _seInterval ni ; // new interval
 		ni.start = subexons[i].start ;
@@ -312,9 +312,14 @@ int main( int argc, char *argv[] )
 		ni.idx = i ;
 		ni.chrId = subexons[i].chrId ;
 		seIntervals.push_back( ni ) ;
-		if ( subexons[i].chrId == subexons[i + 1].chrId && 
+		
+		/*int nexti ;
+		for ( nexti = i + 1 ; nexti < seCnt ; ++nexti )
+			if ( subexons[ nexti ].leftType == 0 && subexons[nexti].rightType == 0 )*/
+
+		if ( i < seCnt - 1 && subexons[i].chrId == subexons[i + 1].chrId && 
 			subexons[i].end + 1 < subexons[i + 1].start &&
-			subexons[i].rightType + subexons[i].leftType != 0 )
+			subexons[i].rightType + subexons[i + 1].leftType != 0 )
 		{
 			// Only consider the intervals like ]..[,]...(, )...[
 			// The case like ]...] is actaully things like ][...] in subexon perspective,
@@ -324,6 +329,7 @@ int main( int argc, char *argv[] )
 			ni.end = subexons[i + 1].start - 1 ;
 			ni.type = 1 ;
 			ni.idx = intronicInfos.size() ;
+			seIntervals.push_back( ni ) ;
 			
 			nii.chrId = subexons[i].chrId ;
 			nii.start = ni.start ;
@@ -339,7 +345,7 @@ int main( int argc, char *argv[] )
 			intronicInfos.push_back( nii ) ;
 		}
 	}
-
+	
 	// Go through all the files to get some statistics number
 	double avgIrPiRatio = 0 ;
 	double avgIrPiCov = 0 ;
@@ -446,7 +452,8 @@ int main( int argc, char *argv[] )
 			struct _subexon &se = sampleSubexons[i] ;
 			while ( tag < intervalCnt )	
 			{
-				if ( subexons[tag].chrId < se.chrId || subexons[tag].end < se.start )
+				if ( seIntervals[tag].chrId < se.chrId || 
+					( seIntervals[tag].chrId == se.chrId && seIntervals[tag].end < se.start ) )
 				{
 					++tag ;
 					continue ;
@@ -455,6 +462,8 @@ int main( int argc, char *argv[] )
 					break ;
 			}
 			
+			//if ( se.start == 18981 )
+			//	printf( "hi %d %d : %d %d\n", seIntervals[tag - 1].start, seIntervals[tag-1].end, seIntervals[tag].start, seIntervals[tag].end  ) ;
 			for ( j = tag ; j < intervalCnt ; ++j )
 			{
 				if ( seIntervals[j].start > se.end || seIntervals[j].chrId > se.chrId )
@@ -478,7 +487,7 @@ int main( int argc, char *argv[] )
 				{
 					idx = seIntervals[j].idx ;
 					// Overlap on the left part of intron
-					if ( se.start < intronicInfos[idx].start && se.end < intronicInfos[idx].end )
+					if ( se.start <= intronicInfos[idx].start && se.end < intronicInfos[idx].end )
 					{
 						int len = se.end - intronicInfos[idx].start + 1 ;
 						intronicInfos[idx].leftOverhang.length += len ;
@@ -492,7 +501,7 @@ int main( int argc, char *argv[] )
 						intronicInfos[idx].leftOverhang.classifier += update ;				
 					}
 					// Overlap on the right part of intron
-					else if ( se.start > intronicInfos[idx].start && se.end > intronicInfos[idx].end )
+					else if ( se.start > intronicInfos[idx].start && se.end >= intronicInfos[idx].end )
 					{
 						int len = intronicInfos[idx].end - se.start + 1 ;
 						intronicInfos[idx].rightOverhang.length += len ;
@@ -586,7 +595,7 @@ int main( int argc, char *argv[] )
 	{
 		if ( seIntervals[i].type == 0 )
 		{
-			struct _subexon &se = subexons[i] ;
+			struct _subexon &se = subexons[ seIntervals[i].idx ] ;
 			
 			char ls, rs ;
 			if ( se.leftStrand == 1 )
@@ -656,10 +665,9 @@ int main( int argc, char *argv[] )
 				// left overhang.
 				if ( ii.leftOverhang.cnt > 0 )
 				{
-					printf( "%s %d %d 2 0 %c . -1 -1 -1 %lf %lf 1 %d 0\n",
+					printf( "%s %d %d 2 0 . . -1 -1 -1 %lf %lf 1 %d 0\n",
 						alignments.GetChromName( ii.chrId ), ii.start, 
 						ii.start + ( ii.leftOverhang.length /  ii.leftOverhang.cnt ) - 1,
-						StrandNumToSymbol( subexons[ seIntervals[i - 1].idx ].rightStrand ),
 						ii.leftOverhang.classifier, ii.leftOverhang.classifier,
 						ii.start - 1 ) ; 
 				}
@@ -667,10 +675,9 @@ int main( int argc, char *argv[] )
 				// right overhang.
 				if ( ii.rightOverhang.cnt > 0 )
 				{
-					printf( "%s %d %d 0 1 . %c -1 -1 -1 %lf %lf 0 0 %d\n",
+					printf( "%s %d %d 0 1 . . -1 -1 -1 %lf %lf 0 0 %d\n",
 						alignments.GetChromName( ii.chrId ), 
 						ii.end - ( ii.rightOverhang.length / ii.rightOverhang.cnt ) + 1, ii.end,
-						StrandNumToSymbol( subexons[ seIntervals[i + 1 ].idx ].leftStrand ),
 						ii.rightOverhang.classifier, ii.rightOverhang.classifier,
 						ii.end + 1 ) ;
 				}
