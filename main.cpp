@@ -505,7 +505,7 @@ int main( int argc, char *argv[] )
 			{
 				ratio = regions.exonBlocks[i].leftRatio ;	
 			}
-			if ( ratio != -1 )
+			if ( ratio > 0 )
 			{
 				regions.exonBlocks[i].ratio = ratio ;
 				overhangBlocks.push_back( regions.exonBlocks[i] ) ;
@@ -583,7 +583,7 @@ int main( int argc, char *argv[] )
 	for ( i = 0 ; i < overhangBlockCnt ; ++i )	
 	{
 		covRatio[i] = overhangBlocks[i].ratio ;
-		cov[i] = regions.GetAvgDepth( overhangBlocks[i] ) ;
+		cov[i] = regions.GetAvgDepth( overhangBlocks[i] ) - 1 ;
 	}
 	RatioAndCovEM( covRatio, cov, overhangBlockCnt, overhangPiRatio, overhangKRatio, overhangThetaRatio, overhangPiCov, overhangKCov, overhangThetaCov ) ;
 
@@ -604,24 +604,25 @@ int main( int argc, char *argv[] )
 
 		int idx = overhangBlocks[i].contigId ;
 		if ( regions.exonBlocks[idx].rightType == 0 )
-			leftClassifier[ idx ] = p ;
+			leftClassifier[ idx ] = rightClassifier[ idx ] = p ;
 		else
-			rightClassifier[ idx ] = p ;
+			leftClassifier[ idx ] = rightClassifier[ idx ] = p ;
 	}
 
 	for ( i = 0 ; i < blockCnt ; ++i )		
 	{
 		struct _block &e = regions.exonBlocks[i] ;
-		if ( ( e.leftType == 0 && e.rightType == 1 ) || 
-			e.leftType == 1 )
+		//if ( ( e.leftType == 0 && e.rightType == 1 ) || 
+		if ( e.leftType == 1 )
 		{
 			if ( 2 * e.leftRatio >= 0 )
 				leftClassifier[i] = 2 * alnorm( 2 * e.leftRatio, true ) ;
 			else
 				leftClassifier[i] = 1 ;
 		}
-		if ( ( e.rightType == 0 && e.leftType == 2 ) || 
-			e.rightType == 2 )
+
+		//if ( ( e.rightType == 0 && e.leftType == 2 ) || 
+		if ( e.rightType == 2 )
 		{
 			if ( 2 * e.rightRatio >= 0 )
 				rightClassifier[i] = 2 * alnorm( 2 * e.rightRatio, true ) ;

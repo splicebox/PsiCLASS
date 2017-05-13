@@ -690,16 +690,21 @@ class Blocks
 			MergeNearBlocks() ;
 		}
 
+		double PickLeftAndRightRatio( double l, double r )
+		{
+			if ( l >= 0 && r >= 0 )
+				return l < r ? l : r ;
+			else if ( l < 0 && r < 0 )
+				return -1 ;
+			else if ( l < 0 )
+				return r ;
+			else
+				return l ;
+		}
+			
 		double PickLeftAndRightRatio( const struct _block &b )
 		{
-			if ( b.leftRatio >= 0 && b.rightRatio >= 0 )
-				return b.leftRatio < b.rightRatio ? b.leftRatio : b.rightRatio ;
-			else if ( b.leftRatio < 0 && b.rightRatio < 0 )
-				return -1 ;
-			else if ( b.leftRatio < 0 )
-				return b.rightRatio ;
-			else
-				return b.leftRatio ;
+			return PickLeftAndRightRatio( b.leftRatio, b.rightRatio ) ;
 		}
 
 		void ComputeRatios()
@@ -728,21 +733,22 @@ class Blocks
 							exonBlocks[i].rightRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;  
 					}
 				}
-				if ( ( exonBlocks[i].leftType == 0 && exonBlocks[i].rightType == 1 ) || 
-					exonBlocks[i].leftType == 1 )
+
+				if ( exonBlocks[i].leftType == 0 && exonBlocks[i].rightType == 1 ) 
+				{
+					double avgDepth = GetAvgDepth( exonBlocks[i] ) ;
+					double anchorAvg = GetAvgDepth( exonBlocks[i + 1] ) ;
+					if ( avgDepth > 1 && anchorAvg > 1 )
+						exonBlocks[i].rightRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
+				}
+
+				if ( exonBlocks[i].leftType == 1 )
 				{
 					// For the case (...[, the leftRatio is actuall the leftratio of the subexon on its right. 	
 					int len = 0 ;
 					double depthSum = 0 ;
 					int tag = i ;
-					if ( exonBlocks[tag].leftType == 0 )	
-					{
-						double avgDepth = GetAvgDepth( exonBlocks[i] ) ;
-						double anchorAvg = GetAvgDepth( exonBlocks[i + 1] ) ;
-						if ( avgDepth > 1 && anchorAvg > 1 )
-							exonBlocks[i].rightRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
-						++tag ;
-					}
+					
 					for ( j = 0 ; j < exonBlocks[tag].prevCnt ; ++j )
 					{
 						int k = exonBlocks[tag].prev[j] ;
@@ -759,20 +765,21 @@ class Blocks
 					exonBlocks[i].leftRatio = sqrt( log( avgDepth ) ) - sqrt( log( otherAvgDepth ) ) ;
 
 				}
-				if ( ( exonBlocks[i].rightType == 0 && exonBlocks[i].leftType == 2  ) ||
-					exonBlocks[i].rightType == 2 ) 
+				if ( exonBlocks[i].rightType == 0 && exonBlocks[i].leftType == 2  ) 
+				{
+					// for overhang subexon.
+					double avgDepth = GetAvgDepth( exonBlocks[i] ) ;
+					double anchorAvg = GetAvgDepth( exonBlocks[i - 1] ) ;
+					if ( avgDepth > 1 && anchorAvg > 1 )
+						exonBlocks[i].leftRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
+
+				}
+				if ( exonBlocks[i].rightType == 2 ) 
 				{
 					int len = 0 ;
 					double depthSum = 0 ;
 					int tag = i ;
-					if ( exonBlocks[tag].rightType == 0 )	
-					{
-						double avgDepth = GetAvgDepth( exonBlocks[i] ) ;
-						double anchorAvg = GetAvgDepth( exonBlocks[i - 1] ) ;
-						if ( avgDepth > 1 && anchorAvg > 1 )
-							exonBlocks[i].leftRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
-						--tag ;
-					}
+					
 					for ( j = 0 ; j < exonBlocks[tag].nextCnt ; ++j )
 					{
 						int k = exonBlocks[tag].next[j] ;

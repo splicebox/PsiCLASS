@@ -145,7 +145,7 @@ double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio
 	double p1 = 0, p2 ;
 	if ( ratio > 0 )
 		p1 = MixtureGammaAssignment( ratio, piRatio, kRatio, thetaRatio ) ;
-	
+	// Make sure cov > 1?	
 	p2 = MixtureGammaAssignment( cov - 1, piCov, kCov, thetaCov ) ;
 	double ret = 0 ;
 	if ( p1 >= p2 ) // we should use ratio.
@@ -154,7 +154,7 @@ double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio
 	else
 		ret = LogGammaDensity( cov - 1, kCov[1], thetaCov[1] ) 	
 			- LogGammaDensity( cov - 1, kCov[0], thetaCov[0] ) ;
-
+	return ret ;
 }
 
 char StrandNumToSymbol( int strand )
@@ -172,6 +172,8 @@ int main( int argc, char *argv[] )
 	int i, j, k ;
 	FILE *fp ;
 	std::vector<char *> files ;
+
+	Blocks regions ;
 	Alignments alignments ;
 
 	if ( argc == 1 )
@@ -462,8 +464,6 @@ int main( int argc, char *argv[] )
 					break ;
 			}
 			
-			//if ( se.start == 18981 )
-			//	printf( "hi %d %d : %d %d\n", seIntervals[tag - 1].start, seIntervals[tag-1].end, seIntervals[tag].start, seIntervals[tag].end  ) ;
 			for ( j = tag ; j < intervalCnt ; ++j )
 			{
 				if ( seIntervals[j].start > se.end || seIntervals[j].chrId > se.chrId )
@@ -498,6 +498,8 @@ int main( int argc, char *argv[] )
 						double update = GetUpdateMixtureGammeClassifier( se.leftRatio, se.avgDepth, 
 							overhangPiRatio, overhangKRatio, overhangThetaRatio, 
 							overhangPiCov, overhangKCov, overhangThetaCov ) ;
+						//if ( se.start == 15154 )
+						//	printf( "hi %lf %lf: %d %d\n", se.leftRatio, se.avgDepth, seIntervals[tag].start, seIntervals[tag].end  ) ;
 						intronicInfos[idx].leftOverhang.classifier += update ;				
 					}
 					// Overlap on the right part of intron
@@ -519,9 +521,11 @@ int main( int argc, char *argv[] )
 					{
 						if ( se.leftType == 2 && se.rightType == 1 )		
 						{
-							double update = GetUpdateMixtureGammeClassifier( se.leftRatio, se.avgDepth,
+							double update = GetUpdateMixtureGammeClassifier( regions.PickLeftAndRightRatio( se.leftRatio, se.rightRatio ), se.avgDepth,
 								irPiRatio, irKRatio, irThetaRatio,
 								irPiCov, irKCov, irThetaCov ) ;
+							//if ( se.start == 17171 )
+							//	printf( "hi %lf %d %d: %d %d\n", update, se.start, se.end, intronicInfos[idx].start, intronicInfos[idx].end ) ;
 							intronicInfos[idx].irClassifier += update ;
 							++intronicInfos[idx].irCnt ;
 						}
@@ -551,8 +555,15 @@ int main( int argc, char *argv[] )
 	for ( i = 0 ; i < subexonCnt ; ++i ) 
 	{
 		struct _subexon &se = subexons[i] ;
-		se.leftClassifier = 1 - chicdf( se.leftClassifier, 2 * se.lcCnt ) ; 	
-		se.rightClassifier = 1 - chicdf( se.rightClassifier, 2 * se.rcCnt ) ;
+		if ( se.leftType == 1 )
+			se.leftClassifier = 1 - chicdf( se.leftClassifier, 2 * se.lcCnt ) ; 	
+		else
+			se.leftClassifier = -1 ;
+
+		if ( se.rightType == 2 )
+			se.rightClassifier = 1 - chicdf( se.rightClassifier, 2 * se.rcCnt ) ;
+		else
+			se.rightClassifier = -1 ;
 	}
 
 	int iiCnt = intronicInfos.size() ; //intronicInfo count
