@@ -63,6 +63,7 @@ struct _subexonSplit
 	int pos ;
 	int type ; //1-start of a subexon. 2-end of a subexon 
 	int splitType ; //0-soft boundary, 1-start of an exon, 2-end of an exon.
+	int strand ;
 } ;
 char buffer[4096] ;
 
@@ -76,6 +77,22 @@ bool CompSubexonSplit( struct _subexonSplit a, struct _subexonSplit b )
 		return a.pos < b.pos ;
 	else
 		return a.type < b.type ;
+}
+
+bool CompIrFromSamples( struct _seInterval a, struct _seInterval b )
+{
+	if ( a.chrId < b.chrId )
+		return true ;
+	else if ( a.chrId > b.chrId )
+		return false ;
+	else if ( a.start < b.start )
+		return true ;
+	else if ( a.start > b.start )
+		return false ;
+	else if ( a.end < b.end )
+		return true ;
+	else
+		return false ;
 }
 
 int InputSubexon( char *in, Alignments &alignments, struct _subexon &se, bool needPrevNext = false )
@@ -167,6 +184,16 @@ char StrandNumToSymbol( int strand )
 		return '.' ;
 }
 
+int StrandSymbolToNum( char c )
+{
+	if ( c == '+' )
+		return 1 ;
+	else if ( c == '-' )
+		return -1 ;
+	else
+		return 0 ;
+}
+
 int main( int argc, char *argv[] )
 {
 	int i, j, k ;
@@ -204,6 +231,8 @@ int main( int argc, char *argv[] )
 
 	// Collect the split sites of subexons.
 	std::vector<struct _subexonSplit> subexonSplits ;
+	std::vector<struct _seInterval> irFromSamples ;
+
 	for ( k = 0 ; k < fileCnt ; ++k )
 	{
 		fp = fopen( files[k], "r" ) ;		
@@ -216,22 +245,36 @@ int main( int argc, char *argv[] )
 				continue ;
 
 			InputSubexon( buffer, alignments, se ) ;
+
+			// Record all the intron rentention from the samples
+			if ( se.leftType == 2 && se.rightType == 1 )
+			{
+				struct _seInterval si ;
+				si.chrId = se.chrId ;
+				si.start = se.start ;
+				si.end = se.end ;
+
+				irFromSamples.push_back( si ) ;
+			}
+			
 			// Ignore overhang subexons and ir subexons for now.
 			if ( ( se.leftType == 0 && se.rightType == 1 ) 
 				|| ( se.leftType == 2 && se.rightType == 0 ) 
 				|| ( se.leftType == 2 && se.rightType == 1 ) )
 				continue ;
-
+			
 			sp.chrId = se.chrId ;
 			sp.pos = se.start ;
 			sp.type = 1 ;
-			sp.splitType = se.leftType ;				
+			sp.splitType = se.leftType ;			
+			sp.strand = se.leftStrand ;
 			subexonSplits.push_back( sp ) ;
 
 			sp.chrId = se.chrId ;
 			sp.pos = se.end ;
 			sp.type = 2 ;
 			sp.splitType = se.rightType ;				
+			sp.strand = se.rightStrand ;
 			subexonSplits.push_back( sp ) ;
 		}	
 		fclose( fp ) ;
@@ -267,11 +310,13 @@ int main( int argc, char *argv[] )
 		se.chrId = subexonSplits[i].chrId ;
 		se.start = subexonSplits[i].pos ;
 		se.leftType = subexonSplits[i].splitType ;
+		se.leftStrand = subexonSplits[i].strand ;
 		if ( subexonSplits[i].type == 2 )	
 			++se.start ;
 
 		se.end = subexonSplits[i + 1].pos ;
 		se.rightType = subexonSplits[i + 1].splitType ;
+		se.rightStrand = subexonSplits[i + 1].strand ;
 		if ( subexonSplits[i + 1].type == 1 )
 			--se.end ;
 			
@@ -301,6 +346,44 @@ int main( int argc, char *argv[] )
 	}
 	subexons.push_back( rawSubexons[k] ) ;		
 
+	// Remove the single-exon island if it shows up in the intron that is intron retentioned in some sample.
+	rawSubexons = subexons ;
+	seCnt = subexons.size() ;
+	subexons.clear() ;
+	k = 0 ;
+	std::sort( irFromSamples.begin(), irFromSamples.end(), CompIrFromSamples ) ;
+	int irFromSampleCnt = irFromSamples.size() ;
+
+	for ( i = 0 ; i < seCnt ; ++i )
+	{
+		while ( k < irFromSampleCnt )
+		{
+			// Locate the ir that ends after the island.
+			if ( irFromSamples[k].chrId < rawSubexons[i].chrId 
+				|| ( irFromSamples[k].chrId == rawSubexons[i].chrId && irFromSamples[k].end < rawSubexons[i].end ) )
+			{
+				++k ;
+				continue ;
+			}
+			break ;
+		}
+		bool contained = false ;
+		for ( j = k ; j < irFromSampleCnt ; ++j )
+		{
+			if ( irFromSamples[j].chrId > rawSubexons[i].chrId || irFromSamples[j].start > rawSubexons[i].start )
+				break ;
+			if ( irFromSamples[j].start <= rawSubexons[i].start || irFromSamples[j].end >= rawSubexons[i].end )
+			{
+				contained = true ;
+				break ;
+			}
+		}
+
+		if ( !contained )
+			subexons.push_back( rawSubexons[i] ) ;
+	}
+	std::vector<struct _seInterval>().swap( irFromSamples ) ;
+	
 	// Create the dummy intervals.
 	seCnt = subexons.size() ;
 	std::vector<struct _intronicInfo> intronicInfos ;
