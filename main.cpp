@@ -648,6 +648,7 @@ int main( int argc, char *argv[] )
 		strcpy( buffer, argv[1] ) ;
 	}
 	printf( "#%s\n", buffer ) ;
+	// TODO: higher precision.
 	printf( "#fitted_ir_parameter_ratio: pi: %lf k0: %lf theta0: %lf k1: %lf theta1: %lf\n", piRatio, kRatio[0], thetaRatio[0], kRatio[1], thetaRatio[1] ) ;
 	printf( "#fitted_ir_parameter_cov: pi: %lf k0: %lf theta0: %lf k1: %lf theta1: %lf\n", piCov, kCov[0], thetaCov[0], kCov[1], thetaCov[1] ) ;
 	
