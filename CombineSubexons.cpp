@@ -127,11 +127,11 @@ int InputSubexon( char *in, Alignments &alignments, struct _subexon &se, bool ne
 	{
 		char *p = in ;
 		// Locate the offset for prevCnt
-		for ( i = 0 ; i < 10 ; ++i )
+		for ( i = 0 ; i <= 11 ; ++i )
 		{
 			p = strchr( p, ' ' ) ;
+			++p ;
 		}
-		++p ;
 
 		sscanf( p, "%d", &se.prevCnt ) ;
 		p = strchr( p, ' ' ) ;
@@ -194,6 +194,78 @@ int StrandSymbolToNum( char c )
 		return -1 ;
 	else
 		return 0 ;
+}
+
+int *MergePositions( int *old, int ocnt, int *add, int acnt, int &newCnt )
+{
+	int i, j, k ;
+	int *ret ;
+	if ( acnt == 0 )	
+	{
+		newCnt = ocnt ;
+		return old ;
+	}
+	if ( ocnt == 0 )
+	{
+		newCnt = acnt ;
+		ret = new int[acnt] ;
+		for ( i = 0 ; i < acnt ; ++i )
+		{
+			ret[i] = add[i] ;		
+		}
+		return ret ;
+	}
+	newCnt = 0 ;
+	for ( i = 0, j = 0 ; i < ocnt && j < acnt ; )
+	{
+		if ( old[i] < add[j] )
+		{
+			++i ;
+			++newCnt ;
+		}
+		else if ( old[i] == add[j] )
+		{
+			++i ; ++j ;
+			++newCnt ;
+		}
+		else 
+		{
+			++j ;
+			++newCnt ;
+		}
+	}
+	newCnt = newCnt + ( ocnt - i ) + ( acnt - j ) ;
+	// no new elements.
+	if ( newCnt == ocnt )
+		return old ;
+	k = 0 ;
+	ret = new int[ newCnt ] ;
+	for ( i = 0, j = 0 ; i < ocnt && j < acnt ; )
+	{
+		if ( old[i] < add[j] )
+		{
+			ret[k] = old[i] ;
+			++i ;
+			++k ;
+		}
+		else if ( old[i] == add[j] )
+		{
+			ret[k] = old[i] ;
+			++i ; ++j ;
+			++k ;
+		}
+		else 
+		{
+			ret[k] = add[j] ;
+			++j ;
+			++k ;
+		}
+	}
+	for ( ; i < ocnt ; ++i, ++k )
+		ret[k] = old[i] ;
+	for ( ; j < acnt ; ++j, ++k )
+		ret[k] = add[j] ;
+	return ret ;
 }
 
 int main( int argc, char *argv[] )
@@ -554,10 +626,8 @@ int main( int argc, char *argv[] )
 				continue ;
 			}
 
-			InputSubexon( buffer, alignments, se ) ;
+			InputSubexon( buffer, alignments, se, true ) ;
 			sampleSubexons.push_back( se ) ;
-
-			// TODO: add connection information.
 		}
 		
 		int sampleSubexonCnt = sampleSubexons.size() ;
@@ -589,11 +659,17 @@ int main( int argc, char *argv[] )
 					{
 						subexons[idx].leftClassifier -= 2.0 * log( se.leftClassifier ) ;		
 						++subexons[idx].lcCnt ;
+
+						subexons[idx].prev = MergePositions( subexons[idx].prev, subexons[idx].prevCnt, 
+										se.prev, se.prevCnt, subexons[idx].prevCnt ) ;
 					}
 					if ( subexons[idx].rightType == 2 && se.rightType == 2 && subexons[idx].end == se.end )
 					{
 						subexons[idx].rightClassifier -= 2.0 * log( se.rightClassifier ) ;
 						++subexons[idx].rcCnt ;
+						
+						subexons[idx].next = MergePositions( subexons[idx].next, subexons[idx].nextCnt, 
+										se.next, se.nextCnt, subexons[idx].nextCnt ) ;
 					}
 				}
 				else if ( seIntervals[j].type == 1 )
@@ -680,10 +756,10 @@ int main( int argc, char *argv[] )
 		
 		for ( i = 0 ; i < sampleSubexonCnt ; ++i )
 		{
-			if ( sampleSubexons.nextCnt > 0 )
-				delete[] sampleSubexons.next ;
-			if ( sampleSubexons.prevCnt > 0 )
-				delete[] sampleSubexons.prev ;
+			if ( sampleSubexons[i].nextCnt > 0 )
+				delete[] sampleSubexons[i].next ;
+			if ( sampleSubexons[i].prevCnt > 0 )
+				delete[] sampleSubexons[i].prev ;
 		}
 	}
 
@@ -777,7 +853,8 @@ int main( int argc, char *argv[] )
 				&& !( seIntervals[i - 1].type == 0 && 
 					subexons[ seIntervals[i - 1].idx ].rightType != se.leftType ) 
 				&& !( seIntervals[i - 1].type == 1 && intronicInfos[ seIntervals[i - 1].idx ].irCnt == 0
-					&& intronicInfos[ seIntervals[i - 1].idx ].rightOverhang.cnt == 0 ) )
+					&& intronicInfos[ seIntervals[i - 1].idx ].rightOverhang.cnt == 0 ) 
+				&& ( se.prevCnt == 0 || se.start - 1 != se.prev[ se.prevCnt - 1 ] ) ) // The connection showed up in the subexon file.
 			{
 				printf( "%d ", se.prevCnt + 1 ) ;
 				for ( j = 0 ; j < se.prevCnt ; ++j )
@@ -796,7 +873,8 @@ int main( int argc, char *argv[] )
 				&& !( seIntervals[i + 1].type == 0 &&
 					subexons[ seIntervals[i + 1].idx ].leftType != se.rightType ) 
 				&& !( seIntervals[i + 1].type == 1 && intronicInfos[ seIntervals[i + 1].idx ].irCnt == 0
-					&& intronicInfos[ seIntervals[i + 1].idx ].leftOverhang.cnt == 0 ) )
+					&& intronicInfos[ seIntervals[i + 1].idx ].leftOverhang.cnt == 0 ) 
+				&& ( se.nextCnt == 0 || se.end + 1 != se.next[0] ) )
 			{
 				printf( "%d %d ", se.nextCnt + 1, se.end + 1 ) ;
 			}

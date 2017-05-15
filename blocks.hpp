@@ -653,7 +653,7 @@ class Blocks
 							if ( exonBlocks[k].end == sites[l].oppositePos )
 							{
 								exonBlocks[k].next[ exonBlocks[k].nextCnt ] = tag ;
-								exonBlocks[tag].prev[ exonBlocks[tag].prevCnt] = k ;
+								exonBlocks[tag].prev[ exonBlocks[tag].prevCnt] = k ; // Note that the prev are sorted in decreasing order
 								++exonBlocks[k].nextCnt ;
 								++exonBlocks[tag].prevCnt ;
 								break ;
@@ -669,6 +669,16 @@ class Blocks
 				}
 
 				i = j ;
+			}
+			// Reverse the prev list
+			for ( i = 0 ; i < exonBlockCnt ; ++i )
+			{
+				for ( j = 0, k = exonBlocks[i].prevCnt - 1 ; j < k ; ++j, --k )
+				{
+					int tmp = exonBlocks[i].prev[j] ;
+					exonBlocks[i].prev[j] = exonBlocks[i].prev[k] ;
+					exonBlocks[i].prev[k] = tmp ;
+				}
 			}
 
 			// If all of the subexon anchored the intron are filtered, we need to change the type of the other anchor.
