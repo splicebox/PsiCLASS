@@ -17,6 +17,7 @@ char usage[] = "combineSubexons [options]\n"
 struct _overhang
 {
 	int cnt ; //  the number of samples support this subexon.
+	int validCnt ; // The number of samples that are used for compute probability.
 	int length ;
 	double classifier ;
 } ;
@@ -27,6 +28,7 @@ struct _intronicInfo
 	int start, end ;
 	double irClassifier ;
 	int irCnt ;
+	int validIrCnt ;
 	struct _overhang leftOverhang, rightOverhang ; // leftOverhangClassifier is for the overhang subexon at the left side of this intron.
 } ;
 
@@ -59,7 +61,7 @@ struct _seInterval
 
 struct _subexonSplit
 {
-	char chrId ;
+	int chrId ;
 	int pos ;
 	int type ; //1-start of a subexon. 2-end of a subexon 
 	int splitType ; //0-soft boundary, 1-start of an exon, 2-end of an exon.
@@ -281,7 +283,31 @@ int main( int argc, char *argv[] )
 	}
 	// Pair up the split sites to get subexons
 	std::sort( subexonSplits.begin(), subexonSplits.end(), CompSubexonSplit ) ;
+
+	// Force the soft boundary that collides with hard boundaries to be hard boundary.
 	int splitCnt = subexonSplits.size() ;
+	for ( i = 0 ; i < splitCnt ; ++i )
+	{
+		if ( subexonSplits[i].splitType != 0 )
+			continue ;
+		else
+		{
+			int newSplitType = 0 ;
+			for ( j = i + 1 ; j < splitCnt ; ++j )
+			{
+				if ( subexonSplits[i].type != subexonSplits[j].type || subexonSplits[i].pos != subexonSplits[j].pos ||
+						subexonSplits[i].chrId != subexonSplits[j].chrId )
+					break ;
+				if ( subexonSplits[j].splitType != 0 )
+				{
+					newSplitType = subexonSplits[j].splitType ;
+					break ;
+				}
+			}
+			subexonSplits[i].splitType = newSplitType ;
+		}
+	}
+
 	std::vector<struct _subexon> subexons ;
 	int diffCnt = 0 ; // |start of subexon split| - |end of subexon split|
 
@@ -324,6 +350,7 @@ int main( int argc, char *argv[] )
 			continue ;
 		se.leftClassifier = se.rightClassifier = 0 ;
 		se.lcCnt = se.rcCnt = 0 ;
+		
 		subexons.push_back( se ) ;
 	}
 	// Merge the adjacent soft boundaries 
@@ -336,7 +363,7 @@ int main( int argc, char *argv[] )
 			&& rawSubexons[k].end + 1 == rawSubexons[i].start )			
 		{
 			rawSubexons[k].end = rawSubexons[i].end ;
-			rawSubexons[k].rightType = rawSubexons[k].rightType ;
+			rawSubexons[k].rightType = rawSubexons[i].rightType ;
 		}
 		else
 		{
@@ -421,10 +448,13 @@ int main( int argc, char *argv[] )
 			nii.end = ni.end ; 
 			nii.irClassifier = 0 ;
 			nii.irCnt = 0 ;
+			nii.validIrCnt = 0 ;
 			nii.leftOverhang.cnt = 0 ;
+			nii.leftOverhang.validCnt = 0 ;
 			nii.leftOverhang.length = 0 ;
 			nii.leftOverhang.classifier = 0 ;
 			nii.rightOverhang.cnt = 0 ;
+			nii.rightOverhang.validCnt = 0 ;
 			nii.rightOverhang.length = 0 ;
 			nii.rightOverhang.classifier = 0 ;
 			intronicInfos.push_back( nii ) ;
@@ -487,7 +517,7 @@ int main( int argc, char *argv[] )
 		struct _subexon se ;
 		struct _subexonSplit sp ;
 		char chrName[50] ;
-			
+		
 		sampleSubexons.clear() ;
 
 		int tag = 0 ;
@@ -575,15 +605,20 @@ int main( int argc, char *argv[] )
 						int len = se.end - intronicInfos[idx].start + 1 ;
 						intronicInfos[idx].leftOverhang.length += len ;
 						++intronicInfos[idx].leftOverhang.cnt ;
-						
-						// Note that the sample subexon must have a soft boundary at right hand side, 
-						// otherwise, this won't show up in intronic Info
-						double update = GetUpdateMixtureGammeClassifier( se.leftRatio, se.avgDepth, 
-							overhangPiRatio, overhangKRatio, overhangThetaRatio, 
-							overhangPiCov, overhangKCov, overhangThetaCov ) ;
-						//if ( se.start == 15154 )
-						//	printf( "hi %lf %lf: %d %d\n", se.leftRatio, se.avgDepth, seIntervals[tag].start, seIntervals[tag].end  ) ;
-						intronicInfos[idx].leftOverhang.classifier += update ;				
+
+						if ( se.leftRatio > 0 && se.avgDepth > 1 )
+						{
+							++intronicInfos[idx].leftOverhang.validCnt ;
+
+							// Note that the sample subexon must have a soft boundary at right hand side, 
+							// otherwise, this won't show up in intronic Info
+							double update = GetUpdateMixtureGammeClassifier( se.leftRatio, se.avgDepth, 
+									overhangPiRatio, overhangKRatio, overhangThetaRatio, 
+									overhangPiCov, overhangKCov, overhangThetaCov ) ;
+							//if ( se.start == 15154 )
+							//	printf( "hi %lf %lf: %d %d\n", se.leftRatio, se.avgDepth, seIntervals[tag].start, seIntervals[tag].end  ) ;
+							intronicInfos[idx].leftOverhang.classifier += update ;				
+						}
 					}
 					// Overlap on the right part of intron
 					else if ( se.start > intronicInfos[idx].start && se.end >= intronicInfos[idx].end )
@@ -591,32 +626,42 @@ int main( int argc, char *argv[] )
 						int len = intronicInfos[idx].end - se.start + 1 ;
 						intronicInfos[idx].rightOverhang.length += len ;
 						++intronicInfos[idx].rightOverhang.cnt ;
-						
-						// Note that the sample subexon must have a soft boundary at left hand side, 
-						// otherwise, this won't show up in intronic Info
-						double update = GetUpdateMixtureGammeClassifier( se.rightRatio, se.avgDepth, 
-							overhangPiRatio, overhangKRatio, overhangThetaRatio, 
-							overhangPiCov, overhangKCov, overhangThetaCov ) ;
-						intronicInfos[idx].rightOverhang.classifier += update ;				
+						if ( se.rightRatio > 0 && se.avgDepth > 1 )
+						{
+							++intronicInfos[idx].rightOverhang.validCnt ;
+
+							// Note that the sample subexon must have a soft boundary at left hand side, 
+							// otherwise, this won't show up in intronic Info
+							double update = GetUpdateMixtureGammeClassifier( se.rightRatio, se.avgDepth, 
+									overhangPiRatio, overhangKRatio, overhangThetaRatio, 
+									overhangPiCov, overhangKCov, overhangThetaCov ) ;
+							intronicInfos[idx].rightOverhang.classifier += update ;				
+						}
 					}
 					// Intron is fully contained in this sample subexon, then it is a ir candidate
 					else if ( se.start <= intronicInfos[idx].start && se.end >= intronicInfos[idx].end )
 					{
 						if ( se.leftType == 2 && se.rightType == 1 )		
 						{
-							double update = GetUpdateMixtureGammeClassifier( regions.PickLeftAndRightRatio( se.leftRatio, se.rightRatio ), se.avgDepth,
-								irPiRatio, irKRatio, irThetaRatio,
-								irPiCov, irKCov, irThetaCov ) ;
-							//if ( se.start == 17171 )
-							//	printf( "hi %lf %d %d: %d %d\n", update, se.start, se.end, intronicInfos[idx].start, intronicInfos[idx].end ) ;
-							intronicInfos[idx].irClassifier += update ;
+							double ratio = regions.PickLeftAndRightRatio( se.leftRatio, se.rightRatio ) ;
 							++intronicInfos[idx].irCnt ;
+							if ( ratio > 0 && se.avgDepth > 1 )
+							{
+								double update = GetUpdateMixtureGammeClassifier( ratio, se.avgDepth,
+										irPiRatio, irKRatio, irThetaRatio,
+										irPiCov, irKCov, irThetaCov ) ;
+								//if ( se.start == 17171 )
+								//	printf( "hi %lf %d %d: %d %d\n", update, se.start, se.end, intronicInfos[idx].start, intronicInfos[idx].end ) ;
+								intronicInfos[idx].irClassifier += update ;
+								++intronicInfos[idx].validIrCnt ;
+							}
 						}
 						else if ( se.leftType == 1 && se.rightType == 2 )
 						{
 							intronicInfos[idx].irClassifier += LogGammaDensity( 4.0, irKRatio[1], irThetaRatio[1] )
 							                                         - LogGammaDensity( 4.0, irKRatio[0], irThetaRatio[0] ) ;
 							++intronicInfos[idx].irCnt ;
+							++intronicInfos[idx].validIrCnt ;
 						}
 						else
 						{
@@ -632,6 +677,14 @@ int main( int argc, char *argv[] )
 			}
 		}
 		fclose( fp ) ;
+		
+		for ( i = 0 ; i < sampleSubexonCnt ; ++i )
+		{
+			if ( sampleSubexons.nextCnt > 0 )
+				delete[] sampleSubexons.next ;
+			if ( sampleSubexons.prevCnt > 0 )
+				delete[] sampleSubexons.prev ;
+		}
 	}
 
 	// Convert the temporary statistics number into formal statistics result.
@@ -653,11 +706,22 @@ int main( int argc, char *argv[] )
 	for ( i = 0 ; i < iiCnt ; ++i )
 	{
 		struct _intronicInfo &ii = intronicInfos[i] ;
-		ii.irClassifier = (double)1.0 / ( 1.0 + exp( ii.irClassifier + log( 1 - avgIrPiRatio ) - log( avgIrPiRatio ) ) ) ;
-		ii.leftOverhang.classifier = (double)1.0 / ( 1.0 + exp( ii.leftOverhang.classifier + 
-					log( 1 - avgOverhangPiRatio ) - log( avgOverhangPiRatio ) ) ) ;
-		ii.rightOverhang.classifier = (double)1.0 / ( 1.0 + exp( ii.rightOverhang.classifier + 
-					log( 1 - avgOverhangPiRatio ) - log( avgOverhangPiRatio ) ) ) ;
+		if ( ii.validIrCnt > 0 )
+			ii.irClassifier = (double)1.0 / ( 1.0 + exp( ii.irClassifier + log( 1 - avgIrPiRatio ) - log( avgIrPiRatio ) ) ) ;
+		else
+			ii.irClassifier = -1 ;
+		
+		if ( ii.leftOverhang.validCnt > 0 )
+			ii.leftOverhang.classifier = (double)1.0 / ( 1.0 + exp( ii.leftOverhang.classifier + 
+						log( 1 - avgOverhangPiRatio ) - log( avgOverhangPiRatio ) ) ) ;
+		else
+			ii.leftOverhang.classifier = -1 ;
+
+		if ( ii.rightOverhang.validCnt > 0 )
+			ii.rightOverhang.classifier = (double)1.0 / ( 1.0 + exp( ii.rightOverhang.classifier + 
+						log( 1 - avgOverhangPiRatio ) - log( avgOverhangPiRatio ) ) ) ;
+		else
+			ii.rightOverhang.classifier = -1 ;
 	}
 
 	// Change the classifier for the hard boundaries if its adjacent intron has intron retention classifier
@@ -747,10 +811,8 @@ int main( int argc, char *argv[] )
 			struct _intronicInfo &ii = intronicInfos[ seIntervals[i].idx ] ;
 			if ( ii.irCnt > 0 )
 			{
-				printf( "%s %d %d 2 1 %c %c -1 -1 -1 %lf %lf 1 %d 1 %d\n",
+				printf( "%s %d %d 2 1 . . -1 -1 -1 %lf %lf 1 %d 1 %d\n",
 					alignments.GetChromName( ii.chrId ), ii.start, ii.end, 
-					StrandNumToSymbol( subexons[ seIntervals[i - 1].idx ].rightStrand ), 
-					StrandNumToSymbol( subexons[ seIntervals[i + 1].idx ].leftStrand ), 
 					ii.irClassifier, ii.irClassifier,
 					seIntervals[i - 1].end, seIntervals[i + 1].start ) ;
 			}
