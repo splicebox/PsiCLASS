@@ -5,16 +5,20 @@ LINKFLAGS = -lbam -lz -lm -lpthread
 DEBUG=
 OBJECTS = stats.o
 
-all: subexon-info combineSubexons
+all: subexon-info combine-subexons
 
-subexon-info: main.o $(OBJECTS)
-	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) main.o $(LINKFLAGS)
+subexon-info: subexon-info.o stats.o
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) subexon-info.o $(LINKFLAGS)
 
-combineSubexons: CombineSubexons.cpp blocks.hpp alignments.hpp $(OBJECTS)
-	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) CombineSubexons.cpp $(LINKFLAGS)
+combine-subexons: combine-subexons.o $(OBJECTS)
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) combine-subexons.o $(LINKFLAGS)
 
-main.o: main.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.cpp stats.hpp
+subexon-info.o: SubexonInfo.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.cpp stats.hpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
+combine-subexons.o: CombineSubexons.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.cpp stats.hpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 stats.o: stats.cpp stats.hpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 
 clean:
 	rm -f *.o *.gch subexon-info combineSubexons 
