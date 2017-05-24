@@ -10,10 +10,10 @@ struct _pair
 	int64_t a, b ;
 } ;
 
-char nucToNum[26] = { 0, -1, 1, -1, -1, -1, 2, 
+/*char nucToNum[26] = { 0, -1, 1, -1, -1, -1, 2, 
 	-1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, -1, 3,
 	-1, -1, -1, -1, -1, -1 } ;
 
-char numToNuc[26] = {'A', 'C', 'G', 'T'} ;
+char numToNuc[26] = {'A', 'C', 'G', 'T'} ;*/
 #endif

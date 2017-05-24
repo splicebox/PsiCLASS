@@ -1,8 +1,8 @@
 // The class manage the blocks
 // Li Song
 
-#ifndef _LSONG_RSCAF_BLOCKS_HEADER
-#define _LSONG_RSCAF_BLOCKS_HEADER
+#ifndef _LSONG_CLASSES_BLOCKS_HEADER
+#define _LSONG_CLASSES_BLOCKS_HEADER
 
 #include <stdlib.h> 
 #include <vector>
@@ -552,10 +552,12 @@ class Blocks
 			std::vector<struct _block> rawExonBlocks = exonBlocks ;
 			int i, k ;
 			int bsize = rawExonBlocks.size() ; 
+			int *newIdx = new int[bsize] ; // used for adjust prev and next. Note that by merging, it won't change the number of prevCnt or nextCnt.
 			
 			exonBlocks.clear() ;
 			exonBlocks.push_back( rawExonBlocks[0] ) ;
 			k = 0 ;
+			newIdx[0] = 0 ;
 			for ( i = 1 ; i < bsize ; ++i )	
 			{
 				if ( rawExonBlocks[i].chrId == exonBlocks[k].chrId 
@@ -573,8 +575,21 @@ class Blocks
 					exonBlocks.push_back( rawExonBlocks[i] ) ;
 					++k ;
 				}
+				newIdx[i] = k ;
 			}
 			BuildBlockChrIdOffset() ;
+			bsize = exonBlocks.size() ;
+			for ( i = 0 ; i < bsize ; ++i )
+			{
+				int cnt = exonBlocks[i].prevCnt ;
+				for ( k = 0 ; k < cnt ; ++k )
+					exonBlocks[i].prev[k] = newIdx[ exonBlocks[i].prev[k] ] ;
+
+				cnt = exonBlocks[i].nextCnt ;
+				for ( k = 0 ; k < cnt ; ++k )
+					exonBlocks[i].next[k] = newIdx[ exonBlocks[i].next[k] ] ;
+			}
+			delete[] newIdx ;
 		}
 
 		void AddIntronInformation( std::vector<struct _splitSite> &sites )

@@ -411,6 +411,8 @@ int main( int argc, char *argv[] )
 
 	// Compute the average ratio against the left and right connected subexons.
 	regions.ComputeRatios() ;
+	
+	
 	//printf( "Finish building regions.\n" ) ;	
 	if ( noStats ) 
 	{ 

@@ -9,6 +9,7 @@
 #include "alignments.hpp"
 #include "blocks.hpp"
 #include "stats.hpp"
+#include "SubexonGraph.hpp"
 
 char usage[] = "combineSubexons [options]\n"
 	       "Required options:\n"
@@ -30,25 +31,6 @@ struct _intronicInfo
 	int irCnt ;
 	int validIrCnt ;
 	struct _overhang leftOverhang, rightOverhang ; // leftOverhangClassifier is for the overhang subexon at the left side of this intron.
-} ;
-
-struct _subexon
-{
-	char chrId ;
-	int start, end ;
-	int leftType, rightType ;
-	double avgDepth ;
-	//double ratio, classifier ;
-	double leftRatio, rightRatio ;
-	double leftClassifier, rightClassifier ;
-	int lcCnt, rcCnt ;
-	int leftStrand, rightStrand ;
-	
-	int nextCnt, prevCnt ;
-	int *next, *prev ;
-
-	// The information for the intron followed by this subexons, some of the
-	// subexons may not followed by intron so we use pointer to save memory.
 } ;
 
 struct _seInterval
@@ -97,66 +79,6 @@ bool CompIrFromSamples( struct _seInterval a, struct _seInterval b )
 		return false ;
 }
 
-int InputSubexon( char *in, Alignments &alignments, struct _subexon &se, bool needPrevNext = false )
-{
-	int i, k ;
-	char chrName[50] ;
-	char ls[3], rs[3] ;	
-	sscanf( in, "%s %d %d %d %d %s %s %lf %lf %lf %lf %lf", chrName, &se.start, &se.end, &se.leftType, &se.rightType, ls, rs,
-			&se.avgDepth, &se.leftRatio, &se.rightRatio, 
-			&se.leftClassifier, &se.rightClassifier ) ;	
-	se.chrId = alignments.GetChromIdFromName( chrName ) ;
-	se.nextCnt = se.prevCnt = 0 ;
-	se.next = se.prev = NULL ;
-
-	if ( ls[0] == '+' )
-		se.leftStrand = 1 ;
-	else if ( ls[0] == '-' )
-		se.leftStrand = -1 ;
-	else
-		se.leftStrand = 0 ;
-	
-	if ( rs[0] == '+' )
-		se.rightStrand = 1 ;
-	else if ( rs[0] == '-' )
-		se.rightStrand = -1 ;
-	else
-		se.rightStrand = 0 ;
-
-	if ( needPrevNext )
-	{
-		char *p = in ;
-		// Locate the offset for prevCnt
-		for ( i = 0 ; i <= 11 ; ++i )
-		{
-			p = strchr( p, ' ' ) ;
-			++p ;
-		}
-
-		sscanf( p, "%d", &se.prevCnt ) ;
-		p = strchr( p, ' ' ) ;
-		++p ;
-		se.prev = new int[ se.prevCnt ] ;
-		for ( i = 0 ; i < se.prevCnt ; ++i )
-		{
-			sscanf( p, "%d", &se.prev[i] ) ;
-			p = strchr( p, ' ' ) ;
-			++p ;
-		}
-
-		sscanf( p, "%d", &se.nextCnt ) ;
-		p = strchr( p, ' ' ) ;
-		++p ;
-		se.next = new int[ se.nextCnt ] ;
-		for ( i = 0 ; i < se.nextCnt ; ++i )
-		{
-			sscanf( p, "%d", &se.next[i] ) ;
-			p = strchr( p, ' ' ) ;
-			++p ;
-		}
-	}
-	return 1 ;
-}
 
 double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio, double kRatio[2], double thetaRatio[2],
 	double piCov, double kCov[2], double thetaCov[2] )
@@ -318,7 +240,7 @@ int main( int argc, char *argv[] )
 			if ( buffer[0] == '#' )
 				continue ;
 
-			InputSubexon( buffer, alignments, se ) ;
+			SubexonGraph::InputSubexon( buffer, alignments, se ) ;
 
 			// Record all the intron rentention from the samples
 			if ( se.leftType == 2 && se.rightType == 1 )
@@ -626,7 +548,7 @@ int main( int argc, char *argv[] )
 				continue ;
 			}
 
-			InputSubexon( buffer, alignments, se, true ) ;
+			SubexonGraph::InputSubexon( buffer, alignments, se, true ) ;
 			sampleSubexons.push_back( se ) ;
 		}
 		
