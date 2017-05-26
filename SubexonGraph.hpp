@@ -147,7 +147,7 @@ public:
 	// Parse the input line
 	static int InputSubexon( char *in, Alignments &alignments, struct _subexon &se, bool needPrevNext = false )
 	{
-		int i, k ;
+		int i ;
 		char chrName[50] ;
 		char ls[3], rs[3] ;	
 		sscanf( in, "%s %d %d %d %d %s %s %lf %lf %lf %lf %lf", chrName, &se.start, &se.end, &se.leftType, &se.rightType, ls, rs,
@@ -211,6 +211,10 @@ public:
 
 	//@return: the number of intervals found
 	int ComputeGeneIntervals() ;
+	
+	// Return a list of subexons in that interval and in retList the id of subexon 
+	// should be adjusted to start from 0.
+	int ExtractSubexons( int startIdx, int endIdx, struct _subexon *retList ) ;
 } ;
 
 #endif

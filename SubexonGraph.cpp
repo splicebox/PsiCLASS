@@ -65,7 +65,6 @@ int SubexonGraph::ComputeGeneIntervals()
 		ngi.startIdx = tag ;
 		ngi.start = subexons[ ngi.startIdx ].start ;
 		ngi.end = subexons[ ngi.endIdx ].end ;
-		printf( "hi %s: %d %d\n", __func__, ngi.start, ngi.end ) ;
 		
 		tag = ngi.endIdx + 1 ;
 		// Adjust the extent
@@ -115,4 +114,36 @@ int SubexonGraph::ComputeGeneIntervals()
 	delete[] visit ;
 
 	return cnt ;
+}
+
+int SubexonGraph::ExtractSubexons( int startIdx, int endIdx, struct _subexon *retList )
+{
+	int i, j, k ;
+	int cnt = endIdx - startIdx + 1 ;
+	for ( i = 0 ; i < cnt ; ++i )
+	{
+		retList[i] = subexons[i + startIdx] ;
+		
+		for ( j = 0 ; j < retList[i].prevCnt ; ++j )
+			retList[i].prev[j] -= startIdx ;
+		for ( j = 0 ; j < retList[i].nextCnt ; ++j )
+			retList[i].next[j] -= startIdx ;
+		
+		for ( j = 0, k = 0 ; j < retList[i].prevCnt ; ++j )
+			if ( retList[i].prev[j] >= 0 && retList[i].prev[j] < cnt )
+			{
+				retList[i].prev[k] = retList[i].prev[j] ;
+				++k ;
+			}
+		retList[i].prevCnt = k ;
+
+		for ( j = 0, k = 0 ; j < retList[i].nextCnt ; ++j )
+			if ( retList[i].next[j] >= 0 && retList[i].next[j] < cnt )
+			{
+				retList[i].next[k] = retList[i].next[j] ;
+				++k ;
+			}
+		retList[i].nextCnt = k ;
+	}
+	return cnt ;	
 }

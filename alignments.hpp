@@ -234,7 +234,7 @@ public:
 			if ( bam_aux2i( bam_aux_get( b, "NH" ) ) > 1 )
 				return false ;
 		}	
-		if ( IsSupplementary() && GetFieldZ( "XZ" ) != NULL )
+		if ( IsSupplementary() && GetFieldZ( (char *)"XZ" ) != NULL )
 			return false ;
 		return true ;
 	}
