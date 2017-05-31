@@ -9,9 +9,10 @@
 class SubexonCorrelation
 {
 private:
-	struct _subexon *lastReadSubexons ;
+	struct _subexon *lastSubexons ;
 	std::vector<FILE *> fileList ;
 	int offset ;
+	int prevSeCnt ;
 
 	double **correlation ;
 		
@@ -28,8 +29,9 @@ public:
 	SubexonCorrelation() 
 	{
 		offset = 0 ;
-		lastReadSubexons = NULL ;
+		lastSubexons = NULL ;
 		correlation = NULL ;
+		prevSeCnt = 0 ;
 	}
 
 	~SubexonCorrelation()
@@ -38,7 +40,7 @@ public:
 		int i ;
 		for ( i = 0 ; i < cnt ; ++i )
 			fclose( fileList[i] ) ;
-		delete[] lastReadSubexons ;
+		delete[] lastSubexons ;
 	}
 
 	void Initialize( char *f )
@@ -59,11 +61,11 @@ public:
 			fileList.push_back( fp ) ;
 		}
 
-		lastReadSubexons = new struct _subexon[ fileList.size() ] ;
+		lastSubexons = new struct _subexon[ fileList.size() ] ;
 		int i, cnt ;
 		cnt = fileList.size() ;
 		for ( i = 0 ; i < cnt ; ++i )
-			lastReadSubexons[i].chrId = -1 ;
+			lastSubexons[i].chrId = -1 ;
 	
 	}
 	
@@ -87,8 +89,14 @@ public:
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
 			struct _subexon se ;
-			if ( lastReadSubexons[i].chrId != -1 )
-				se = lastReadSubexons[i] ;
+			bool useLastSubexon = false ;
+			if ( lastSubexons[i].chrId != -1 )
+			{
+				se = lastSubexons[i] ;
+				useLastSubexon = true ;
+			}
+			else
+				se.chrId = -1 ;
 
 			// Locate the subexon
 			while ( 1 )
@@ -97,24 +105,38 @@ public:
 					|| ( se.chrId == subexons[0].chrId && se.end < subexons[0].start ) )
 				{
 					if ( fgets( buffer, sizeof( buffer ), fileList[i] ) == NULL )
+					{
+						buffer[0] = '\0' ;
 						break ;
+					}
 					if ( buffer[0] == '#' )
 						continue ;
+					
 					SubexonGraph::InputSubexon( buffer, alignments, se ) ;
 					--se.start ; --se.end ;
+					useLastSubexon = false ;
 					continue ;
 				}
 				break ;
 			}
-			
+			if ( buffer[0] == '\0' )
+			{
+				lastSubexons[i] = se ;	
+				continue ;
+			}
+
 			// Process the subexon.
 			int tag = 0 ;
 			while ( 1 )
 			{
-				lastReadSubexons[i] = se ;
+				lastSubexons[i] = se ;
+				
+				if ( useLastSubexon == false )
+				{
+					SubexonGraph::InputSubexon( buffer, alignments, se ) ; 
+					--se.start ; --se.end ;
+				}
 
-				SubexonGraph::InputSubexon( buffer, alignments, se ) ; 
-				--se.start ; --se.end ;
 				if ( se.chrId > subexons[cnt - 1].chrId || se.start > subexons[cnt - 1].end )
 					break ;
 
@@ -148,12 +170,13 @@ public:
 		double *var = new double[cnt] ;
 		if ( correlation != NULL )
 		{
-			for ( i = 0 ; i < cnt ; ++i )
+			for ( i = 0 ; i < prevSeCnt ; ++i )
 				delete[] correlation[i] ;
 			delete[] correlation ;
 		}
+
 		correlation = new double*[cnt] ;
-		for ( i = 0 ; i < sampleCnt ; ++i )
+		for ( i = 0 ; i < cnt ; ++i )
 			correlation[i] = new double[cnt] ;
 		
 		memset( avg, 0, sizeof( double ) * cnt ) ;
@@ -162,7 +185,7 @@ public:
 		{
 			//avg[i] = 0 ;
 			//var[i] = 0 ;
-			memset( correlation, 0, sizeof( double ) * cnt ) ;
+			memset( correlation[i], 0, sizeof( double ) * cnt ) ;
 			correlation[i][i] = 1 ;
 		}
 
@@ -189,18 +212,24 @@ public:
 		for ( j = 0 ; j < cnt ; ++j )
 			for ( k = j + 1 ; j < cnt ; ++j )
 			{
-				correlation[j][k] = correlation[j][k] / sampleCnt - avg[j] * avg[k] / sqrt( var[j] * var[k] ) ;
+				if ( var[j] > 0 && var[k] > 0 )
+					correlation[j][k] = ( correlation[j][k] / sampleCnt - avg[j] * avg[k] ) / sqrt( var[j] * var[k] ) ;
+				else
+					correlation[j][k] = 0 ;
+				correlation[k][j] = correlation[j][k] ;
 			}
-
+		//printf( "%lf\n", correlation[0][1] ) ;
 		// Release the memory.
 		for ( i = 0 ; i < sampleCnt ; ++i )
 			delete[] depth[i] ;
 		delete[] depth ;
 		delete[] avg ;
 		delete[] var ;
+
+		prevSeCnt = cnt ;
 	}
 
-	double QueryCorrelation( int i, int j )
+	double Query( int i, int j )
 	{
 		return correlation[i][j] ;
 	}

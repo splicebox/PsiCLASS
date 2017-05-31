@@ -3,7 +3,7 @@ CXXFLAGS= -Wall #-std=c++11 #-Wall #-g
 LINKPATH= -I./samtools-0.1.19 -L./samtools-0.1.19
 LINKFLAGS = -lbam -lz -lm -lpthread 
 DEBUG=
-OBJECTS = stats.o subexon-graph.o
+OBJECTS = stats.o subexon-graph.o 
 
 all: subexon-info combine-subexons classes
 
@@ -13,8 +13,8 @@ subexon-info: subexon-info.o $(OBJECTS)
 combine-subexons: combine-subexons.o $(OBJECTS)
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) combine-subexons.o $(LINKFLAGS)
 
-classes: classes.o $(OBJECTS)
-	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) classes.o $(LINKFLAGS)
+classes: classes.o constraints.o $(OBJECTS)
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) constraints.o classes.o $(LINKFLAGS)
 	
 
 subexon-info.o: SubexonInfo.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.hpp
@@ -25,9 +25,9 @@ stats.o: stats.cpp stats.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 subexon-graph.o: SubexonGraph.cpp SubexonGraph.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
-bit-table.o: BitTable.cpp BitTable.hpp
+constraints.o: Constraints.cpp Constraints.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
-classes.o: classes.cpp SubexonGraph.hpp SubexonCorrelation.hpp
+classes.o: classes.cpp SubexonGraph.hpp SubexonCorrelation.hpp BitTable.hpp Constraints.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 
 clean:
