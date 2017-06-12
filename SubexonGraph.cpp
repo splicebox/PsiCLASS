@@ -120,6 +120,7 @@ int SubexonGraph::ExtractSubexons( int startIdx, int endIdx, struct _subexon *re
 {
 	int i, j, k ;
 	int cnt = endIdx - startIdx + 1 ;
+	//printf( "%s: %d %d %d\n", __func__, startIdx, endIdx, cnt ) ;
 	for ( i = 0 ; i < cnt ; ++i )
 	{
 		retList[i] = subexons[i + startIdx] ;

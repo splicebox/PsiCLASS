@@ -40,7 +40,8 @@ int main( int argc, char *argv[] )
 	FILE *fpSubexon = NULL ;
 	std::vector<Alignments> alignmentFiles ;
 	SubexonCorrelation subexonCorrelation ;
-
+	
+	classifierThreshold = 0.05 ;
 	while ( 1 )
 	{
 		c = getopt_long( argc, argv, short_options, long_options, &option_index ) ;

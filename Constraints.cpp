@@ -4,8 +4,8 @@
 bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt, 
 	struct _subexon *subexons, int seCnt, int seStart, struct _constraint &ct ) 
 {
-	int i, k ;
-	k = 0 ;
+	int i, j, k ;
+	k = seStart ;
 	ct.vector.Init( seCnt ) ;
 	// Each segment of an alignment can cover several subexons.
 	// But the first and last segment can partially cover a subexon.
@@ -43,6 +43,20 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 		if ( !( ( subexons[leftIdx].leftType == 0 || subexons[leftIdx].start <= segments[i].a )
 			&& ( subexons[rightIdx].rightType == 0 || subexons[rightIdx].end >= segments[i].b ) ) )
 			return false ;
+		
+		// The intron must exists in the subexon graph.
+		if ( i > 0 )
+		{
+			for ( j = 0 ; j < subexons[ ct.last ].nextCnt ; ++j )
+				if ( subexons[ct.last].next[j] == leftIdx  )
+					break ;
+			if ( j >= subexons[ ct.last ].nextCnt )
+				return false ;
+		}
+
+		if ( i == 0 )
+			ct.first = leftIdx ;
+		ct.last = rightIdx ;
 	}
 
 	return true ;
@@ -51,9 +65,18 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 void Constraints::CoalesceSameConstraints()
 {
 	int i, k ;
-	std::sort( constraints.begin(), constraints.end(), CompSortConstraints ) ;
 	int size = constraints.size() ;
+	for ( i = 0 ; i < size ; ++i )
+		constraints[i].info = i ;
+
+	std::vector<int> newIdx ;
+	newIdx.resize( size, 0 ) ;
+	
+	// Update the constraints.
+	std::sort( constraints.begin(), constraints.end(), CompSortConstraints ) ;
+
 	k = 0 ;
+	newIdx[ constraints[0].info ] = 0 ;
 	for ( i = 1 ; i < size ; ++i )
 	{
 		if ( constraints[k].vector.IsEqual( constraints[i].vector ) )
@@ -67,16 +90,69 @@ void Constraints::CoalesceSameConstraints()
 			if ( k != i )
 				constraints[k] = constraints[i] ;
 		}
+		newIdx[ constraints[i].info ] = k ;
 	}
 	constraints.resize( k + 1 ) ;
+	
+	// Update the mate pairs.
+	size = matePairs.size() ;
+	for ( i = 0 ; i < size ; ++i )
+	{
+		matePairs[i].i = newIdx[ matePairs[i].i ] ;
+		matePairs[i].j = newIdx[ matePairs[i].j ] ;
+	}
+	std::sort( matePairs.begin(), matePairs.end(), CompSortMatePairs ) ;
+	k = 0 ;
+	for ( i = 1 ; i < size ; ++i )
+	{
+		if ( matePairs[i].i == matePairs[k].i && matePairs[i].j == matePairs[k].j )
+		{
+			matePairs[k].support += matePairs[i].support ;
+		}
+		else
+		{
+			++k ;
+			matePairs[k] = matePairs[i] ;
+		}
+	}
+	matePairs.resize( k + 1 ) ;
+
+	// Update the data structure for future mate pairs.
+	mateReadIds.UpdateIdx( newIdx ) ;
+
+}
+
+void Constraints::ComputeNormAbund( struct _subexon *subexons )
+{
+	int i ;
+	int ctSize = constraints.size() ;
+	for ( i = 0 ; i < ctSize ; ++i )
+	{
+		int effectiveLength = subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 ;
+		int tmp = subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 ;
+		if ( tmp < effectiveLength )
+			effectiveLength = tmp ;
+		
+		constraints[i].normAbund = (double)constraints[i].support / (double)effectiveLength ;
+	}
+
+	ctSize = matePairs.size() ;
+	for ( i = 0 ; i < ctSize ; ++i )
+	{
+		double a = constraints[ matePairs[i].i ].normAbund ;
+		double b = constraints[ matePairs[i].j ].normAbund ;
+		
+		matePairs[i].normAbund = a < b ? a : b ;
+		matePairs[i].abundance = matePairs[i].normAbund ;
+	}
 }
 
 int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int start, int end )
 {
 	int i ;
 	int tag = 0 ;
-
-	// 
+	int coalesceThreshold = 16384 ;
+	
 	int size = constraints.size() ;
 	if ( size > 0 )
 	{
@@ -85,7 +161,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		std::vector<struct _constraint>().swap( constraints ) ;
 	}
 
-	while ( alignments.Next() != -1 )
+	while ( alignments.Next() )
 	{
 		if ( alignments.GetChromId() < subexons[0].chrId )
 			continue ;
@@ -105,21 +181,77 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		struct _constraint ct ;
 		ct.vector.Init( seCnt ) ;
 		//printf( "%s %d: %d-%d | %d-%d\n", __func__, alignments.segCnt, alignments.segments[0].a, alignments.segments[0].b, subexons[tag].start, subexons[tag].end ) ;
+		ct.weight = 1 ;
+		ct.normAbund = 0 ;
+		ct.support = 1 ;
 		if ( ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
 				subexons, seCnt, tag, ct ) )
 		{	
 			constraints.push_back( ct ) ; // if we just coalesced but the list size does not decrease, this will force capacity increase.
-			// TODO: what happens it does not coalesce enough?
-			if ( constraints.size() == constraints.capacity() )
+			// Add the mate-pair information.
+			int mateChrId ;
+			int64_t matePos ;
+			alignments.GetMatePosition( mateChrId, matePos ) ;
+			if ( mateChrId == mateChrId )
 			{
-				//printf( "start coalescing.\n" ) ;
+				if ( matePos < alignments.segments[0].a )
+				{
+					int mateIdx = mateReadIds.Query( alignments.GetReadId(), alignments.segments[0].a ) ;
+					if ( mateIdx != -1 )
+					{
+						struct _matePairConstraint nm ;
+						nm.i = mateIdx ;
+						nm.j = constraints.size() - 1 ;
+						nm.abundance = 0 ;
+						nm.support = 1 ;
+						nm.effectiveCount = 2 ;
+
+						matePairs.push_back( nm ) ;
+					}
+				}
+				else if ( matePos > alignments.segments[0].a )
+				{
+					mateReadIds.Insert( alignments.GetReadId(), alignments.segments[0].a, size - 1, matePos ) ;					
+				}
+			}
+
+			// Coalesce if necessary.
+			size = constraints.size() ;			
+			if ( (int)size > coalesceThreshold && size == (int)constraints.capacity() )
+			{
+				
+				//printf( "start coalescing. %d\n", constraints.capacity() ) ;
 				CoalesceSameConstraints() ;	
+
+				// Not coalesce enough
+				if ( constraints.size() >= constraints.capacity() / 2 )
+				{
+					coalesceThreshold *= 2 ;
+				}
 			}
 		}
 		else
 			ct.vector.Release() ;
-		
-		// TODO: add the mate-pair information.
 	}
+	CoalesceSameConstraints() ;
+	
+	// single-end data set
+	if ( matePairs.size() == 0 )
+	{
+		int size = constraints.size() ;
+		
+		for ( i = 0 ; i < size ; ++i )
+		{
+			struct _matePairConstraint nm ;
+			nm.i = i ;
+			nm.j = i ;
+			nm.abundance = 0 ;
+			nm.support = constraints[i].support ;
+			nm.effectiveCount = 1 ;
+
+			matePairs.push_back( nm ) ;
+		}
+	}
+
 	return 0 ;
 }

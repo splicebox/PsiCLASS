@@ -13,8 +13,8 @@ subexon-info: subexon-info.o $(OBJECTS)
 combine-subexons: combine-subexons.o $(OBJECTS)
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) combine-subexons.o $(LINKFLAGS)
 
-classes: classes.o constraints.o $(OBJECTS)
-	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) constraints.o classes.o $(LINKFLAGS)
+classes: classes.o constraints.o transcript-decider.o $(OBJECTS)
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) constraints.o transcript-decider.o classes.o $(LINKFLAGS)
 	
 
 subexon-info.o: SubexonInfo.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.hpp
@@ -25,9 +25,11 @@ stats.o: stats.cpp stats.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 subexon-graph.o: SubexonGraph.cpp SubexonGraph.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
-constraints.o: Constraints.cpp Constraints.hpp
+constraints.o: Constraints.cpp Constraints.hpp alignments.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
-classes.o: classes.cpp SubexonGraph.hpp SubexonCorrelation.hpp BitTable.hpp Constraints.hpp
+transcript-decider.o: TranscriptDecider.cpp TranscriptDecider.hpp Constraints.hpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
+classes.o: classes.cpp SubexonGraph.hpp SubexonCorrelation.hpp BitTable.hpp Constraints.hpp alignments.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 
 clean:

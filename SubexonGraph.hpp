@@ -18,6 +18,8 @@ struct _subexon
 	
 	int nextCnt, prevCnt ;
 	int *next, *prev ;
+	
+	bool canBeStart, canBeEnd ;
 } ;
 
 struct _geneInterval

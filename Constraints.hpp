@@ -15,16 +15,22 @@ struct _constraint
 {
 	BitTable vector ; // subexon vector
 	double weight ;
-	double abund ;
 	double normAbund ;
 	int support ;
+
+	int info ; // other usages.
+	int first, last ; // indicate the first and last index of the subexons. 
 } ;
 
-struct _mateIdx
+struct _matePairConstraint
 {
 	int i, j ;
+	
 	int support ;
-	double abund ;
+	double abundance ;
+	double normAbund ;
+	int effectiveCount ;
+	int type ;
 } ;
 
 struct _readIdHeap
@@ -116,6 +122,7 @@ public:
 	~MateReadIds() 
 	{
 		int size = heap.size() ;
+		std::map<std::string, int>().swap( cachedIdx ) ;
 		for ( int i = 0 ; i < size ; ++i )
 			if ( heap[i].readId != NULL )
 				free( heap[i].readId ) ;
@@ -153,6 +160,7 @@ public:
 				struct _readIdHeap r = Pop() ;
 				cachedIdx[ std::string( r.readId ) ] = r.idx ;
 			}
+			cachedMatePos = matePos ;
 		}
 		std::string s( id ) ;
 		if ( cachedIdx.find( s ) != cachedIdx.end() )
@@ -161,6 +169,19 @@ public:
 		}
 		return -1 ;	
 	}
+	
+	void UpdateIdx( std::vector<int> newIdx )
+	{
+		int size = heap.size() ;
+		int i ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			heap[i].idx = newIdx[ heap[i].idx ] ;
+		}
+
+		for ( std::map<std::string, int>::iterator it = cachedIdx.begin() ; it != cachedIdx.end() ; ++it )
+			it->second = newIdx[ it->second ] ;
+	}
 } ;
 
 
@@ -168,9 +189,9 @@ public:
 class Constraints
 {
 private:
-	std::vector<struct _constraint> constraints ;
 	int prevStart, prevEnd ;	
-	std::vector<struct _mateIdx> mates ; 
+
+	MateReadIds mateReadIds ;
 
 	Alignments &alignments ;
 	
@@ -181,6 +202,11 @@ private:
 	static bool CompSortConstraints( const struct _constraint &a, const struct _constraint &b )
 	{
 		//int k 
+		if ( a.first < b.first )
+			return true ;
+		else if ( a.first > b.first )
+			return false ;
+
 		int diffPos = a.vector.GetFirstDifference( b.vector ) ;
 		if ( diffPos == -1 )
 			return false ;
@@ -190,8 +216,28 @@ private:
 		else
 			return false ;
 	}
+
+	static bool CompSortMatePairs( const struct _matePairConstraint &a, const struct _matePairConstraint &b )
+	{
+		if ( a.i < b.i )
+			return true ;
+		else if ( a.i > b.i )
+			return false ;
+		else
+		{
+			if ( a.j <= b.j )	
+				return true ;
+			else
+				return false ;
+		}
+	}
+
 	void CoalesceSameConstraints() ;
+	void ComputeNormAbund( struct _subexon *subexons ) ;
 public:
+	std::vector<struct _constraint> constraints ;
+	std::vector<struct _matePairConstraint> matePairs ; 
+	
 	Constraints( Alignments &a ): alignments( a ) 
 	{
 	}
@@ -205,7 +251,7 @@ public:
 		constraints.clear() ;
 	}
 
-	int BuildConstraints( struct _subexon *subexons, int scnt, int start, int end ) ;
+	int BuildConstraints( struct _subexon *subexons, int seCnt, int start, int end ) ;
 } ;
 
 #endif
