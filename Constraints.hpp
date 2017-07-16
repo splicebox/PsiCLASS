@@ -128,6 +128,17 @@ public:
 				free( heap[i].readId ) ;
 	}
 
+	void Clear()
+	{
+		std::map<std::string, int>().swap( cachedIdx ) ;
+		
+		int size = heap.size() ;
+		for ( int i = 0 ; i < size ; ++i )
+			if ( heap[i].readId != NULL )
+				free( heap[i].readId ) ;
+		std::vector<struct _readIdHeap>().swap( heap ) ;
+	}
+
 	void Insert( char *id, int pos, int idx, int matePos )
 	{
 		struct _readIdHeap nh ;
@@ -152,13 +163,18 @@ public:
 			while ( size >= 2 && heap[1].matePos < matePos )
 			{
 				struct _readIdHeap r = Pop() ;
-				free( r.readId ) ;
+				if ( r.readId )
+					free( r.readId ) ;
+				--size ;
 			}
 
 			while ( size >= 2 && heap[1].matePos == matePos )
 			{
 				struct _readIdHeap r = Pop() ;
 				cachedIdx[ std::string( r.readId ) ] = r.idx ;
+				if ( r.readId )
+					free( r.readId ) ;
+				--size ;
 			}
 			cachedMatePos = matePos ;
 		}
@@ -170,15 +186,15 @@ public:
 		return -1 ;	
 	}
 	
-	void UpdateIdx( std::vector<int> newIdx )
+	void UpdateIdx( std::vector<int> &newIdx )
 	{
 		int size = heap.size() ;
 		int i ;
-		for ( i = 0 ; i < size ; ++i )
+		for ( i = 1 ; i < size ; ++i )
 		{
 			heap[i].idx = newIdx[ heap[i].idx ] ;
 		}
-
+		
 		for ( std::map<std::string, int>::iterator it = cachedIdx.begin() ; it != cachedIdx.end() ; ++it )
 			it->second = newIdx[ it->second ] ;
 	}
@@ -212,9 +228,9 @@ private:
 			return false ;
 
 		if ( a.vector.Test( diffPos ))
-			return true ;
-		else
 			return false ;
+		else
+			return true ;
 	}
 
 	static bool CompSortMatePairs( const struct _matePairConstraint &a, const struct _matePairConstraint &b )
@@ -225,7 +241,7 @@ private:
 			return false ;
 		else
 		{
-			if ( a.j <= b.j )	
+			if ( a.j < b.j )	
 				return true ;
 			else
 				return false ;
@@ -241,6 +257,7 @@ public:
 	Constraints( Alignments &a ): alignments( a ) 
 	{
 	}
+	
 	~Constraints() 
 	{
 	}

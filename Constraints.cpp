@@ -17,13 +17,14 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 		
 		for ( ; k < seCnt ; ++k )
 		{
-			//printf( "(%d:%d %d):(%d:%d %d)\n", i, segments[i].a, segments[i].b, k, subexons[k].start, subexons[k].end ) ;
+			//printf( "(%d:%d %d):(%d:%d %d)\n", i, (int)segments[i].a, (int)segments[i].b, k, (int)subexons[k].start, (int)subexons[k].end ) ;
 			if ( subexons[k].start > segments[i].b )
 				break ;
 			
 			if ( ( subexons[k].start >= segments[i].a && subexons[k].end <= segments[i].b ) 
 				|| ( i == 0 && subexons[k].start < segments[i].a && subexons[k].end <= segments[i].b ) 
-				|| ( i == segCnt - 1 && subexons[k].start >= segments[i].a && subexons[k].end > segments[i].b ) )
+				|| ( i == segCnt - 1 && subexons[k].start >= segments[i].a && subexons[k].end > segments[i].b ) 
+				|| ( i == 0 && i == segCnt - 1 && subexons[k].start < segments[i].a && subexons[k].end > segments[i].b ) )
 			{
 				if ( leftIdx == -1 )
 					leftIdx = k ;
@@ -38,12 +39,13 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 
 		if ( leftIdx == -1 )
 			return false ;
-
+		
 		// The cover contradict the boundary.
 		if ( !( ( subexons[leftIdx].leftType == 0 || subexons[leftIdx].start <= segments[i].a )
 			&& ( subexons[rightIdx].rightType == 0 || subexons[rightIdx].end >= segments[i].b ) ) )
 			return false ;
-		
+		//TODO: the splice sites should match.
+
 		// The intron must exists in the subexon graph.
 		if ( i > 0 )
 		{
@@ -67,7 +69,10 @@ void Constraints::CoalesceSameConstraints()
 	int i, k ;
 	int size = constraints.size() ;
 	for ( i = 0 ; i < size ; ++i )
+	{
 		constraints[i].info = i ;
+		//printf( "constraints %d: %d %d %d\n", i, constraints[i].vector.Test( 0 ), constraints[i].vector.Test(1), constraints[i].support ) ;
+	}
 
 	std::vector<int> newIdx ;
 	newIdx.resize( size, 0 ) ;
@@ -98,10 +103,14 @@ void Constraints::CoalesceSameConstraints()
 	size = matePairs.size() ;
 	for ( i = 0 ; i < size ; ++i )
 	{
+		//printf( "%d %d: %d => %d | %d =>%d\n", i, newIdx.size(), matePairs[i].i, newIdx[ matePairs[i].i ],
+		//	matePairs[i].j, newIdx[ matePairs[i].j ] ) ;
 		matePairs[i].i = newIdx[ matePairs[i].i ] ;
 		matePairs[i].j = newIdx[ matePairs[i].j ] ;
 	}
+	
 	std::sort( matePairs.begin(), matePairs.end(), CompSortMatePairs ) ;
+
 	k = 0 ;
 	for ( i = 1 ; i < size ; ++i )
 	{
@@ -115,11 +124,11 @@ void Constraints::CoalesceSameConstraints()
 			matePairs[k] = matePairs[i] ;
 		}
 	}
+	//printf( "%s: %d\n", __func__, matePairs[1].i) ;
 	matePairs.resize( k + 1 ) ;
 
 	// Update the data structure for future mate pairs.
 	mateReadIds.UpdateIdx( newIdx ) ;
-
 }
 
 void Constraints::ComputeNormAbund( struct _subexon *subexons )
@@ -153,21 +162,26 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	int tag = 0 ;
 	int coalesceThreshold = 16384 ;
 	
+	// Release the memory from previous gene.
 	int size = constraints.size() ;
+	
 	if ( size > 0 )
 	{
 		for ( i = 0 ; i < size ; ++i )
 			constraints[i].vector.Release() ;
 		std::vector<struct _constraint>().swap( constraints ) ;
 	}
+	std::vector<struct _matePairConstraint>().swap( matePairs ) ;
+	mateReadIds.Clear() ;
 
+	
+	// Start to build the constraints. 
 	while ( alignments.Next() )
 	{
 		if ( alignments.GetChromId() < subexons[0].chrId )
 			continue ;
 		else if ( alignments.GetChromId() > subexons[0].chrId )
 			break ;
-
 		// locate the first subexon in this region that overlapps with current alignment.
 		for ( ; tag < seCnt && subexons[tag].end < alignments.segments[0].a ; ++tag )
 			;
@@ -177,23 +191,28 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		
 		if ( alignments.segments[ alignments.segCnt - 1 ].b < subexons[tag].start )
 			continue ;
-
 		struct _constraint ct ;
 		ct.vector.Init( seCnt ) ;
-		//printf( "%s %d: %d-%d | %d-%d\n", __func__, alignments.segCnt, alignments.segments[0].a, alignments.segments[0].b, subexons[tag].start, subexons[tag].end ) ;
+		//printf( "%s %d: %lld-%lld | %d-%d\n", __func__, alignments.segCnt, alignments.segments[0].a, alignments.segments[0].b, subexons[tag].start, subexons[tag].end ) ;
 		ct.weight = 1 ;
 		ct.normAbund = 0 ;
 		ct.support = 1 ;
+		
+		//printf( "%s\n", alignments.GetReadId() ) ;
 		if ( ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
 				subexons, seCnt, tag, ct ) )
-		{	
+		{
+
+			//printf( "%s\n", alignments.GetReadId() ) ;
 			constraints.push_back( ct ) ; // if we just coalesced but the list size does not decrease, this will force capacity increase.
+			//printf( "ct.vector: %d %d\n", ct.vector.Test(0), ct.vector.Test(1) ) ;
 			// Add the mate-pair information.
 			int mateChrId ;
 			int64_t matePos ;
 			alignments.GetMatePosition( mateChrId, matePos ) ;
-			if ( mateChrId == mateChrId )
+			if ( alignments.GetChromId() == mateChrId )
 			{
+				
 				if ( matePos < alignments.segments[0].a )
 				{
 					int mateIdx = mateReadIds.Query( alignments.GetReadId(), alignments.segments[0].a ) ;
@@ -205,13 +224,12 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 						nm.abundance = 0 ;
 						nm.support = 1 ;
 						nm.effectiveCount = 2 ;
-
 						matePairs.push_back( nm ) ;
 					}
 				}
 				else if ( matePos > alignments.segments[0].a )
 				{
-					mateReadIds.Insert( alignments.GetReadId(), alignments.segments[0].a, size - 1, matePos ) ;					
+					mateReadIds.Insert( alignments.GetReadId(), alignments.segments[0].a, constraints.size() - 1, matePos ) ;					
 				}
 			}
 
@@ -231,9 +249,14 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			}
 		}
 		else
+		{
+			//printf( "not compatible\n" ) ;
 			ct.vector.Release() ;
+		}
 	}
+	//printf( "start coalescing. %d\n", constraints.capacity() ) ;
 	CoalesceSameConstraints() ;
+	//printf( "after coalescing. %d\n", constraints.capacity() ) ;
 	
 	// single-end data set
 	if ( matePairs.size() == 0 )
