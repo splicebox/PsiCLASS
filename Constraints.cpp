@@ -78,54 +78,60 @@ void Constraints::CoalesceSameConstraints()
 	newIdx.resize( size, 0 ) ;
 	
 	// Update the constraints.
-	std::sort( constraints.begin(), constraints.end(), CompSortConstraints ) ;
-
-	k = 0 ;
-	newIdx[ constraints[0].info ] = 0 ;
-	for ( i = 1 ; i < size ; ++i )
+	if ( size > 0 )
 	{
-		if ( constraints[k].vector.IsEqual( constraints[i].vector ) )
+		std::sort( constraints.begin(), constraints.end(), CompSortConstraints ) ;
+
+		k = 0 ;
+		newIdx[ constraints[0].info ] = 0 ;
+		for ( i = 1 ; i < size ; ++i )
 		{
-			constraints[k].support += constraints[i].support ; 
-			constraints[i].vector.Release() ;
+			if ( constraints[k].vector.IsEqual( constraints[i].vector ) )
+			{
+				constraints[k].support += constraints[i].support ; 
+				constraints[i].vector.Release() ;
+			}
+			else
+			{
+				++k ;
+				if ( k != i )
+					constraints[k] = constraints[i] ;
+			}
+			newIdx[ constraints[i].info ] = k ;
 		}
-		else
-		{
-			++k ;
-			if ( k != i )
-				constraints[k] = constraints[i] ;
-		}
-		newIdx[ constraints[i].info ] = k ;
+		constraints.resize( k + 1 ) ;
 	}
-	constraints.resize( k + 1 ) ;
-	
+
 	// Update the mate pairs.
 	size = matePairs.size() ;
-	for ( i = 0 ; i < size ; ++i )
+	if ( size > 0 )
 	{
-		//printf( "%d %d: %d => %d | %d =>%d\n", i, newIdx.size(), matePairs[i].i, newIdx[ matePairs[i].i ],
-		//	matePairs[i].j, newIdx[ matePairs[i].j ] ) ;
-		matePairs[i].i = newIdx[ matePairs[i].i ] ;
-		matePairs[i].j = newIdx[ matePairs[i].j ] ;
-	}
-	
-	std::sort( matePairs.begin(), matePairs.end(), CompSortMatePairs ) ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			//printf( "%d %d: %d => %d | %d =>%d\n", i, newIdx.size(), matePairs[i].i, newIdx[ matePairs[i].i ],
+			//	matePairs[i].j, newIdx[ matePairs[i].j ] ) ;
+			matePairs[i].i = newIdx[ matePairs[i].i ] ;
+			matePairs[i].j = newIdx[ matePairs[i].j ] ;
+		}
 
-	k = 0 ;
-	for ( i = 1 ; i < size ; ++i )
-	{
-		if ( matePairs[i].i == matePairs[k].i && matePairs[i].j == matePairs[k].j )
+		std::sort( matePairs.begin(), matePairs.end(), CompSortMatePairs ) ;
+
+		k = 0 ;
+		for ( i = 1 ; i < size ; ++i )
 		{
-			matePairs[k].support += matePairs[i].support ;
+			if ( matePairs[i].i == matePairs[k].i && matePairs[i].j == matePairs[k].j )
+			{
+				matePairs[k].support += matePairs[i].support ;
+			}
+			else
+			{
+				++k ;
+				matePairs[k] = matePairs[i] ;
+			}
 		}
-		else
-		{
-			++k ;
-			matePairs[k] = matePairs[i] ;
-		}
+		//printf( "%s: %d\n", __func__, matePairs[1].i) ;
+		matePairs.resize( k + 1 ) ;
 	}
-	//printf( "%s: %d\n", __func__, matePairs[1].i) ;
-	matePairs.resize( k + 1 ) ;
 
 	// Update the data structure for future mate pairs.
 	mateReadIds.UpdateIdx( newIdx ) ;
@@ -161,7 +167,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	int i ;
 	int tag = 0 ;
 	int coalesceThreshold = 16384 ;
-	
+	Alignments &alignments = *pAlignments ;
 	// Release the memory from previous gene.
 	int size = constraints.size() ;
 	
@@ -173,7 +179,6 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	}
 	std::vector<struct _matePairConstraint>().swap( matePairs ) ;
 	mateReadIds.Clear() ;
-
 	
 	// Start to build the constraints. 
 	while ( alignments.Next() )
@@ -254,10 +259,11 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			ct.vector.Release() ;
 		}
 	}
-	//printf( "start coalescing. %d\n", constraints.capacity() ) ;
+	//printf( "start coalescing. %d %d\n", constraints.size(), matePairs.size() ) ;
 	CoalesceSameConstraints() ;
-	//printf( "after coalescing. %d\n", constraints.capacity() ) ;
-	
+	//printf( "after coalescing. %d %d\n", constraints.size(), matePairs.size() ) ;
+	//for ( i = 0 ; i < matePairs.size() ; ++i )
+	//	printf( "matePair: %d %d %d\n", matePairs[i].i, matePairs[i].j, matePairs[i].support ) ;
 	// single-end data set
 	if ( matePairs.size() == 0 )
 	{
@@ -275,6 +281,8 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			matePairs.push_back( nm ) ;
 		}
 	}
+	
+	ComputeNormAbund( subexons ) ;
 
 	return 0 ;
 }

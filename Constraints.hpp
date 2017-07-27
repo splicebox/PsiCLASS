@@ -209,7 +209,7 @@ private:
 
 	MateReadIds mateReadIds ;
 
-	Alignments &alignments ;
+	Alignments *pAlignments ;
 	
 	//@return: whether this alignment is compatible with the subexons or not.
 	bool ConvertAlignmentToBitTable( struct _pair *segments, int segCnt, struct _subexon *subexons, int seCnt, int seStart, struct _constraint &ct ) ;
@@ -254,7 +254,7 @@ public:
 	std::vector<struct _constraint> constraints ;
 	std::vector<struct _matePairConstraint> matePairs ; 
 	
-	Constraints( Alignments &a ): alignments( a ) 
+	Constraints( Alignments *a ): pAlignments( a ) 
 	{
 	}
 	

@@ -231,7 +231,10 @@ public:
 
 	double Query( int i, int j )
 	{
-		return correlation[i][j] ;
+		if ( fileList.size() > 1 )
+			return correlation[i][j] ;
+		else
+			return 1.0 ;
 	}
 } ;
 

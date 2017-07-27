@@ -199,7 +199,7 @@ public:
 			offset = ( e + 1 ) & UNIT_MASK ;
 			for ( i = ind + 1 ; i < asize ; ++i )
 				tab[i] = 0 ;
-			tab[i] = ( tab[i] << ( UNIT_SIZE - offset ) ) >> ( UNIT_SIZE - offset ) ;
+			tab[ind] = ( tab[ind] << ( UNIT_SIZE - offset ) ) >> ( UNIT_SIZE - offset ) ;
 		}
 	}
 
@@ -274,6 +274,39 @@ public:
 		//	printf( "%llu ", tab[i] ) ;
 		//printf( "(%d)\n", ret ) ;
 		return ret ;
+	}
+
+	void GetOnesIndices( std::vector<int> &indices )
+	{
+		if ( size <= 0 )
+			return ;
+		UINT64 k ;
+		int i ;
+		int ind = 0 ;
+		for ( i = 0 ; i < asize - 1 ; ++i )
+		{
+			k = tab[i] ;
+			ind = i * UNIT_SIZE ; 
+			while ( k )
+				//for ( j = 0 ; j < UNIT_SIZE ; ++j ) 	
+			{
+				if ( k & 1 )
+					indices.push_back( ind ) ;
+				//printf( "### %d %d %d %d\n", ret, asize, size, k ) ;
+				k /= 2 ;
+				++ind ;
+			}
+		}
+		//printf( "(%d) ", ret ) ;	
+		k = tab[ asize - 1 ] ;
+		ind = i * UNIT_SIZE ; 
+		for ( i = 0 ; i < (int)( size & UNIT_MASK ) ; ++i )
+		{
+			if ( k & 1 )
+				indices.push_back( ind ) ;
+			k /= 2 ;
+			++ind ;
+		}
 	}
 
         bool IsEqual( const BitTable &in ) const// Test wether two bit tables equal.   
@@ -355,6 +388,7 @@ public:
 		int i ;
 		size = in.size ;
 		asize = in.asize ;
+		tab = new UINT64[ asize ]() ;
 		for ( i = 0 ; i < asize ; ++i )
 			tab[i] = in.tab[i] ;
 	}

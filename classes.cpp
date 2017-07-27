@@ -6,6 +6,7 @@
 #include "SubexonGraph.hpp"
 #include "SubexonCorrelation.hpp"
 #include "Constraints.hpp"
+#include "TranscriptDecider.hpp"
 
 char usage[] = "./classes [OPTIONS]:\n"
 	"Required:\n"
@@ -84,8 +85,18 @@ int main( int argc, char *argv[] )
 	subexonGraph.ComputeGeneIntervals() ;
 	
 	// Solve gene by gene
+	int sampleCnt = alignmentFiles.size() ;
+	std::vector<Constraints> multiSampleConstraints ;
+	for ( i = 0 ; i < sampleCnt ; ++i )
+	{
+		Constraints constraints( &alignmentFiles[i] ) ;
+		multiSampleConstraints.push_back( constraints ) ;
+	}
+	TranscriptDecider transcriptDecider( sampleCnt, alignmentFiles[0] ) ;
+
+	transcriptDecider.SetOutputFPs() ;
+
 	int giCnt = subexonGraph.geneIntervals.size() ;
-	Constraints constraints( alignmentFiles[0] ) ;
 	for ( i = 0 ; i < giCnt ; ++i )
 	{
 		struct _geneInterval gi = subexonGraph.geneIntervals[i] ;
@@ -93,9 +104,12 @@ int main( int argc, char *argv[] )
 		struct _subexon *intervalSubexons = new struct _subexon[ gi.endIdx - gi.startIdx + 1 ] ;
 		subexonGraph.ExtractSubexons( gi.startIdx, gi.endIdx, intervalSubexons ) ;
 		
-		subexonCorrelation.ComputeCorrelation( intervalSubexons, gi.endIdx - gi.startIdx + 1, alignmentFiles[0] ) ;		
-		constraints.BuildConstraints( intervalSubexons, gi.endIdx - gi.startIdx + 1, gi.start, gi.end ) ;	
+		subexonCorrelation.ComputeCorrelation( intervalSubexons, gi.endIdx - gi.startIdx + 1, alignmentFiles[0] ) ;
+		for ( j = 0 ; j < sampleCnt ; ++j )
+			multiSampleConstraints[j].BuildConstraints( intervalSubexons, gi.endIdx - gi.startIdx + 1, gi.start, gi.end ) ;	
 		
+		transcriptDecider.Solve( intervalSubexons, gi.endIdx - gi.startIdx + 1, multiSampleConstraints, subexonCorrelation ) ;
+
 		delete[] intervalSubexons ;
 	}
 	

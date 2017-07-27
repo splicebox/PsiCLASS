@@ -27,6 +27,13 @@ private:
 	struct _subexon *subexons ;
 	int seCnt ;
 
+	int *geneId ; // assign the gene id to each subexon in this region.
+	int usedGeneId ;
+	int *transcriptId ; // the next transcript id for each gene id (we shift the gene id to 0 in this array.)
+	Alignments &alignments ; // for obtain the chromosome names.
+
+	std::vector<FILE *> outputFPs ;
+
 	BitTable compatibleTestVectorT, compatibleTestVectorC ;
 
 	void SolveByEnumeration() ;
@@ -69,16 +76,44 @@ private:
 
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;
 
+	// The function to assign gene ids to subexons.
+	void SetGeneId( int tag, struct _subexon *subexons, int id ) ;
+
+	// Initialize the structure to store transcript id 
+	void InitTranscriptId( int baseGeneId, int usedGeneId ) ; 
+
+	void OutputTranscript( FILE *fp, int baseGeneId, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
-	TranscriptDecider( int sampleCnt ) 
+	TranscriptDecider( int sampleCnt, Alignments &a ): alignments( a )  
 	{
 		canBeSoftBoundaryThreshold = 0.05 ;
+		usedGeneId = 0 ;
 		this->sampleCnt = sampleCnt ;
 	}
-	~TranscriptDecider() {}
+	~TranscriptDecider() 
+	{
+		int i ;
+		int size = outputFPs.size() ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			fclose( outputFPs[i] ) ;
+		}
+	}
 	
 	// @return: the number of assembled transcript 
-	int Solve( struct _subexon *subexons, int seCnt, Constraints constraints[], SubexonCorrelation &subexonCorrelation ) ;
+	int Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation ) ;
+
+	void SetOutputFPs()
+	{
+		int i ;
+		char buffer[1024] ;
+		for ( i = 0 ; i < sampleCnt ; ++i )
+		{
+			sprintf( buffer, "sample_%d.gtf", i ) ;
+			FILE *fp = fopen( buffer, "w" ) ;
+			outputFPs.push_back( fp ) ;
+		}
+	}
 } ;
 
 #endif
