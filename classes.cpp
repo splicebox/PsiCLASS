@@ -110,6 +110,11 @@ int main( int argc, char *argv[] )
 		
 		transcriptDecider.Solve( intervalSubexons, gi.endIdx - gi.startIdx + 1, multiSampleConstraints, subexonCorrelation ) ;
 
+		for ( j = 0 ; j < gi.endIdx - gi.startIdx + 1 ; ++j )
+		{
+			delete[] intervalSubexons[j].prev ;
+			delete[] intervalSubexons[j].next ;
+		}
 		delete[] intervalSubexons ;
 	}
 	

@@ -42,14 +42,14 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 	char prefix[10] = "" ;
 
 	fprintf( fp, "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
-			chrom, subexons[a].start, subexons[b].end, strand,
+			chrom, subexons[a].start + 1, subexons[b].end + 1, strand,
 			prefix, chrom, geneId[a],
 			prefix, chrom, geneId[a], transcriptId[ geneId[a] - baseGeneId ], transcript.abundance ) ;
 	for ( i = 0 ; i < size ; ++i )
 	{
 		fprintf( fp, "%s\tCLASSES\texon\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; "
 				"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; Abundance \"%.6lf\"\n",
-				chrom, subexons[ subexonInd[i] ].start, subexons[ subexonInd[i] ].end, strand,
+				chrom, subexons[ subexonInd[i] ].start + 1, subexons[ subexonInd[i] ].end + 1, strand,
 				prefix, chrom, geneId[a],
 				prefix, chrom, geneId[a], transcriptId[ geneId[a] - baseGeneId ],
 				i + 1, transcript.abundance ) ;
@@ -83,6 +83,7 @@ void TranscriptDecider::InitTranscriptId( int baseGeneId, int usedGeneId )
 // the partial compatible case (return 2) mostly likely happen in DP where we have partial transcript.
 int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, struct _constraint &c ) 
 {
+	//printf( "%d %d, %d %d\n", c.first, c.last, transcript.first, transcript.last ) ;
 	if ( c.first < transcript.first || c.first > transcript.last ) // no overlap or starts too early.
 		return 0 ; 
 
@@ -91,7 +92,6 @@ int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, 
 	s = c.first ;
 	e = c.last ;
 	bool returnPartial = false ;
-
 	if ( e > transcript.last ) // constraints ends after the transcript.
 	{
 		if ( transcript.partial )	
@@ -176,7 +176,7 @@ void TranscriptDecider::EnumerateTranscript( int tag, int visit[], int vcnt, str
 {
 	int i ;
 	visit[ vcnt ] = tag ;
-
+	//printf( "%s: %d %d %d\n", __func__, vcnt, tag, subexons[tag].nextCnt ) ;
 	// Compute the correlation score
 	double minCor = correlationScore ;
 	for ( i = 0 ; i < vcnt - 1 ; ++i )
@@ -211,12 +211,13 @@ void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, con
 	std::vector<int> chosen ;
 	std::vector<struct _matePairConstraint> &tc = constraints.matePairs ;
 	int tcCnt = tc.size() ; // transcript constraints
+	if ( tcCnt == 0 )
+		return ;
 	double inf = -1 ; // infinity
 	int coalesceThreshold = 1024 ;
 	BitTable *btable = new BitTable[ atcnt ] ; 
 	for ( i = 0 ; i < atcnt ; ++i )
 		btable[i].Init( tcCnt ) ;
-
 	for ( j = 0 ; j < tcCnt ; ++j )
 	{
 		int a = constraints.matePairs[j].i ;
@@ -230,7 +231,7 @@ void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, con
 		tc[j].abundance = tc[j].normAbund ;
 	}
 	++inf ;
-
+	bool btableSet = false ;
 	for ( i = 0 ; i < atcnt ; ++i )
 	{
 		for ( j = 0 ; j < tcCnt ; ++j )
@@ -242,9 +243,17 @@ void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, con
 			if ( IsConstraintInTranscript( alltranscripts[i], constraints.constraints[a] ) == 1 
 					&& IsConstraintInTranscript( alltranscripts[i], constraints.constraints[b] ) == 1 )
 			{
+				//printf( "set btble[ %d ].Set( %d ): %d %d\n", i, j, a, b ) ;
 				btable[i].Set( j ) ;
+				btableSet = true ;
 			}
 		}
+	}
+	if ( btableSet == false )
+	{
+		for ( i = 0 ; i < atcnt ; ++i )
+			btable[i].Release() ;
+		delete[] btable ;
 	}
 
 	double maxAbundance = -1 ; // The abundance of the most-abundant transcript
@@ -355,6 +364,11 @@ void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, con
 
 	// Clean up the transcripts.
 	CoalesceSameTranscripts( transcripts ) ;
+
+	// Release the memory of btable.
+	for ( i = 0 ; i < atcnt ; ++i )
+		btable[i].Release() ;
+	delete[] btable ;
 }
 
 int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation )
@@ -443,19 +457,17 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 				EnumerateTranscript( i, f, 0, subexons, subexonCorrelation, 1, alltranscripts, atCnt ) ;
 		}
 		//printf( "transcript cnt: %d\n", atCnt ) ;
-
+		//printf( "%d %d\n", alltranscripts[0].seVector.Test( 1 ), constraints[0].matePairs.size() ) ;
 		transcriptId = new int[usedGeneId - baseGeneId] ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
 			std::vector<struct _transcript> predTranscripts ;
 			PickTranscripts( alltranscripts, atCnt, constraints[i], subexonCorrelation, predTranscripts ) ;
-
 			int size = predTranscripts.size() ;
 			InitTranscriptId( baseGeneId, usedGeneId ) ;
-			
 			for ( j = 0 ; j < size ; ++j )
 			{
-				OutputTranscript( stdout, baseGeneId, subexons, predTranscripts[j] ) ;
+				OutputTranscript( outputFPs[i], baseGeneId, subexons, predTranscripts[j] ) ;
 			}
 			for ( j = 0 ; j < size ; ++j )
 				predTranscripts[j].seVector.Release() ;

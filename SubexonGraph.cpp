@@ -124,11 +124,13 @@ int SubexonGraph::ExtractSubexons( int startIdx, int endIdx, struct _subexon *re
 	for ( i = 0 ; i < cnt ; ++i )
 	{
 		retList[i] = subexons[i + startIdx] ;
+		retList[i].prev = new int[ retList[i].prevCnt ]	;
+		retList[i].next = new int[ retList[i].nextCnt ] ;
 		
 		for ( j = 0 ; j < retList[i].prevCnt ; ++j )
-			retList[i].prev[j] -= startIdx ;
+			retList[i].prev[j] = subexons[i + startIdx].prev[j] - startIdx ;
 		for ( j = 0 ; j < retList[i].nextCnt ; ++j )
-			retList[i].next[j] -= startIdx ;
+			retList[i].next[j] = subexons[i + startIdx].next[j] - startIdx ;
 		
 		for ( j = 0, k = 0 ; j < retList[i].prevCnt ; ++j )
 			if ( retList[i].prev[j] >= 0 && retList[i].prev[j] < cnt )
