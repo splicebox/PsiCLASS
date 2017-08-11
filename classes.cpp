@@ -13,13 +13,13 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t-s STRING: path to the subexon file.\n"
 	"\t-b STRING: path to the BAM file.\n"
 	"Optional:\n"
-	"\t--sl STRING: path to the list of single-sample subexon files.\n"
+	"\t--ls STRING: path to the list of single-sample subexon files.\n"
 	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" ;
 
 static const char *short_options = "s:b:h" ;
 static struct option long_options[] =
 	{
-		{ "sl", required_argument, 0, 10000 },
+		{ "ls", required_argument, 0, 10000 },
 		{ (char *)0, 0, 0, 0} 
 	} ;
 

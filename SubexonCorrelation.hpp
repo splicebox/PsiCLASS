@@ -83,7 +83,10 @@ public:
 		double **depth ;
 		depth = new double* [sampleCnt] ; 
 		for ( i = 0 ; i < sampleCnt ; ++i )
+		{
 			depth[i] = new double[ cnt ] ; 
+			memset( depth[i], 0, sizeof( double ) * cnt ) ;
+		}
 		
 		char buffer[2048] ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
@@ -157,7 +160,6 @@ public:
 					break ;
 			}
 		}
-		
 		// Normalize the depth
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
@@ -199,7 +201,6 @@ public:
 		{
 			avg[i] /= sampleCnt ;
 			var[i] = var[i] / sampleCnt - avg[i] * avg[i] ;
-			
 		}
 		
 		for ( i = 0 ; i < sampleCnt ; ++i )
@@ -210,12 +211,15 @@ public:
 					correlation[j][k] += depth[i][j] * depth[i][k] ;	
 				}
 		for ( j = 0 ; j < cnt ; ++j )
-			for ( k = j + 1 ; j < cnt ; ++j )
+			for ( k = j + 1 ; k < cnt ; ++k )
 			{
-				if ( var[j] > 0 && var[k] > 0 )
+				if ( var[j] > 1e-6 && var[k] > 1e-6 )
+				{
 					correlation[j][k] = ( correlation[j][k] / sampleCnt - avg[j] * avg[k] ) / sqrt( var[j] * var[k] ) ;
+				}
 				else
 					correlation[j][k] = 0 ;
+				//printf( "%d %d %d\n", j, k, cnt ) ;
 				correlation[k][j] = correlation[j][k] ;
 			}
 		//printf( "%lf\n", correlation[0][1] ) ;

@@ -290,7 +290,6 @@ void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, con
 			double value = inf ;
 			double cnt = 0 ;
 			int allCnt = 0 ;
-
 			for ( j = 0 ; j < tcCnt ; ++j )
 			{
 				if ( btable[i].Test( j ) )
@@ -307,7 +306,9 @@ void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, con
 
 			if ( value == inf )
 				value = 1e-6 ;
-
+			if ( cnt == 0 ) // This transcript does not satisfy any undepleted constraints.
+				continue ;
+			
 			double score = ComputeScore( cnt, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;

@@ -4,7 +4,7 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 {
 	if ( visit[tag] == timeStamp )	
 		return ;
-	
+	//printf( "%d %d\n", tag, timeStamp ) ;
 	visit[tag] = timeStamp ;
 	if ( subexons[tag].end > boundary )
 		boundary = subexons[tag].end ;
@@ -16,8 +16,17 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 		int cnt = subexons[tag].nextCnt ;
 		for ( i = 0 ; i < cnt ; ++i )
 		{
+			//printf( "next of %d: %d %d\n", tag, i, subexons[tag].next[i] ) ;
 			GetGeneBoundary( subexons[tag].next[i], strand, boundary, timeStamp ) ;
 		}
+	}
+	else
+	{
+		// The only way to reach this subexon is through the adjacent exon bouldary
+		// like ]...]. So we can regard this subexon as unvisited, and let the
+		// procecure in GetGenintervalIdx to decide whether we want to include
+		// this subexon or not.
+		visit[tag] = -1 ;
 	}
 
 	if ( IsSameStrand( subexons[tag].leftStrand, strand ) )
@@ -25,6 +34,10 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 		int cnt = subexons[tag].prevCnt ;
 		for ( i = 0 ; i < cnt ; ++i )
 			GetGeneBoundary( subexons[tag].prev[i], strand, boundary, timeStamp ) ;
+	}
+	else
+	{
+		visit[tag] = -1 ;
 	}
 }
 
