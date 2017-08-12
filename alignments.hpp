@@ -8,6 +8,8 @@
 #include <string>
 #include <assert.h>
 #include <iostream>
+#include <stdlib.h>
+#include <math.h>
 
 #include "defs.h"
 
@@ -21,6 +23,12 @@ private:
 	bool opened ;	
 	std::map<std::string, int> chrNameToId ;
 	bool allowSupplementary ;
+
+
+	static int CompInt( const void *p1, const void *p2 )
+	{
+		return (*(int *)p1 ) - (*(int *)p2 ) ;
+	}
 
 	void Open()
 	{
@@ -43,7 +51,23 @@ public:
 	struct _pair segments[MAX_SEG_COUNT] ;		
 	int segCnt ;
 
-	Alignments() { b = NULL ; opened = false ; allowSupplementary = false ;}
+	int totalReadCnt ;
+	int fragLen, fragStdev ;
+	int readLen ;
+	bool matePaired ;
+	
+	Alignments() 
+	{ 
+		b = NULL ; 
+		opened = false ; 
+		allowSupplementary = false ;
+
+		totalReadCnt = 0 ;
+		fragLen = 0 ;
+		fragStdev = 0 ;
+		readLen = 0 ;
+		matePaired = false ;
+	}
 	~Alignments() {}
 
 	void Open( char *file )
@@ -284,6 +308,85 @@ public:
 	void SetAllowSupplementary( bool in )
 	{ 
 		allowSupplementary = in ;
+	}
+
+	void GetGeneralInfo()
+	{
+		int i, k ;
+
+		const int sampleMax = 1000000 ;
+		int *lens = new int[sampleMax] ;
+		int *mateDiff = new int[sampleMax] ;
+		int lensCnt = 0 ;
+		int mateDiffCnt = 0 ;
+		bool end = false ;
+
+		while ( 1 )
+		{
+			while ( 1 )
+			{
+				if ( b )
+					bam_destroy1( b ) ;
+				b = bam_init1() ;
+
+				if ( samread( fpSam, b ) <= 0 )
+				{
+					end = true ;
+					break ;
+				}
+				if ( b->core.flag & 0xC )
+					continue ;
+
+				if ( ( b->core.flag & 0x900 ) == 0 )
+					break ;
+			}
+			if ( end )
+				break ;
+			
+			if ( lensCnt < sampleMax )
+			{
+				lens[ lensCnt ] = b->core.l_qseq ; 
+				++lensCnt ;
+			}
+
+			if ( mateDiffCnt < sampleMax && b->core.tid == b->core.mtid 
+				&& b->core.pos < b->core.mpos )
+			{
+				mateDiff[ mateDiffCnt ] = b->core.mpos - b->core.pos ;
+				++mateDiffCnt ;
+			}
+			++totalReadCnt ; 
+		}
+
+		// Get the read length info and fragment length info
+		qsort( lens, lensCnt, sizeof( int ), CompInt ) ;
+		readLen = lens[ lensCnt - 1 ] ;
+		
+		if ( mateDiffCnt > 0 )
+		{
+			matePaired = true ;
+
+			qsort( mateDiff, mateDiffCnt, sizeof( int ), CompInt ) ;
+			long long int sum = 0 ;
+			long long int sumsq = 0 ;
+			
+			for ( i = 0 ; i < mateDiffCnt * 0.7 ; ++i )
+			{
+				sum += mateDiff[i] ;
+				sumsq += mateDiff[i] * mateDiff[i] ;
+			}
+			k = i ;
+			fragLen = (int)( sum / k ) ;
+			fragStdev = (int)sqrt( sumsq / k - fragLen * fragLen ) ;
+		}
+		else
+		{
+			fragLen = readLen ;
+			fragStdev = 0 ;
+		}
+		printf( "readLen = %d\nfragLen = %d, fragStdev = %d\n", readLen, fragLen, fragStdev ) ;		
+		delete[] lens ;
+		delete[] mateDiff ;
 	}
 } ;
 #endif

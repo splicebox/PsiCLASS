@@ -29,6 +29,7 @@ double classifierThreshold ;
 int main( int argc, char *argv[] )
 {
 	int i, j, k ;
+	int size ;
 
 	if ( argc <= 1 )
 	{
@@ -78,6 +79,13 @@ int main( int argc, char *argv[] )
 	{
 		printf( "Must use -b option to specify BAM files.\n" ) ;
 		exit( 1 ) ;
+	}
+	
+	size = alignmentFiles.size() ;
+	for ( i = 0 ; i < size ; ++i )
+	{
+		alignmentFiles[i].GetGeneralInfo() ;
+		alignmentFiles[i].Rewind() ;
 	}
 
 	// Build the subexon graph
