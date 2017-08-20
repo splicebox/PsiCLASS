@@ -90,6 +90,7 @@ public:
 	{
 		if ( tab != NULL )
 			delete[] tab ;
+		tab = NULL ;
 	}
 
 	void Reset()  // Make every value 0.

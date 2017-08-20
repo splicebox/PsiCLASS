@@ -17,6 +17,34 @@ struct _transcript
 	bool partial ; // wehther this is a partial transcript.
 } ;
 
+struct _dp
+{
+	BitTable seVector ; 
+	int first, last ;
+	// The "cnt" is for the hash structure.
+	// the first cnt set bits represent the subexons that are the key of the hash
+	// the remaining set bits are the optimal subtranscript follow the key.
+	int cnt ; 
+	double cover ;
+
+	double minAbundance ;
+	int timeStamp ;
+} ;
+
+
+struct _dpAttribute
+{
+	struct _dp *f1, **f2 ;
+	struct _dp *hash ;
+
+	bool forAbundance ;
+
+	struct _subexon *subexons ;
+	int seCnt ;
+
+	double minAbundance ;
+	int timeStamp ;
+} ;
 
 class TranscriptDecider
 {
@@ -36,8 +64,22 @@ private:
 
 	BitTable compatibleTestVectorT, compatibleTestVectorC ;
 
-	void SolveByEnumeration() ;
-	void PickTranscriptByDP() ;
+	// The functions to pick transcripts through dynamic programming
+	void SearchSubTranscript( int tag, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, std::vector<struct _constraint> tc, int tcStartInd, struct _dpAttritbute &attr ) ;
+	int SolveSubTranscript( int visit[], int vcnt, std::vector<struct _constraint> tc, int tcStartInd, struct _dpAttribute &attr ) ;
+	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &transcripts ) ;
+
+	void SetDpContent( struct _dp &a, struct _dp &b, const struct _dpAttribute &attr )
+	{
+		a.seVector.Assign( b.seVector ) ;
+		a.first = b.first ;
+		a.last = b.last ;
+		a.cnt = b.cnt ;
+		a.cover = b.cover ;
+		
+		a.minAbundance = attr.minAbundance ;
+		a.timeStamp = attr.timeStamp ;
+	}
 
 	double canBeSoftBoundaryThreshold ;
 
@@ -49,7 +91,7 @@ private:
 	int SubTranscriptCount( int tag, struct _subexon *subexons, int f[] ) ;
 
 	// The methods when there is no need for DP
-	void EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, struct _transcript *alltranscripts, int &atcnt ) ;
+	void EnumerateTranscript( int tag, int visit[], int vcnt, int extends[], int extendCnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, struct _transcript *alltranscripts, int &atcnt ) ;
 	// For the simpler case, we can pick sample by sample.
 	void PickTranscripts( struct _transcript *alltranscripts, const int &atcnt, Constraints &constraints, SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) ; 
 
@@ -68,6 +110,11 @@ private:
 		else
 			return false ;
 	} 
+
+	static int CompExtendsPairs( const void *p1, const void *p2 )
+	{
+		return ((struct _pair32 *)p1)->b - ((struct _pair32 *)p2)->b ;
+	}
 
 	double ComputeScore( double cnt, double a, double A, double correlation )
 	{
