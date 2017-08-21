@@ -37,6 +37,8 @@ struct _dpAttribute
 	struct _dp *f1, **f2 ;
 	struct _dp *hash ;
 
+	struct _transcript bufferTxpt ;
+
 	bool forAbundance ;
 
 	struct _subexon *subexons ;
@@ -65,8 +67,8 @@ private:
 	BitTable compatibleTestVectorT, compatibleTestVectorC ;
 
 	// The functions to pick transcripts through dynamic programming
-	void SearchSubTranscript( int tag, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, std::vector<struct _constraint> tc, int tcStartInd, struct _dpAttritbute &attr ) ;
-	int SolveSubTranscript( int visit[], int vcnt, std::vector<struct _constraint> tc, int tcStartInd, struct _dpAttribute &attr ) ;
+	void SearchSubTranscript( int tag, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
+	struct _dp SolveSubTranscript( int visit[], int vcnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
 	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &allTranscripts ) ;
 
 	void SetDpContent( struct _dp &a, struct _dp &b, const struct _dpAttribute &attr )
@@ -91,7 +93,7 @@ private:
 	int SubTranscriptCount( int tag, struct _subexon *subexons, int f[] ) ;
 
 	// The methods when there is no need for DP
-	void EnumerateTranscript( int tag, int visit[], int vcnt, int extends[], int extendCnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, struct _transcript *alltranscripts, int &atcnt ) ;
+	void EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, struct _transcript *alltranscripts, int &atcnt ) ;
 	// For the simpler case, we can pick sample by sample.
 	void PickTranscripts( struct _transcript *alltranscripts, const int &atcnt, Constraints &constraints, SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) ; 
 
