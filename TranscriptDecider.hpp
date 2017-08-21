@@ -67,7 +67,7 @@ private:
 	// The functions to pick transcripts through dynamic programming
 	void SearchSubTranscript( int tag, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, std::vector<struct _constraint> tc, int tcStartInd, struct _dpAttritbute &attr ) ;
 	int SolveSubTranscript( int visit[], int vcnt, std::vector<struct _constraint> tc, int tcStartInd, struct _dpAttribute &attr ) ;
-	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &transcripts ) ;
+	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &allTranscripts ) ;
 
 	void SetDpContent( struct _dp &a, struct _dp &b, const struct _dpAttribute &attr )
 	{
