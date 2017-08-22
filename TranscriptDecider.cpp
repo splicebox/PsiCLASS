@@ -173,7 +173,7 @@ void TranscriptDecider::CoalesceSameTranscripts( std::vector<struct _transcript>
 	t.resize( k + 1 ) ;
 }
 
-void TranscriptDecider::EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, struct _transcript *alltranscripts, int &atcnt )
+void TranscriptDecider::EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, std::vector<struct _transcript> &alltranscripts, int &atcnt )
 {
 	int i ;
 	visit[ vcnt ] = tag ;
@@ -207,7 +207,7 @@ void TranscriptDecider::EnumerateTranscript( int tag, int visit[], int vcnt, str
 void TranscriptDecider::SearchSubTranscript( int tag, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt,
 std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) 
 {
-	int i, j, k ;
+	int i ;
 	int size ;
 	double cover ;
 	bool keepSearch = true ;
@@ -256,6 +256,7 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 	}
 
 	// the constraints across the parents and visit.
+	size = tc.size() ;
 	if ( visitdp.cover >= 0 )
 	{
 		cover = visitdp.cover ;
@@ -371,9 +372,9 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 
 struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) 
 {
-	int i, k ;
+	int i ;
 	int size ;
-	bool belowMin ;
+	
 	// Test whether it is stored in dp 
 	if ( vcnt == 1 )
 	{
@@ -445,6 +446,12 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 				break ;
 			if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
 			{
+				if ( tc[i].normAbund < attr.minAbundance )
+				{
+					cover = -2 ;
+					break ;
+				}
+
 				if ( tc[i].abundance <= 0 )
 					continue ;
 				if ( attr.forAbundance )
@@ -456,13 +463,11 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 					++cover ;	
 			}
 		}
-		if ( cover > 0 )
-		{
-			visitdp.seVector.Assign( subTxpt.seVector ) ;		
-			visitdp.cover = cover ;
-			visitdp.first = visit[0] ;
-			visitdp.last = visit[vcnt - 1] ;
-		}
+
+		visitdp.seVector.Assign( subTxpt.seVector ) ;		
+		visitdp.cover = cover ;
+		visitdp.first = visit[0] ;
+		visitdp.last = visit[vcnt - 1] ;
 	}
 	
 	// Now we extend.
@@ -622,7 +627,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			
 			if ( maxCoverDp.cover == -1 )
 				break ;
-
+			// the abundance for the max cover txpt.
 			double min = -1 ;
 			for ( i = 0 ; i < size ; ++i )
 			{
@@ -724,12 +729,13 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 }
 
 // Pick the transcripts from given transcripts.
-void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, const int &atcnt, Constraints &constraints, 
+void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltranscripts, Constraints &constraints, 
 		SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) 
 {
 	int i, j ;
 	std::vector<int> chosen ;
 	std::vector<struct _matePairConstraint> &tc = constraints.matePairs ;
+	int atcnt = alltranscripts.size() ;
 	int tcCnt = tc.size() ; // transcript constraints
 	if ( tcCnt == 0 )
 		return ;
@@ -809,7 +815,7 @@ void TranscriptDecider::PickTranscripts( struct _transcript *alltranscripts, con
 		{
 			double value = inf ;
 			double cnt = 0 ;
-			int allCnt = 0 ;
+			
 			for ( j = 0 ; j < tcCnt ; ++j )
 			{
 				if ( btable[i].Test( j ) )
@@ -961,10 +967,10 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 
 	int atCnt = cnt ;
 
+	std::vector<struct _transcript> alltranscripts ;
 	if ( !useDP )
 	{
-		struct _transcript *alltranscripts = new struct _transcript[atCnt] ;
-
+		alltranscripts.resize( atCnt ) ;
 		for ( i = 0 ; i < atCnt ; ++i )
 		{
 			alltranscripts[i].seVector.Init( seCnt ) ; 
@@ -979,30 +985,39 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		}
 		//printf( "transcript cnt: %d\n", atCnt ) ;
 		//printf( "%d %d\n", alltranscripts[0].seVector.Test( 1 ), constraints[0].matePairs.size() ) ;
-		transcriptId = new int[usedGeneId - baseGeneId] ;
-		for ( i = 0 ; i < sampleCnt ; ++i )
-		{
-			std::vector<struct _transcript> predTranscripts ;
-			PickTranscripts( alltranscripts, atCnt, constraints[i], subexonCorrelation, predTranscripts ) ;
-			int size = predTranscripts.size() ;
-			InitTranscriptId( baseGeneId, usedGeneId ) ;
-			for ( j = 0 ; j < size ; ++j )
-			{
-				OutputTranscript( outputFPs[i], baseGeneId, subexons, predTranscripts[j] ) ;
-			}
-			for ( j = 0 ; j < size ; ++j )
-				predTranscripts[j].seVector.Release() ;
-		}
-		delete []transcriptId ;
-
-		for ( i = 0 ; i < atCnt ; ++i )
-			alltranscripts[i].seVector.Release() ;
-		delete[] alltranscripts ;
 	}
 	else
 	{
-		;
+		std::vector<struct _transcript> sampleTranscripts ;
+		for ( i = 0 ; i < sampleCnt ; ++i )
+		{
+			PickTranscriptsByDP( subexons, seCnt, constraints[i], sampleTranscripts ) ;		
+			int size = sampleTranscripts.size() ;
+			for ( j = 0 ; j < size ; ++j )
+				alltranscripts.push_back( sampleTranscripts[j] ) ;
+		}
+		// we can further pick a smaller subsets of transcripts here if the number is still to big. 
+		CoalesceSameTranscripts( alltranscripts ) ;
 	}
+
+	transcriptId = new int[usedGeneId - baseGeneId] ;
+	for ( i = 0 ; i < sampleCnt ; ++i )
+	{
+		std::vector<struct _transcript> predTranscripts ;
+		PickTranscripts( alltranscripts, constraints[i], subexonCorrelation, predTranscripts ) ;
+		int size = predTranscripts.size() ;
+		InitTranscriptId( baseGeneId, usedGeneId ) ;
+		for ( j = 0 ; j < size ; ++j )
+		{
+			OutputTranscript( outputFPs[i], baseGeneId, subexons, predTranscripts[j] ) ;
+		}
+		for ( j = 0 ; j < size ; ++j )
+			predTranscripts[j].seVector.Release() ;
+	}
+	delete []transcriptId ;
+
+	for ( i = 0 ; i < atCnt ; ++i )
+		alltranscripts[i].seVector.Release() ;
 
 	delete[] geneId ;
 	return 0 ;	

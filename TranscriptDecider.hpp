@@ -93,9 +93,9 @@ private:
 	int SubTranscriptCount( int tag, struct _subexon *subexons, int f[] ) ;
 
 	// The methods when there is no need for DP
-	void EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, struct _transcript *alltranscripts, int &atcnt ) ;
+	void EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, std::vector<struct _transcript> &alltranscripts, int &atcnt ) ;
 	// For the simpler case, we can pick sample by sample.
-	void PickTranscripts( struct _transcript *alltranscripts, const int &atcnt, Constraints &constraints, SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) ; 
+	void PickTranscripts( std::vector<struct _transcript> &alltranscripts, Constraints &constraints, SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) ; 
 
 	static bool CompSortTranscripts( const struct _transcript &a, const struct _transcript &b )
 	{
