@@ -16,6 +16,7 @@ struct _constraint
 	BitTable vector ; // subexon vector
 	double weight ;
 	double normAbund ;
+	double abundance ;
 	int support ;
 
 	int info ; // other usages.

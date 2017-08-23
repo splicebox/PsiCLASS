@@ -400,6 +400,19 @@ public:
 		for ( i = 0 ; i < asize ; ++i )
 			tab[i] = in.tab[i] ;
 	}
+
+	void Nullify()
+	{
+		tab = NULL ;
+	}
+
+	/*void Print()
+	{
+		int i ;
+		for ( i = 0 ; i < asize; ++i )
+			printf( "%lld ", tab[i] ) ;
+		printf( "\n" ) ;
+	}*/
 } ;
 
 

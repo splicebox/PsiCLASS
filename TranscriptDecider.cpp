@@ -13,6 +13,7 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 	// Determine the strand
 	char strand[2] = "." ;
 	int size = subexonInd.size() ;
+	
 	if ( size > 1 )
 	{
 		// locate the intron showed up in this transcript.
@@ -236,70 +237,70 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		if ( IsConstraintInTranscript( subTxpt, tc[ extends[i] ] ) == 0 )
 			--i ;
 	extendCnt = i + 1 ;
-	
-	subTxpt.seVector.Reset() ;
-	for ( i = 0 ; i < pcnt ; ++i ) 
-		subTxpt.seVector.Set( parents[i] ) ;
-	subTxpt.first = parents[0] ;
-	subTxpt.last = parents[ pcnt - 1] ;
+
+	// If the extension ends.
 	subTxpt.partial = false ;
 	if ( subexons[tag].nextCnt > 0 && ( extendCnt == 0 || tag >= tc[ extends[ extendCnt - 1 ] ].last ) )
 	{
 		// Solve the subtranscript beginning with visit.
 		// Now we got the optimal transcript for visit. 
 		visitdp = SolveSubTranscript( visit, vcnt, tc, tcStartInd, attr ) ;	
-
-		subTxpt.seVector.Or( visitdp.seVector ) ;
-		subTxpt.last = visitdp.last ;
-		
 		keepSearch = false ;
 	}
+	//printf( "%s %d %d: visitdp.cover=%lf\n", __func__, parents[0], tag, visitdp.cover ) ;
 
 	// the constraints across the parents and visit.
 	size = tc.size() ;
 	if ( visitdp.cover >= 0 )
 	{
 		cover = visitdp.cover ;
-		if ( cover != -2 )
+		// Reset the subTxpt, since its content is modofitied in SolveSubTxpt called above.
+		subTxpt.seVector.Reset() ;
+		for ( i = 0 ; i < pcnt ; ++i ) 
+			subTxpt.seVector.Set( parents[i] ) ;
+		subTxpt.seVector.Or( visitdp.seVector ) ;
+		subTxpt.first = parents[0] ;
+		subTxpt.last = visitdp.last ;
+		subTxpt.partial = false ;
+
+		for ( i = tcStartInd ; i < size ; ++i )		
 		{
-			for ( i = tcStartInd ; i < size ; ++i )		
+			if ( tc[i].first > parents[ pcnt - 1] )
+				break ;
+
+			if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
 			{
-				if ( tc[i].first > parents[ pcnt - 1] )
-					break ;
-
-				if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
+				if ( tc[i].normAbund <= attr.minAbundance )
 				{
-					if ( tc[i].normAbund <= attr.minAbundance )
-					{
-						belowMin = true ;
-						break ;
-					}
+					belowMin = true ;
+					cover = -2 ;
+					break ;
+				}
 
-					if ( tc[i].abundance <= 0 )
-						continue ;
+				if ( tc[i].abundance <= 0 )
+					continue ;
 
-					if ( attr.forAbundance )
-					{
-						if ( tc[i].normAbund < cover || cover == 0 )
-							cover = tc[i].normAbund ;
-					}
-					else
-					{
-						++cover ;
-					}
+				if ( attr.forAbundance )
+				{
+					if ( tc[i].normAbund < cover || cover == 0 )
+						cover = tc[i].normAbund ;
+				}
+				else
+				{
+					++cover ;
 				}
 			}
-			if ( belowMin && pdp.cover == -1 )	
-			{
-				pdp.cover = -2 ;
-			}
-			else if ( cover > pdp.cover )
-			{
-				pdp.cover = cover ;
-				pdp.seVector.Assign( subTxpt.seVector ) ;
-				pdp.first = visit[0] ;
-				pdp.last = visitdp.last ;
-			}
+		}
+		if ( belowMin && pdp.cover == -1 )	
+		{
+			pdp.cover = -2 ;
+		}
+		else if ( cover > pdp.cover )
+		{
+			pdp.cover = cover ;
+			pdp.seVector.Assign( subTxpt.seVector ) ;
+			pdp.first = visit[0] ;
+			pdp.last = visitdp.last ;
 		}
 	}
 	if ( subexons[tag].canBeEnd && ( visitdp.cover < 0 || attr.forAbundance ) ) 
@@ -320,14 +321,17 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 
 		cover = 0 ;
 		for ( i = tcStartInd ; i < size ; ++i )		
-		{
-			if ( tc[i].first > parents[ pcnt - 1] )
+		{ 
+			// note that the value is parents[ pcnt - 1], because  
+			// in above the part of "visit" is computed in SolveSubTranscript( visit ).
+			if ( tc[i].first > visit[ vcnt - 1] )
 				break ;
 			if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
 			{
 				if ( tc[i].normAbund <= attr.minAbundance )
 				{
 					belowMin = true ;
+					cover = -2 ;
 					break ;
 				}
 
@@ -358,6 +362,7 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 			pdp.last = visit[vcnt - 1] ;
 		}
 	}
+	//printf( "%s %d: pdp.cover=%lf\n", __func__, tag, pdp.cover ) ;
 
 	// keep searching.
 	if ( keepSearch )	
@@ -374,11 +379,14 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 {
 	int i ;
 	int size ;
-	
+	/*printf( "%s: ", __func__ ) ;	
+	for ( i = 0 ; i < vcnt ; ++i )
+		printf( "%d ", visit[i] ) ;
+	printf( "\n" ) ;*/
 	// Test whether it is stored in dp 
 	if ( vcnt == 1 )
 	{
-		if ( attr.f1[ visit[0] ].cover != -1 && ( attr.f1[ visit[0] ].timeStamp == attr.timeStamp ||
+		if ( attr.f1[ visit[0] ].cover != -1 && ( attr.f1[ visit[0] ].timeStamp == attr.timeStamp  || 
 			( attr.f1[ visit[0] ].minAbundance < attr.minAbundance && attr.f1[visit[0]].cover == -2 ) ) )
 			return attr.f1[ visit[0] ] ;
 	}
@@ -442,11 +450,11 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 		double cover = 0 ;
 		for ( i = tcStartInd ; i < size ; ++i )		
 		{
-			if ( tc[i].first > subTxpt.first )
+			if ( tc[i].first > subTxpt.last )
 				break ;
 			if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
 			{
-				if ( tc[i].normAbund < attr.minAbundance )
+				if ( tc[i].normAbund <= attr.minAbundance )
 				{
 					cover = -2 ;
 					break ;
@@ -463,20 +471,24 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 					++cover ;	
 			}
 		}
-
-		visitdp.seVector.Assign( subTxpt.seVector ) ;		
-		visitdp.cover = cover ;
-		visitdp.first = visit[0] ;
-		visitdp.last = visit[vcnt - 1] ;
+		if ( cover >= 0 )
+		{
+			visitdp.seVector.Assign( subTxpt.seVector ) ;		
+			visitdp.cover = cover ;
+			visitdp.first = visit[0] ;
+			visitdp.last = visit[vcnt - 1] ;
+		}
 	}
 	
 	// Now we extend.
 	size = subexons[ visit[vcnt - 1] ].nextCnt ;
-	int *extends = new int[tc.size() - tcStartInd] ;
+	int *extends = new int[tc.size() - tcStartInd + 1] ;
 	int extendCnt = 0 ;
 	subTxpt.partial = true ;
 	for ( i = tcStartInd ; i < size ; ++i )
 	{
+		if ( tc[i].first > subTxpt.last )
+			break ;
 		if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 2 )
 		{
 			extends[extendCnt] = i ;
@@ -504,14 +516,16 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 
 	size = subexons[ visit[vcnt - 1] ].nextCnt ;
 	int nextvCnt = 1 ;
-	if ( extends[ extendCnt ] > 1 )
-		nextvCnt = extends[ extendCnt ] ;
+	if ( extendCnt > 0 && extends[ extendCnt - 1 ] - visit[ vcnt - 1 ] > 1 )
+		nextvCnt = extends[ extendCnt - 1 ] - visit[ vcnt - 1 ] ;
 	int *nextv = new int[ nextvCnt ] ;
 	for ( i = 0 ; i < size ; ++i )
 	{
 		SearchSubTranscript( subexons[ visit[vcnt - 1] ].next[i], visit, vcnt, visitdp, nextv, 0, extends, 0, tc, tcStartInd, attr ) ;		
 	}
+	//printf( "%s %d: %lf\n", __func__, visit[0], visitdp.cover ) ;	
 	delete[] nextv ;
+	delete[] extends ;
 
 	// store the result in the dp structure.
 	// We return the structure stored in dp to simplify the memory access pattern.
@@ -538,7 +552,6 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 		visitdp.seVector.Release() ;
 		return attr.hash[key] ;
 	}
-
 }
 
 void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &alltranscripts )
@@ -558,23 +571,29 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	attr.timeStamp = 1 ;
 	attr.bufferTxpt.seVector.Init( seCnt ) ;
 	attr.subexons = subexons ;
+	attr.seCnt = seCnt ;
 
 	double maxAbundance = -1 ;
 	// Initialize the dp data structure
 	memset( attr.f1, -1, sizeof( struct _dp ) * seCnt ) ;
-	memset( attr.f2, -1, sizeof( struct _dp ) * seCnt * seCnt ) ;
+	for ( i = 0 ; i < seCnt ; ++i )
+		memset( attr.f2[i], -1, sizeof( struct _dp ) * seCnt ) ;
 	memset( attr.hash, -1, sizeof( struct _dp ) * HASH_MAX ) ;
 	for ( i = 0 ; i < seCnt ; ++i )
 	{
+		attr.f1[i].seVector.Nullify() ;
 		attr.f1[i].seVector.Init( seCnt ) ;
 		for ( j = i ; j < seCnt ; ++j )
 		{
+			attr.f2[i][j].seVector.Nullify() ;
 			attr.f2[i][j].seVector.Init( seCnt ) ;
 		}
 	}
 	for ( i = 0 ; i < HASH_MAX ; ++i )
+	{
+		attr.hash[i].seVector.Nullify() ;
 		attr.hash[i].seVector.Init( seCnt ) ;
-	attr.bufferTxpt.seVector.Init( seCnt ) ;
+	}
 
 	size = tc.size() ;
 	// Find the max abundance 
@@ -592,37 +611,45 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				maxAbundance = tmp.cover ;
 		}
 	}
-
+	//printf( "maxAbundance=%lf\n", maxAbundance ) ;
+	
 	// Pick the transcripts
 	// Notice that by the logic in SearchSubTxpt and SolveSubTxpt, we don't need to reinitialize the data structure.
 	attr.forAbundance = false ;
 	int *coveredTc = new int[size] ;
 	int coveredTcCnt ;
+	struct _dp maxCoverDp ;
+	struct _dp bestDp ;
+
+	maxCoverDp.seVector.Init( seCnt ) ;
+	bestDp.seVector.Init( seCnt ) ;
 	while ( 1 )
 	{
-		struct _dp maxCoverDp ;
-		struct _dp bestDp ;
 		double bestScore ;
 		
 		// iterately assign constraints
 		attr.minAbundance = 0 ;	
-		++attr.timeStamp ;
 		
 		// Find the best candidate transcript.
-		maxCoverDp.cover = -1 ;
 		bestDp.cover = -1 ;
 		bestScore = -1 ;
 		while ( 1 )
 		{
 			// iterate the change of minAbundance
+			maxCoverDp.cover = -1 ;
+			++attr.timeStamp ;
 			for ( i = 0 ; i < seCnt ; ++i )		
 			{
+				if ( subexons[i].canBeStart == false )
+					continue ;
 				int visit[1] = {i} ;
 				struct _dp tmp ;
 				tmp = SolveSubTranscript( visit, 1, tc, 0, attr ) ;
 
-				if ( tmp.cover > maxCoverDp.cover )
-					maxCoverDp = tmp ;
+				if ( tmp.cover > maxCoverDp.cover && tmp.cover > 0 )
+				{
+					SetDpContent( maxCoverDp, tmp, attr ) ;
+				}
 			}
 			
 			if ( maxCoverDp.cover == -1 )
@@ -646,15 +673,14 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			if ( bestScore == -1 || score > bestScore )	
 			{
 				bestScore = score ;
-				bestDp = maxCoverDp ;
+				SetDpContent( bestDp, maxCoverDp, attr ) ;
 			}
-
+			//printf( "min=%lf\n", min ) ;
 			attr.minAbundance = min ;
 		}
 
-		if ( bestDp.cover == 0 )
+		if ( bestDp.cover == -1 )
 			break ;
-
 		// Assign the constraints.
 		coveredTcCnt = 0 ;
 		double update = -1 ;
@@ -677,7 +703,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		}
 
 		struct _transcript nt ;
-		nt.seVector.Duplicate( bestDp.seVector ) ; // notice that bestTxpt actually uses memory from the dp structure.
+		nt.seVector.Duplicate( bestDp.seVector ) ; 
 		nt.first = bestDp.first ;
 		nt.last = bestDp.last ;
 		nt.abundance = 0 ;
@@ -724,8 +750,11 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	delete[] attr.f1 ;
 	for ( i = 0 ; i < seCnt ; ++i )
 		delete[] attr.f2[i] ;
+	delete[] attr.f2 ;
 	delete[] attr.hash ;
 	delete[] coveredTc ;	
+	maxCoverDp.seVector.Release() ;
+	bestDp.seVector.Release() ;
 }
 
 // Pick the transcripts from given transcripts.
@@ -803,7 +832,8 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 		if ( value > maxAbundance )
 			maxAbundance = value ;
 	}
-
+	//printf( "%s: %lf\n", __func__, maxAbundance ) ;
+	
 	while ( 1 )
 	{
 		double max = -1 ;
@@ -914,13 +944,16 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 
 		if ( subexons[i].prevCnt == 0 )
 			subexons[i].canBeStart = true ;
-		else if ( subexons[i].leftClassifier < canBeSoftBoundaryThreshold )
+		else if ( subexons[i].leftClassifier < canBeSoftBoundaryThreshold && subexons[i].leftClassifier != -1 
+			&& subexons[i].leftStrand != 0 ) // The case of overhang.
 			subexons[i].canBeStart = true ;
 
 		if ( subexons[i].nextCnt == 0 )
 			subexons[i].canBeEnd = true ;
-		else if ( subexons[i].rightClassifier < canBeSoftBoundaryThreshold )
+		else if ( subexons[i].rightClassifier < canBeSoftBoundaryThreshold && subexons[i].rightClassifier != -1 
+			&& subexons[i].rightStrand != 0 )
 			subexons[i].canBeEnd = true ;
+		//printf( "%d: %d %lf\n", subexons[i].canBeStart, subexons[i].prevCnt, subexons[i].leftClassifier ) ;
 	}
 
 	geneId = new int[ seCnt ] ;
@@ -966,8 +999,9 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	}
 
 	int atCnt = cnt ;
-
+	//printf( "atCnt=%d\n", atCnt ) ;
 	std::vector<struct _transcript> alltranscripts ;
+	useDP = true ;
 	if ( !useDP )
 	{
 		alltranscripts.resize( atCnt ) ;
@@ -986,7 +1020,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		//printf( "transcript cnt: %d\n", atCnt ) ;
 		//printf( "%d %d\n", alltranscripts[0].seVector.Test( 1 ), constraints[0].matePairs.size() ) ;
 	}
-	else
+	else // Use dynamic programming to pick a set of candidate transcript.
 	{
 		std::vector<struct _transcript> sampleTranscripts ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
@@ -999,7 +1033,6 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		// we can further pick a smaller subsets of transcripts here if the number is still to big. 
 		CoalesceSameTranscripts( alltranscripts ) ;
 	}
-
 	transcriptId = new int[usedGeneId - baseGeneId] ;
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
@@ -1016,9 +1049,12 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	}
 	delete []transcriptId ;
 
+	atCnt = alltranscripts.size() ;
 	for ( i = 0 ; i < atCnt ; ++i )
 		alltranscripts[i].seVector.Release() ;
-
+	compatibleTestVectorT.Release() ;
+	compatibleTestVectorC.Release() ;
+	delete[] f ;
 	delete[] geneId ;
 	return 0 ;	
 }

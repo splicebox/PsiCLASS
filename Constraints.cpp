@@ -143,12 +143,14 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 	int ctSize = constraints.size() ;
 	for ( i = 0 ; i < ctSize ; ++i )
 	{
+		// TODO: put in read length here.
 		int effectiveLength = subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 ;
 		int tmp = subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 ;
 		if ( tmp < effectiveLength )
 			effectiveLength = tmp ;
 		
 		constraints[i].normAbund = (double)constraints[i].support / (double)effectiveLength ;
+		constraints[i].abundance = constraints[i].normAbund ;
 	}
 
 	ctSize = matePairs.size() ;
@@ -283,6 +285,10 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	}
 	
 	ComputeNormAbund( subexons ) ;
+
+	/*for ( i = 0 ; i < constraints.size() ; ++i )
+		printf( "constraints %d: %d %d %d %lf\n", i, constraints[i].vector.Test( 0 ),
+				constraints[i].vector.Test( 1 ), constraints[i].vector.Test( 2 ), constraints[i].normAbund ) ;*/
 
 	return 0 ;
 }

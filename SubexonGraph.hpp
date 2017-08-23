@@ -90,7 +90,7 @@ public:
 					++k ;
 					++cnt ;
 				}
-				else if ( subexons[j].end > se.prev[ se.prevCnt - 1 - k ] ) // the corresponding subexon gets filtered.
+				else if ( subexons[j].end < se.prev[ se.prevCnt - 1 - k ] ) // the corresponding subexon gets filtered.
 				{
 					++k ;
 					++j ; // counter the --j in the loop
@@ -105,7 +105,6 @@ public:
 				se.prev[j] = se.prev[k] ;
 				se.prev[k] = tmp ;
 			}
-			
 			cnt = 0 ;
 			for ( j = i + 1, k = 0 ; k < se.nextCnt && j < subexonCnt && subexons[j].start <= se.next[ se.nextCnt - 1 ] ; ++j )
 			{
