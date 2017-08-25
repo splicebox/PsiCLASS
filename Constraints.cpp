@@ -287,8 +287,10 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	ComputeNormAbund( subexons ) ;
 
 	/*for ( i = 0 ; i < constraints.size() ; ++i )
-		printf( "constraints %d: %d %d %d %lf\n", i, constraints[i].vector.Test( 0 ),
-				constraints[i].vector.Test( 1 ), constraints[i].vector.Test( 2 ), constraints[i].normAbund ) ;*/
+	{
+		printf( "constraints %d: %lf %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last ) ;
+		constraints[i].vector.Print() ;
+	}*/
 
 	return 0 ;
 }

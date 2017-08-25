@@ -131,6 +131,55 @@ int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, 
 	return ret ;
 }
 
+int TranscriptDecider::IsConstraintInTranscriptDebug( struct _transcript transcript, struct _constraint &c ) 
+{
+	//printf( "%d %d, %d %d\n", c.first, c.last, transcript.first, transcript.last ) ;
+	if ( c.first < transcript.first || c.first > transcript.last ) // no overlap or starts too early.
+		return 0 ; 
+	printf( "hi\n" ) ;
+	// Extract the subexons we should focus on.
+	int s, e ;
+	s = c.first ;
+	e = c.last ;
+	bool returnPartial = false ;
+	if ( e > transcript.last ) // constraints ends after the transcript.
+	{
+		if ( transcript.partial )	
+		{
+			e = transcript.last ;
+			returnPartial = true ;
+		}
+		else
+			return 0 ;
+	}
+	/*printf( "%s: %d %d: (%d %d) (%d %d)\n", __func__, s, e,
+	  transcript.seVector.Test(0), transcript.seVector.Test(1), 
+	  c.vector.Test(0), c.vector.Test(1) ) ;*/
+
+	compatibleTestVectorT.Assign( transcript.seVector ) ;
+	compatibleTestVectorT.MaskRegionOutside( s, e ) ;
+
+	compatibleTestVectorC.Assign( c.vector ) ;
+	if ( e > transcript.last )
+		compatibleTestVectorC.MaskRegionOutside( s, e ) ;
+	/*printf( "after masking: (%d %d) (%d %d)\n", 
+	  compatibleTestVectorT.Test(0), compatibleTestVectorT.Test(1), 
+	  compatibleTestVectorC.Test(0), compatibleTestVectorC.Test(1) ) ;*/
+
+	// Test compatible.
+	int ret = 0 ;
+	if ( compatibleTestVectorT.IsEqual( compatibleTestVectorC ) )
+	{
+		if ( returnPartial )
+			ret = 2 ;
+		else
+			ret = 1 ;
+	}
+	compatibleTestVectorT.Print() ;
+	compatibleTestVectorC.Print() ;
+
+	return ret ;
+}
 int TranscriptDecider::SubTranscriptCount( int tag, struct _subexon *subexons, int *f )
 {
 	if ( f[tag] != -1 )
@@ -234,8 +283,9 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 
 	// Adjust the extendsCnt
 	for ( i = extendCnt - 1 ; i >= 0 ; --i )
-		if ( IsConstraintInTranscript( subTxpt, tc[ extends[i] ] ) == 0 )
-			--i ;
+		if ( IsConstraintInTranscript( subTxpt, tc[ extends[i] ] ) != 0 )
+			break ;
+			
 	extendCnt = i + 1 ;
 
 	// If the extension ends.
@@ -299,8 +349,8 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		{
 			pdp.cover = cover ;
 			pdp.seVector.Assign( subTxpt.seVector ) ;
-			pdp.first = visit[0] ;
-			pdp.last = visitdp.last ;
+			pdp.first = subTxpt.first ;
+			pdp.last = subTxpt.last ;
 		}
 	}
 	if ( subexons[tag].canBeEnd && ( visitdp.cover < 0 || attr.forAbundance ) ) 
@@ -337,7 +387,6 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 
 				if ( tc[i].abundance <= 0 )
 					continue ;
-
 				if ( attr.forAbundance )
 				{
 					if ( tc[i].normAbund < cover || cover == 0 )	
@@ -359,7 +408,7 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 			pdp.cover = cover ;
 			pdp.seVector.Assign( subTxpt.seVector ) ;
 			pdp.first = subTxpt.first ;
-			pdp.last = visit[vcnt - 1] ;
+			pdp.last = subTxpt.last ;
 		}
 	}
 	//printf( "%s %d: pdp.cover=%lf\n", __func__, tag, pdp.cover ) ;
@@ -452,6 +501,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 		{
 			if ( tc[i].first > subTxpt.last )
 				break ;
+
 			if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
 			{
 				if ( tc[i].normAbund <= attr.minAbundance )
@@ -471,17 +521,15 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 					++cover ;	
 			}
 		}
-		if ( cover >= 0 )
-		{
-			visitdp.seVector.Assign( subTxpt.seVector ) ;		
-			visitdp.cover = cover ;
-			visitdp.first = visit[0] ;
-			visitdp.last = visit[vcnt - 1] ;
-		}
+
+		visitdp.seVector.Assign( subTxpt.seVector ) ;		
+		visitdp.cover = cover ;
+		visitdp.first = subTxpt.first ;
+		visitdp.last = subTxpt.last ;
 	}
 	
 	// Now we extend.
-	size = subexons[ visit[vcnt - 1] ].nextCnt ;
+	size = tc.size() ;
 	int *extends = new int[tc.size() - tcStartInd + 1] ;
 	int extendCnt = 0 ;
 	subTxpt.partial = true ;
@@ -611,7 +659,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				maxAbundance = tmp.cover ;
 		}
 	}
-	//printf( "maxAbundance=%lf\n", maxAbundance ) ;
+	printf( "maxAbundance=%lf\n", maxAbundance ) ;
 	
 	// Pick the transcripts
 	// Notice that by the logic in SearchSubTxpt and SolveSubTxpt, we don't need to reinitialize the data structure.
@@ -656,12 +704,13 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				break ;
 			// the abundance for the max cover txpt.
 			double min = -1 ;
+			struct _transcript &subTxpt = attr.bufferTxpt ;
+			subTxpt.seVector.Assign( maxCoverDp.seVector ) ;
+			subTxpt.first = maxCoverDp.first ;
+			subTxpt.last = maxCoverDp.last ;
+
 			for ( i = 0 ; i < size ; ++i )
 			{
-				struct _transcript &subTxpt = attr.bufferTxpt ;
-				subTxpt.seVector.Assign( maxCoverDp.seVector ) ;
-				subTxpt.first = maxCoverDp.first ;
-				subTxpt.last = maxCoverDp.last ;
 				if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )	
 				{
 					if ( tc[i].normAbund < min || min == -1 )
@@ -675,7 +724,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				bestScore = score ;
 				SetDpContent( bestDp, maxCoverDp, attr ) ;
 			}
-			//printf( "min=%lf\n", min ) ;
+			//printf( "min=%lf maxCoverDp.cover=%lf\n", min, maxCoverDp.cover ) ;
 			attr.minAbundance = min ;
 		}
 
@@ -688,6 +737,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		subTxpt.seVector.Assign( bestDp.seVector ) ;
 		subTxpt.first = bestDp.first ;
 		subTxpt.last = bestDp.last ;
+		subTxpt.partial = false ;
 		for ( i = 0 ; i < size ; ++i )
 		{
 			if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
@@ -699,9 +749,23 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				}
 				coveredTc[ coveredTcCnt ] = i ;
 				++coveredTcCnt ;
-			}				
+			}
+			/*else
+			{
+				printf( "%d: ", i ) ;
+				tc[i].vector.Print() ;
+				if ( i == 127 )
+				{
+					printf( "begin debug:\n" ) ;
+					IsConstraintInTranscriptDebug( subTxpt, tc[i] ) ;
+				}
+			}*/
 		}
 
+		//printf( "update=%lf %d %d. %d %d\n", update, coveredTcCnt, size, 
+		//		bestDp.first, bestDp.last ) ;
+		// bestDp.seVector.Print() ;
+		
 		struct _transcript nt ;
 		nt.seVector.Duplicate( bestDp.seVector ) ; 
 		nt.first = bestDp.first ;
@@ -999,9 +1063,9 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	}
 
 	int atCnt = cnt ;
-	//printf( "atCnt=%d\n", atCnt ) ;
+	printf( "atCnt=%d\n", atCnt ) ;
 	std::vector<struct _transcript> alltranscripts ;
-	useDP = true ;
+	
 	if ( !useDP )
 	{
 		alltranscripts.resize( atCnt ) ;

@@ -188,9 +188,12 @@ public:
 		{
 			ind = (s - 1) / UNIT_SIZE ;
 			offset = ( s - 1 ) & UNIT_MASK ;
-			for ( i = 0 ; i < ind - 1 ; ++i )			
+			for ( i = 0 ; i <= ind - 1 ; ++i )			
 				tab[i] = 0 ;
-			tab[i] = ( tab[i] >> ( offset + 1 ) ) << ( offset + 1 ) ; 
+			if ( offset + 1 >= 64 )
+				tab[i] = 0 ;
+			else
+				tab[i] = ( tab[i] >> (UINT64)( offset + 1 ) ) << (UINT64)( offset + 1 ) ; 
 		}
 		
 		// mask out [e+1, size-1]
@@ -200,7 +203,11 @@ public:
 			offset = ( e + 1 ) & UNIT_MASK ;
 			for ( i = ind + 1 ; i < asize ; ++i )
 				tab[i] = 0 ;
-			tab[ind] = ( tab[ind] << ( UNIT_SIZE - offset ) ) >> ( UNIT_SIZE - offset ) ;
+
+			if ( UNIT_SIZE - offset >= 64 )
+				tab[ind] = 0 ;
+			else
+				tab[ind] = ( tab[ind] << (UINT64)( UNIT_SIZE - offset ) ) >> (UINT64)( UNIT_SIZE - offset ) ;
 		}
 	}
 
@@ -338,8 +345,8 @@ public:
 		{
 			if ( tab[i] != in.tab[i] )
 			{
-				int k1 = tab[i] ;					
-				int k2 = in.tab[i] ;
+				UINT64 k1 = tab[i] ;					
+				UINT64 k2 = in.tab[i] ;
 				for ( j = 0 ; j < (int)UNIT_SIZE ; ++j )
 				{
 					if ( ( k1 & 1 ) != ( k2 & 1 ) )
@@ -356,7 +363,7 @@ public:
 		{
 			if ( tab[i] != 0 )
 			{
-				int k = tab[i] ;
+				UINT64 k = tab[i] ;
 				for ( j = 0 ; j < (int)UNIT_SIZE ; ++j )
 				{
 					if ( k & 1 )
@@ -370,7 +377,7 @@ public:
 		{
 			if ( in.tab[i] != 0 )
 			{
-				int k = in.tab[i] ;
+				UINT64 k = in.tab[i] ;
 				for ( j = 0 ; j < (int)UNIT_SIZE ; ++j )
 				{
 					if ( k & 1 )
@@ -406,13 +413,13 @@ public:
 		tab = NULL ;
 	}
 
-	/*void Print()
+	void Print()
 	{
 		int i ;
 		for ( i = 0 ; i < asize; ++i )
-			printf( "%lld ", tab[i] ) ;
+			printf( "%llu ", tab[i] ) ;
 		printf( "\n" ) ;
-	}*/
+	}
 } ;
 
 

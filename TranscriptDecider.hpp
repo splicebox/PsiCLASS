@@ -88,6 +88,7 @@ private:
 	// Test whether a constraints is compatible with the transcript.
 	// Return 0 - uncompatible or does not overlap at all. 1 - fully compatible. 2 - Head of the constraints compatible with the tail of the transcript
 	int IsConstraintInTranscript( struct _transcript transcript, struct _constraint &c ) ;
+	int IsConstraintInTranscriptDebug( struct _transcript transcript, struct _constraint &c ) ;
 	
 	// Count how many transcripts are possible starting from subexons[tag].
 	int SubTranscriptCount( int tag, struct _subexon *subexons, int f[] ) ;

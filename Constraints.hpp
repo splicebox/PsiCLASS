@@ -225,7 +225,7 @@ private:
 			return false ;
 
 		int diffPos = a.vector.GetFirstDifference( b.vector ) ;
-		if ( diffPos == -1 )
+		if ( diffPos == -1 ) // case of equal.
 			return false ;
 
 		if ( a.vector.Test( diffPos ))
