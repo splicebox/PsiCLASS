@@ -272,7 +272,7 @@ public:
 		}
 		//printf( "(%d) ", ret ) ;	
 		k = tab[ asize - 1 ] ;
-		for ( i = 0 ; i < (int)( size & UNIT_MASK ) ; ++i )
+		for ( i = 0 ; i <= (int)( ( size - 1 ) & UNIT_MASK ) ; ++i )
 		{
 			if ( k & 1 )
 				++ret ;
@@ -308,11 +308,11 @@ public:
 		//printf( "(%d) ", ret ) ;	
 		k = tab[ asize - 1 ] ;
 		ind = i * UNIT_SIZE ; 
-		for ( i = 0 ; i < (int)( size & UNIT_MASK ) ; ++i )
+		for ( i = 0 ; i <= (int)( ( size - 1 ) & UNIT_MASK ) ; ++i )
 		{
-			if ( k & 1 )
+			if ( k & 1ull )
 				indices.push_back( ind ) ;
-			k /= 2 ;
+			k /= 2ull ;
 			++ind ;
 		}
 	}

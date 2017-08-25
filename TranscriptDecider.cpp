@@ -353,6 +353,11 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 			pdp.last = subTxpt.last ;
 		}
 	}
+	else if ( visitdp.cover == -2 && pdp.cover == -1 )
+	{
+		pdp.cover = -2 ;
+	}
+
 	if ( subexons[tag].canBeEnd && ( visitdp.cover < 0 || attr.forAbundance ) ) 
 	// This works is because that the extension always covers more constraints. So we only go this branch if the extension does not work
 	// and it goes this branch if it violates minAbundance
@@ -431,6 +436,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 	/*printf( "%s: ", __func__ ) ;	
 	for ( i = 0 ; i < vcnt ; ++i )
 		printf( "%d ", visit[i] ) ;
+	printf( ": %lf %d %d", attr.f1[ visit[0] ].cover, attr.f1[ visit[0] ].timeStamp, attr.timeStamp ) ;
 	printf( "\n" ) ;*/
 	// Test whether it is stored in dp 
 	if ( vcnt == 1 )
@@ -452,7 +458,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 	}
 	else
 	{
-		int key ;	
+		int key = 0 ;	
 		for ( i = 0 ; i < vcnt ; ++i )
 			key = ( key * 17 + visit[i] ) % HASH_MAX ;
 
@@ -592,7 +598,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 	}
 	else
 	{
-		int key ;	
+		int key = 0 ;	
 		for ( i = 0 ; i < vcnt ; ++i )
 			key = ( key * 17 + visit[i] ) % HASH_MAX ;
 		SetDpContent( attr.hash[key], visitdp, attr ) ;	
@@ -607,9 +613,11 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	int i, j ;
 	struct _dpAttribute attr ;
 	std::vector<struct _transcript> transcripts ;
-	int size ;
 	std::vector<struct _constraint> &tc = constraints.constraints ;
+	int tcCnt = tc.size() ;
 	int coalesceThreshold = 1024 ;
+
+	printf( "tcCnt=%d\n", tcCnt ) ;
 
 	attr.f1 = new struct _dp[seCnt] ;
 	attr.f2 = new struct _dp*[seCnt] ;
@@ -643,7 +651,6 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		attr.hash[i].seVector.Init( seCnt ) ;
 	}
 
-	size = tc.size() ;
 	// Find the max abundance 
 	attr.forAbundance = true ;
 	attr.minAbundance = 0 ;
@@ -664,7 +671,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	// Pick the transcripts
 	// Notice that by the logic in SearchSubTxpt and SolveSubTxpt, we don't need to reinitialize the data structure.
 	attr.forAbundance = false ;
-	int *coveredTc = new int[size] ;
+	int *coveredTc = new int[tcCnt] ;
 	int coveredTcCnt ;
 	struct _dp maxCoverDp ;
 	struct _dp bestDp ;
@@ -709,7 +716,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			subTxpt.first = maxCoverDp.first ;
 			subTxpt.last = maxCoverDp.last ;
 
-			for ( i = 0 ; i < size ; ++i )
+			for ( i = 0 ; i < tcCnt ; ++i )
 			{
 				if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )	
 				{
@@ -738,7 +745,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		subTxpt.first = bestDp.first ;
 		subTxpt.last = bestDp.last ;
 		subTxpt.partial = false ;
-		for ( i = 0 ; i < size ; ++i )
+		for ( i = 0 ; i < tcCnt ; ++i )
 		{
 			if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )
 			{
@@ -762,9 +769,9 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			}*/
 		}
 
-		//printf( "update=%lf %d %d. %d %d\n", update, coveredTcCnt, size, 
+		//printf( "update=%lf %d %d. %d %d\n", update, coveredTcCnt, tcCnt, 
 		//		bestDp.first, bestDp.last ) ;
-		// bestDp.seVector.Print() ;
+		//bestDp.seVector.Print() ;
 		
 		struct _transcript nt ;
 		nt.seVector.Duplicate( bestDp.seVector ) ; 
@@ -796,7 +803,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 
 	}
 	CoalesceSameTranscripts( transcripts ) ;
-	size = transcripts.size() ;
+	int size = transcripts.size() ;
 	for ( i = 0 ; i < size ; ++i )
 		alltranscripts.push_back( transcripts[i] ) ;
 
@@ -1055,15 +1062,20 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	if ( !useDP )
 	{
 		for ( i = 0 ; i < sampleCnt ; ++i )
-			if ( constraints[i].matePairs.size() > 3000 && cnt > 200 )
+		{
+			double msize = constraints[i].matePairs.size() ;
+			double csize = constraints[i].constraints.size() ;
+			if ( cnt > ( csize / msize ) * ( csize / msize ) * seCnt 
+				&& cnt > USE_DP / ( msize * msize ) )
 			{
 				useDP = true ;
 				break ;
 			}
+		}
 	}
 
 	int atCnt = cnt ;
-	printf( "atCnt=%d\n", atCnt ) ;
+	printf( "atCnt=%d %d %d %d\n", atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	std::vector<struct _transcript> alltranscripts ;
 	
 	if ( !useDP )
