@@ -52,7 +52,7 @@ int SubexonGraph::GetGeneIntervalIdx( int startIdx, int &endIdx, int timeStamp )
 
 	for ( i = startIdx ; i < seCnt ; ++i )
 	{
-		if ( subexons[i].start > farthest )								
+		if ( subexons[i].start > farthest || subexons[i].chrId != subexons[ startIdx ].chrId )								
 			break ;
 		GetGeneBoundary( i, subexons[i].rightStrand, farthest, timeStamp ) ;
 	}

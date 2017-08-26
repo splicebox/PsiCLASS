@@ -88,7 +88,7 @@ int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, 
 	//printf( "%d %d, %d %d\n", c.first, c.last, transcript.first, transcript.last ) ;
 	if ( c.first < transcript.first || c.first > transcript.last ) // no overlap or starts too early.
 		return 0 ; 
-
+	
 	// Extract the subexons we should focus on.
 	int s, e ;
 	s = c.first ;
@@ -112,8 +112,10 @@ int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, 
 	compatibleTestVectorT.MaskRegionOutside( s, e ) ;
 
 	compatibleTestVectorC.Assign( c.vector ) ;
-	if ( e > transcript.last )
+	if ( c.last > transcript.last )
+	{
 		compatibleTestVectorC.MaskRegionOutside( s, e ) ;
+	}
 	/*printf( "after masking: (%d %d) (%d %d)\n", 
 	  compatibleTestVectorT.Test(0), compatibleTestVectorT.Test(1), 
 	  compatibleTestVectorC.Test(0), compatibleTestVectorC.Test(1) ) ;*/
@@ -285,9 +287,8 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 	for ( i = extendCnt - 1 ; i >= 0 ; --i )
 		if ( IsConstraintInTranscript( subTxpt, tc[ extends[i] ] ) != 0 )
 			break ;
-			
 	extendCnt = i + 1 ;
-
+	
 	// If the extension ends.
 	subTxpt.partial = false ;
 	if ( subexons[tag].nextCnt > 0 && ( extendCnt == 0 || tag >= tc[ extends[ extendCnt - 1 ] ].last ) )
@@ -866,6 +867,9 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 			int b = tc[j].j ;
 
 			//printf( "try set btble[ %d ].Set( %d ): %d %d\n", i, j, a, b ) ;
+			//alltranscripts[i].seVector.Print() ;
+			//constraints.constraints[a].vector.Print() ;
+			//constraints.constraints[b].vector.Print() ;
 			if ( IsConstraintInTranscript( alltranscripts[i], constraints.constraints[a] ) == 1 
 					&& IsConstraintInTranscript( alltranscripts[i], constraints.constraints[b] ) == 1 )
 			{
@@ -880,6 +884,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 		for ( i = 0 ; i < atcnt ; ++i )
 			btable[i].Release() ;
 		delete[] btable ;
+		return ;
 	}
 
 	double maxAbundance = -1 ; // The abundance of the most-abundant transcript
@@ -1077,7 +1082,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	int atCnt = cnt ;
 	printf( "atCnt=%d %d %d %d\n", atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	std::vector<struct _transcript> alltranscripts ;
-	
+	useDP = true ;	
 	if ( !useDP )
 	{
 		alltranscripts.resize( atCnt ) ;
