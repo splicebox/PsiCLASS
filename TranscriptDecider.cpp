@@ -13,7 +13,6 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 	// Determine the strand
 	char strand[2] = "." ;
 	int size = subexonInd.size() ;
-	
 	if ( size > 1 )
 	{
 		// locate the intron showed up in this transcript.
@@ -39,24 +38,42 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 
 	// TODO: transcript_id
 	char *chrom = alignments.GetChromName( subexons[0].chrId ) ;
-	int a = subexonInd[0] ;
-	int b = subexonInd[size - 1] ;
 	char prefix[10] = "" ;
+	int a = subexonInd[0] ;
+	struct _subexon *catSubexons = new struct _subexon[ size + 1 ] ;
+	// Concatenate adjacent subexons 
+	catSubexons[0] = subexons[ subexonInd[0] ] ;
+	j = 1 ;
+	for ( i = 1 ; i < size ; ++i )
+	{
+		if ( subexons[ subexonInd[i] ].start == catSubexons[j - 1].end + 1 )
+		{
+			catSubexons[j - 1].end = subexons[ subexonInd[i] ].end ;
+		}
+		else
+		{
+			catSubexons[j] = subexons[ subexonInd[i] ] ;
+			++j ;
+		}
+	}
+	size = j ;
 
 	fprintf( fp, "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
-			chrom, subexons[a].start + 1, subexons[b].end + 1, strand,
+			chrom, catSubexons[0].start + 1, catSubexons[size - 1].end + 1, strand,
 			prefix, chrom, geneId[a],
 			prefix, chrom, geneId[a], transcriptId[ geneId[a] - baseGeneId ], transcript.abundance ) ;
 	for ( i = 0 ; i < size ; ++i )
 	{
 		fprintf( fp, "%s\tCLASSES\texon\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; "
 				"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; Abundance \"%.6lf\"\n",
-				chrom, subexons[ subexonInd[i] ].start + 1, subexons[ subexonInd[i] ].end + 1, strand,
+				chrom, catSubexons[i].start + 1, catSubexons[i].end + 1, strand,
 				prefix, chrom, geneId[a],
 				prefix, chrom, geneId[a], transcriptId[ geneId[a] - baseGeneId ],
 				i + 1, transcript.abundance ) ;
 	}
 	++transcriptId[ geneId[a] - baseGeneId ] ;
+
+	delete catSubexons ;
 }
 
 void TranscriptDecider::SetGeneId( int tag, struct _subexon *subexons, int id )
@@ -972,6 +989,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 		nt.first = alltranscripts[maxtag].first ;
 		nt.last = alltranscripts[maxtag].last ;
 		nt.abundance = 0 ; 
+		nt.partial = false ;
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
 			if ( btable[maxtag].Test( j ) && tc[j].abundance > 0 )
@@ -1004,6 +1022,51 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 	delete[] btable ;
 }
 
+int TranscriptDecider::RefineTranscripts( std::vector<struct _transcript> &transcripts, Constraints &constraints ) 
+{
+	int i, j ;
+	int tcnt = transcripts.size() ;
+	int tcCnt = constraints.matePairs.size() ;
+
+	std::vector<struct _matePairConstraint> &tc = constraints.matePairs ;
+	std::vector<struct _constraint> &scc = constraints.constraints ; //single-end constraints.constraints
+
+
+	/*==================================================================
+	Remove transcripts that seems duplicated
+	====================================================================*/
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+		int support = 0 ;
+		int uniqSupport = 0 ;
+
+		for ( j = 0 ; j < tcCnt ; ++j )
+		{
+			if ( !IsConstraintInTranscript( transcripts[i], scc[ tc[j].i ] ) || !IsConstraintInTranscript( transcripts[i], scc[ tc[j].j ] ) )
+				continue ;
+			support += scc[ tc[j].i ].support + scc[ tc[j].j ].support ;
+			uniqSupport += scc[ tc[j].i ].uniqSupport + scc[ tc[j].j ].uniqSupport ; 
+		}
+
+		if ( (double)uniqSupport < 0.05 * support )
+			transcripts[i].abundance = -1 ;
+	}
+	j = 0 ;
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+		if ( transcripts[i].abundance == -1 )
+		{
+			transcripts[i].seVector.Release() ; // Don't forget release the memory.
+			continue ;
+		}
+		transcripts[j] = transcripts[i] ;
+		++j ;
+	}
+	transcripts.resize( j ) ;
+
+	return transcripts.size() ;
+}
+
 int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation )
 {
 	int i, j ;
@@ -1022,13 +1085,43 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			subexons[i].canBeStart = true ;
 		else if ( subexons[i].leftClassifier < canBeSoftBoundaryThreshold && subexons[i].leftClassifier != -1 
 			&& subexons[i].leftStrand != 0 ) // The case of overhang.
-			subexons[i].canBeStart = true ;
+		{
+			// We then look into whether there is a left-side end already showed up before this subexon in this region of subexons.
+			bool flag = true ;
+			for ( j = i - 1 ; j >= 0 ; --j )
+			{
+				if ( subexons[j].end + 1 != subexons[j + 1].start )	
+					break ;
+				if ( subexons[i].canBeStart == true )
+				{
+					flag = false ;
+					break ;
+				}	
+			}
+			subexons[i].canBeStart = flag ;
+		}
 
 		if ( subexons[i].nextCnt == 0 )
 			subexons[i].canBeEnd = true ;
 		else if ( subexons[i].rightClassifier < canBeSoftBoundaryThreshold && subexons[i].rightClassifier != -1 
 			&& subexons[i].rightStrand != 0 )
+		{
 			subexons[i].canBeEnd = true ;
+		}
+		// Remove other soft end already showed up in this region of subexons.
+		if ( subexons[i].canBeEnd == true )
+		{
+			for ( j = i - 1 ; j >= 0 ; --j )
+			{
+				if ( subexons[j].end + 1 != subexons[j + 1].start )
+					break ;
+				if ( subexons[j].canBeEnd == true )
+				{
+					subexons[j].canBeEnd = false ;
+					break ;
+				}
+			}
+		}
 		//printf( "%d: %d %lf\n", subexons[i].canBeStart, subexons[i].prevCnt, subexons[i].leftClassifier ) ;
 	}
 
@@ -1082,7 +1175,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	int atCnt = cnt ;
 	printf( "atCnt=%d %d %d %d\n", atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	std::vector<struct _transcript> alltranscripts ;
-	useDP = true ;	
+	
 	if ( !useDP )
 	{
 		alltranscripts.resize( atCnt ) ;
@@ -1119,8 +1212,10 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	{
 		std::vector<struct _transcript> predTranscripts ;
 		PickTranscripts( alltranscripts, constraints[i], subexonCorrelation, predTranscripts ) ;
+		
 		int size = predTranscripts.size() ;
 		InitTranscriptId( baseGeneId, usedGeneId ) ;
+		size = RefineTranscripts( predTranscripts, constraints[i] ) ;
 		for ( j = 0 ; j < size ; ++j )
 		{
 			OutputTranscript( outputFPs[i], baseGeneId, subexons, predTranscripts[j] ) ;

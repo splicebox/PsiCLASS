@@ -782,6 +782,17 @@ class Blocks
 					}
 					double otherAvgDepth = depthSum / len ;
 					double avgDepth = GetAvgDepth( exonBlocks[tag] ) ;
+
+					// adjust avgDepth by looking into the following exon blocks(subexon) in the same region whose left side is not hard end
+					for ( j = tag + 1 ; j < exonBlockCnt ; ++j )
+					{
+						if ( exonBlocks[j].start != exonBlocks[j - 1].end + 1 || exonBlocks[j].leftType == 1 )
+							break ;
+						double tmp = GetAvgDepth( exonBlocks[j] ) ;
+						if ( tmp > avgDepth )
+							avgDepth = tmp ;
+					}
+
 					if ( avgDepth < 1 )
 						avgDepth = 1 ;
 					if ( otherAvgDepth < 1 )
@@ -813,6 +824,17 @@ class Blocks
 					}
 					double otherAvgDepth = depthSum / len ;
 					double avgDepth = GetAvgDepth( exonBlocks[tag] ) ;
+					
+					// adjust avgDepth by looking into the earlier exon blocks(subexon) in the same region whose right side is not hard end
+					for ( j = tag - 1 ; j >= 0 ; --j )
+					{
+						if ( exonBlocks[j].end + 1 != exonBlocks[j + 1].start || exonBlocks[j].rightType == 2 )
+							break ;
+						double tmp = GetAvgDepth( exonBlocks[j] ) ;
+						if ( tmp > avgDepth )
+							avgDepth = tmp ;
+					}
+
 					if ( avgDepth < 1 )
 						avgDepth = 1 ;
 					if ( otherAvgDepth < 1 )

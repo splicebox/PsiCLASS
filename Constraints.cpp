@@ -88,7 +88,8 @@ void Constraints::CoalesceSameConstraints()
 		{
 			if ( constraints[k].vector.IsEqual( constraints[i].vector ) )
 			{
-				constraints[k].support += constraints[i].support ; 
+				constraints[k].support += constraints[i].support ;
+				constraints[k].uniqSupport += constraints[i].uniqSupport ;
 				constraints[i].vector.Release() ;
 			}
 			else
@@ -122,6 +123,7 @@ void Constraints::CoalesceSameConstraints()
 			if ( matePairs[i].i == matePairs[k].i && matePairs[i].j == matePairs[k].j )
 			{
 				matePairs[k].support += matePairs[i].support ;
+				matePairs[k].uniqSupport += matePairs[i].uniqSupport ;
 			}
 			else
 			{
@@ -204,6 +206,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		ct.weight = 1 ;
 		ct.normAbund = 0 ;
 		ct.support = 1 ;
+		ct.uniqSupport = alignments.IsUnique() ? 1 : 0 ;
 		
 		//printf( "%s\n", alignments.GetReadId() ) ;
 		if ( ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
@@ -230,6 +233,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 						nm.j = constraints.size() - 1 ;
 						nm.abundance = 0 ;
 						nm.support = 1 ;
+						nm.uniqSupport = alignments.IsUnique() ? 1 : 0 ;				
 						nm.effectiveCount = 2 ;
 						matePairs.push_back( nm ) ;
 					}
@@ -278,6 +282,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			nm.j = i ;
 			nm.abundance = 0 ;
 			nm.support = constraints[i].support ;
+			nm.uniqSupport = constraints[i].uniqSupport ;
 			nm.effectiveCount = 1 ;
 
 			matePairs.push_back( nm ) ;
