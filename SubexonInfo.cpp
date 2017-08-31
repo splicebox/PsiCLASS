@@ -92,7 +92,10 @@ void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
 	}*/
 }
 
-void GradientDescentGammaDistribution( double &k, double &theta, double initK, double initTheta, double *x, double *z, int n ) 
+// for boundK, if it is positive, it represent the upper bound. If it is negative, -boundK will be the lower bound for k.
+// if boundK==0, there is no extra bound.
+// The same logic for boundProduct, which bounds k*theta
+void GradientDescentGammaDistribution( double &k, double &theta, double initK, double initTheta, double boundK, double boundMean, double *x, double *z, int n ) 
 {
 	int i ;
 	k = initK ;
@@ -137,7 +140,6 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 		printf( "%lf %lf %lf %lf\n", sumZ, k, theta, sumZX ) ;	
 		printf( "%lf %lf %lf\n", gradK, gradTheta, det ) ;	
 		printf( "%lf %lf %lf %lf\n", Hessian[0][0], Hessian[0][1], Hessian[1][0], Hessian[1][1] ) ;*/
-	
 		if ( det == 0 )
 		{
 			k = k + c / iterCnt * gradK ;
@@ -156,6 +158,20 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 			theta = theta - step * ( inverseHessian[1][0] * gradK + inverseHessian[1][1] * gradTheta ) ;
 		}
 
+		if ( boundK > 0 && k > boundK )
+			k = boundK ;
+		else if ( boundK < 0 && k < -boundK )
+			k = -boundK ;
+
+		if ( boundMean > 0 && k * theta > boundMean )
+		{
+			theta = boundMean / k ;
+		}
+		else if ( boundMean < 0 && k * theta < -boundMean )
+		{
+			theta = -boundMean / k ;
+		}
+
 		if ( k <= 1e-6 )
 			k = 1e-6 ;
 		if ( theta <= 1e-6 )
@@ -170,7 +186,6 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 			break ;
 	}
 }
-
 
 double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, int iter = -1 )
 {
@@ -188,7 +203,10 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 			//double lf0 = -k[0] * log( theta[0] ) + ( k[0] - 1 ) * log( cov[i]) - cov[i] / theta[0] - lgamma( k[0] ); 
 			//double lf1 = -k[1] * log( theta[1] ) + ( k[1] - 1 ) * log( cov[i]) - cov[i] / theta[1] - lgamma( k[1] ); 
 			//z[i] = exp( lf0 + log( pi ) ) / ( exp( lf0 + log( pi ) ) + exp( lf1 + log( 1 - pi ) ) ) ;
-			z[i] = MixtureGammaAssignment( x[i], pi, k, theta ) ;
+			if ( pi != 0 )
+				z[i] = MixtureGammaAssignment( x[i], pi, k, theta ) ;
+			else
+				z[i] = 0 ;
 			/*if ( isnan( z[i] ) )
 			{
 				printf( "nan: %lf %lf %lf %lf\n", x[i], pi, k, theta ) ;
@@ -201,16 +219,23 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 		npi = sum / n ;
 
 		// Use gradient descent to compute new k and theta.
-		GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], x, z, n ) ;
-		GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], x, oneMinusZ,  n ) ;
+		if ( 1 ) //pi > 0 )
+		{
+			GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], -k[1], theta[1] * k[1], x, z, n ) ;
+			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], k[0], -theta[0] * k[0], x, oneMinusZ,  n ) ;
+		}
+		else
+		{
+			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], 0, 0, x, oneMinusZ,  n ) ;
+		}
 
 		double diff ;
 		if ( isnan( npi ) || isnan( nk[0] ) || isnan( nk[1] ) || isnan( ntheta[0] ) || isnan( ntheta[1] ) )
 		{
 			return -1 ;
 		}
-		diff = ABS( npi - pi ) + ABS( nk[0] - k[0] ) + ABS( nk[1] - k[1] )
-			+ ABS( ntheta[0] - ntheta[0] ) + ABS( ntheta[1] - ntheta[1] ) ;
+		diff = ABS( nk[0] - k[0] ) + ABS( nk[1] - k[1] )
+			+ ABS( ntheta[0] - ntheta[0] ) + ABS( ntheta[1] - ntheta[1] ) ; // pi is fully determined by these 4 parameters.
 		if ( diff < 1e-4 )
 			break ;
 		pi = npi ;
@@ -218,8 +243,8 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 		k[1] = nk[1] ;
 		theta[0] = ntheta[0] ;
 		theta[1] = ntheta[1] ;
-		
 		//printf( "%lf %lf %lf %lf %lf\n", pi, k[0], theta[0], k[1], theta[1] ) ;
+		
 		++t ;
 		if ( iter != -1 && t >= iter )
 			break ;
@@ -229,87 +254,52 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 	return 0 ;
 }
 
-void RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double kRatio[2], 
+bool IsParametersTheSame( double *k, double *theta )
+{
+	if ( ABS( k[0] - k[1] ) < 1e-4 && ABS( theta[0] - theta[1] ) < 1e-4 )	
+		return true ;
+	return false ;
+}
+
+int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double kRatio[2], 
 	double thetaRatio[2], double &piCov, double kCov[2], double thetaCov[2] )
 {
-	int i ;
-
 	piRatio = 0.8 ; // mixture coefficient for model 0 and 1
 	kRatio[0] = 1 ;
-	kRatio[1] = 5 ;
+	kRatio[1] = 0.5 ;
 	thetaRatio[0] = 0.05 ;
-	thetaRatio[1] = 0.1 ;
-
+	thetaRatio[1] = 1 ;
+	//printf( "hi1\n" ) ;
 	MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio ) ;
-	// Test whether we should use single gamma distribution model or mixture model.
-	// TODO: use a subset of all candidate to speed up this procedure.
-	// Try fit a single gamma distribution model
-	double sk, stheta ;
-	double *all1 = new double[n] ;
-	for ( i = 0 ; i < n ; ++i )
-		all1[i] = 1 ;
-
-	if ( piRatio >= 0.5 )
-		GradientDescentGammaDistribution( sk, stheta, kRatio[0], thetaRatio[0], covRatio, all1, n ) ;
-	else
-		GradientDescentGammaDistribution( sk, stheta, kRatio[1], thetaRatio[1], covRatio, all1, n ) ;
-	//sk = k[0] ;
-	//stheta = theta[0] ;
-	delete[] all1 ;
-	//printf( "%lf %lf\n", sk, stheta ) ;
-	double loglikelihoodMixture = 0 ;
-	double loglikelihoodSingle = 0 ;
-	for ( i = 0 ; i < n ; ++i )
-	{
-		double lf0 = LogGammaDensity( covRatio[i], kRatio[0], thetaRatio[0] ) ;
-		double lf1 = LogGammaDensity( covRatio[i], kRatio[1], thetaRatio[1] ) ;
-		double lfs = LogGammaDensity( covRatio[i], sk, stheta ) ;
-		
-		loglikelihoodMixture += log( exp( log( piRatio ) + lf0 ) + exp( log( 1 - piRatio ) + lf1 ) ) ;
-		loglikelihoodSingle += lfs ;
-	}
-	//printf( "llmixture: %lf llsingle: %lf\n", loglikelihoodMixture, loglikelihoodSingle ) ;
-
-	double bicMixture = 2 * log( n ) * 5 - 2 * loglikelihoodMixture ;
-	double bicSingle = 2 * log( n ) * 2 - 2 * loglikelihoodSingle ;
-	//printf( "bic: %lf %lf\n", bicMixture, bicSingle ) ;
+	//printf( "hi2: %lf %lf %lf %lf %lf\n", piRatio, kRatio[0], thetaRatio[0], kRatio[1], thetaRatio[1] ) ;
 	
-	//double aicMixture = 2 * 5 - 2 * loglikelihoodMixture ;
-	//double aicSingle = 2 * 2 - 2 * loglikelihoodSingle ;
-	//printf( "aic: %lf %lf\n", aicMixture, aicSingle ) ;
+	if ( IsParametersTheSame( kRatio, thetaRatio ) || piRatio <= 1e-4 )
+		piRatio = 0 ;	
 	
 	piCov = piRatio ; // mixture coefficient for model 0 and 1
 	kCov[0] = 1 ;
-	kCov[1] = 5 ;
+	kCov[1] = 0.5 ;
 	thetaCov[0] = 3 ;
-	thetaCov[1] = 3 ;
+	thetaCov[1] = 6 ;
 	
-	if ( bicSingle < bicMixture )
-	{
-		piRatio = 1 ;
-		kRatio[0] = sk ;
-		thetaRatio[0] = stheta ;
-		kRatio[1] = 0 ;
-		thetaRatio[1] = 0 ;
+	// only do one iteration of EM, so that pi does not change.
+	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 1 ) ;	
+	piCov = piRatio ;
 
-		piCov =1 ;
-		kCov[0] = 0 ;
-		thetaCov[0] = 0 ;
-		kCov[1] = 0 ;
-		thetaCov[1] = 0 ;
-	}
-	else
-	{
-		// only do one iteration of EM, so that pi does not change.
-		MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 1 ) ;	
-		piCov = piRatio ;
-	}
+	return 0 ;
+}
+
+double GetPValue( double x, double *k, double *theta )
+{
+	int fault ;
+	double p ;
+	p = 1 - gammad( x / theta[0], k[0], &fault ) ;
+	return p ;
 }
 
 int main( int argc, char *argv[] )
 {
 	int i, j ;
-
 	bool noStats = false ;
 	if ( argc < 3 )
 	{
@@ -473,14 +463,12 @@ int main( int argc, char *argv[] )
 
 	for ( i = 0 ; i < blockCnt ; ++i )	
 	{
-		int idx = i ;
-		
 		int ltype = regions.exonBlocks[i].leftType ;
 		int rtype = regions.exonBlocks[i].rightType ;
 		leftClassifier[i] = -1 ;
 		rightClassifier[i] = -1 ;
 		
-		double avgDepth = (double)regions.exonBlocks[i].depthSum / ( regions.exonBlocks[i].end - regions.exonBlocks[i].start + 1 ) ;
+		//double avgDepth = (double)regions.exonBlocks[i].depthSum / ( regions.exonBlocks[i].end - regions.exonBlocks[i].start + 1 ) ;
 		
 		if ( ltype == 2 && rtype == 1 )
 		{
@@ -559,14 +547,20 @@ int main( int argc, char *argv[] )
 		//double lf1 = -k[1] * log( theta[1] ) + ( k[1] - 1 ) * log( cov[i]) - cov[i] / theta[1] - lgamma( k[1] ) ;
 
 		double p1, p2, p ;
-		if ( piRatio != 1 )
-		{
-			p1 = MixtureGammaAssignment( covRatio[i], piRatio, kRatio, thetaRatio ) ;
-			p2 = MixtureGammaAssignment( cov[i], piCov, kCov, thetaCov  ) ;
-			p = p1>p2 ? p1 : p2 ;
-		}
+		
+		/*p1 = MixtureGammaAssignment( covRatio[i], piRatio, kRatio, thetaRatio ) ;
+		  p2 = MixtureGammaAssignment( cov[i], piCov, kCov, thetaCov  ) ;
+		  p = p1>p2 ? p1 : p2 ;*/
+
+		p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
+		if ( piRatio != 0 )
+			p2 = GetPValue( cov[i], kCov, thetaCov ) ;//1 - gammad( cov[i] / thetaCov[0], kCov[0], &fault ) ;
 		else
-			p = -1 ;
+			p2 = p1 ;
+		//printf( "%lf %lf: %lf %lf\n", covRatio[i], cov[i], p1, p2 ) ;
+		p = p1 > p2 ? p1 : p2 ;
+		
+		
 		//printf( "%d %d: avg: %lf ratio: %lf p: %lf\n", irBlocks[i].start, irBlocks[i].end, irBlocks[i].depthSum / (double)( irBlocks[i].end - irBlocks[i].start + 1 ), covRatio[i], 
 		//		p ) ;	
 		leftClassifier[ irBlocks[i].contigId ] = p ;
@@ -595,15 +589,18 @@ int main( int argc, char *argv[] )
 		//double lf1 = -k[1] * log( theta[1] ) + ( k[1] - 1 ) * log( cov[i]) - cov[i] / theta[1] - lgamma( k[1] ) ;
 
 		double p1, p2, p ;
-		if ( overhangPiRatio != 1 )
-		{
-			p1 = MixtureGammaAssignment( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
+			/*p1 = MixtureGammaAssignment( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
 			p2 = MixtureGammaAssignment( cov[i], overhangPiCov, overhangKCov, overhangThetaCov  ) ;
-			p = p1>p2 ? p1 : p2 ;
-		}
+			p = p1>p2 ? p1 : p2 ;*/
+			
+		p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
+		if ( overhangPiRatio != 0)
+			p2 = GetPValue( cov[i], kCov, thetaCov ) ;//1 - gammad( cov[i] / thetaCov[0], kCov[0], &fault ) ;
 		else
-			p = -1 ;
+			p2 = p1 ;
 
+		p = p1 > p2 ? p1 : p2 ;
+		
 		int idx = overhangBlocks[i].contigId ;
 		if ( regions.exonBlocks[idx].rightType == 0 )
 			leftClassifier[ idx ] = rightClassifier[ idx ] = p ;
