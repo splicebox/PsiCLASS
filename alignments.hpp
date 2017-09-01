@@ -123,6 +123,7 @@ public:
 			if ( bam_cigar2qlen( &b->core, rawCigar ) != b->core.l_qseq ) 
 				continue ;
 
+			len = 0 ;
 			for ( i = 0 ; i < b->core.n_cigar ; ++i )
 			{
 				int op = rawCigar[i] & BAM_CIGAR_MASK ;
@@ -157,10 +158,12 @@ public:
 				segments[ segCnt ].b = start + len - 1 ;
 				++segCnt ;
 			}
-
-			/*for ( i = 0 ; i < segCnt ; ++i )
-			  printf( "(%d %d) ", segments[i].a, segments[i].b ) ;
-			  printf( "\n" ) ;*/
+			/*if ( !strcmp( bam1_qname( b ), "chr1:109656301-109749401W:ENST00000490758.2:381:1480:1090:1290:X" ) )
+			{
+				for ( i = 0 ; i < segCnt ; ++i )
+					printf( "(%d %d) ", segments[i].a, segments[i].b ) ;
+				printf( "\n" ) ;
+			}*/
 			
 			// Check whether the mates are compatible
 			//int mChrId = b->core.mtid ;
@@ -230,6 +233,11 @@ public:
 		chrId = chrNameToId[ s ] ;
 		pos = bam_aux2i( bam_aux_get( b, "CP" ) ) ;// Possible error for 64bit	
 		return 1 ;
+	}
+
+	int GetReadLength()
+	{
+		return b->core.l_qseq ;
 	}
 
 	bool IsReverse()
