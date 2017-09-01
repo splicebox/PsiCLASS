@@ -22,10 +22,11 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 	}
 	else
 	{
-		// The only way to reach this subexon is through the adjacent exon bouldary
-		// like ]...]. So we can regard this subexon as unvisited, and let the
-		// procecure in GetGenintervalIdx to decide whether we want to include
+		// The only ways to reach this subexon is through the adjacent exon bouldary
+		// like ]...] or +[]+...+[]-. So we can regard this subexon as unvisited, and let the
+		// procedure in GetGenintervalIdx to decide whether we want to include
 		// this subexon or not.
+		// If I don't do this, the next gene interval will miss this subexon.
 		visit[tag] = -1 ;
 	}
 
@@ -50,11 +51,19 @@ int SubexonGraph::GetGeneIntervalIdx( int startIdx, int &endIdx, int timeStamp )
 	int farthest = -1 ;
 	GetGeneBoundary( startIdx, subexons[ startIdx ].rightStrand, farthest, timeStamp ) ;
 
-	for ( i = startIdx ; i < seCnt ; ++i )
+	for ( i = startIdx + 1 ; i < seCnt ; ++i )
 	{
 		if ( subexons[i].start > farthest || subexons[i].chrId != subexons[ startIdx ].chrId )								
 			break ;
-		GetGeneBoundary( i, subexons[i].rightStrand, farthest, timeStamp ) ;
+		if ( subexons[i].leftStrand != 0 )
+			GetGeneBoundary( i, subexons[i].leftStrand, farthest, timeStamp ) ;
+		else
+		{
+			// notice that if it is the case like ]+...]- and i is the subexon on the minus strand , then there will be
+			// another plus strand subexon, beyond the minus-strand subexon.
+			// So just use rightStrand here is reasonable.
+			GetGeneBoundary( i, subexons[i].rightStrand, farthest, timeStamp ) ;
+		}
 	}
 	endIdx = i - 1 ;
 

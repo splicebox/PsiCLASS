@@ -17,9 +17,12 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 		
 		for ( ; k < seCnt ; ++k )
 		{
-			//printf( "(%d:%d %d):(%d:%d %d)\n", i, (int)segments[i].a, (int)segments[i].b, k, (int)subexons[k].start, (int)subexons[k].end ) ;
+			//if ( segments[0].b == 110282529 && segCnt == 2 )
+			//	printf( "(%d:%d %d):(%d:%d %d)\n", i, (int)segments[i].a, (int)segments[i].b, k, (int)subexons[k].start, (int)subexons[k].end ) ;
 			if ( subexons[k].start > segments[i].b )
 				break ;
+			if ( segments[i].a > subexons[k].end )
+				continue ;
 			
 			if ( ( subexons[k].start >= segments[i].a && subexons[k].end <= segments[i].b ) 
 				|| ( i == 0 && subexons[k].start < segments[i].a && subexons[k].end <= segments[i].b ) 
@@ -44,7 +47,6 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 		if ( !( ( subexons[leftIdx].leftType == 0 || subexons[leftIdx].start <= segments[i].a )
 			&& ( subexons[rightIdx].rightType == 0 || subexons[rightIdx].end >= segments[i].b ) ) )
 			return false ;
-		//TODO: the splice sites should match.
 
 		// The intron must exists in the subexon graph.
 		if ( i > 0 )
@@ -90,6 +92,8 @@ void Constraints::CoalesceSameConstraints()
 			{
 				constraints[k].support += constraints[i].support ;
 				constraints[k].uniqSupport += constraints[i].uniqSupport ;
+				constraints[k].maxReadLen = ( constraints[k].maxReadLen > constraints[i].maxReadLen ) ?
+								constraints[k].maxReadLen : constraints[i].maxReadLen ;
 				constraints[i].vector.Release() ;
 			}
 			else
@@ -141,15 +145,51 @@ void Constraints::CoalesceSameConstraints()
 
 void Constraints::ComputeNormAbund( struct _subexon *subexons )
 {
-	int i ;
+	int i, j ;
 	int ctSize = constraints.size() ;
 	for ( i = 0 ; i < ctSize ; ++i )
 	{
-		// TODO: put in read length here.
-		int effectiveLength = subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 ;
-		int tmp = subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 ;
-		if ( tmp < effectiveLength )
-			effectiveLength = tmp ;
+		// spanned more than 2 subexon
+		int readLen = constraints[i].maxReadLen ;
+		if ( constraints[i].first + 1 < constraints[i].last )
+		{
+			std::vector<int> subexonInd ;
+			constraints[i].vector.GetOnesIndices( subexonInd ) ;
+			int size = subexonInd.size() ;
+			
+			for ( j = 1 ; j < size - 1 ; ++j )
+			{
+				int a = subexonInd[j] ;
+				readLen -= subexons[a].end - subexons[a].start + 1 ;
+			}
+		}
+
+		int effectiveLength ; 
+		if ( constraints[i].first == constraints[i].last )
+		{
+			effectiveLength = ( subexons[ constraints[i].first ].end - readLen + 1 )- subexons[ constraints[i].first ].start + 1 ;
+			if ( effectiveLength <= 0 ) // this happens in the 3',5'-end subexon, where we trimmed the length
+				effectiveLength = ( subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 ) / 2 ;  
+		}
+		else
+		{
+			int a = constraints[i].first ;
+			int b = constraints[i].last ;
+			int start, end ; // the range of the possible start sites of a read
+			start = subexons[a].end + 1 - ( readLen - 1 ) ;
+			if ( start < subexons[a].start )
+				start = subexons[a].start ;
+
+			if ( subexons[b].end - subexons[b].start + 1 >= readLen - 1 )
+				end = subexons[a].end ;
+			else
+				end = subexons[a].end + 1 - ( readLen - ( subexons[b].end - subexons[b].start + 1 ) ) ;
+
+			if ( end < start ) // when we trimmed the subexon.
+				end = subexons[a].end ;
+
+			effectiveLength = end - start + 1 ;
+		}
 		
 		constraints[i].normAbund = (double)constraints[i].support / (double)effectiveLength ;
 		constraints[i].abundance = constraints[i].normAbund ;
@@ -207,6 +247,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		ct.normAbund = 0 ;
 		ct.support = 1 ;
 		ct.uniqSupport = alignments.IsUnique() ? 1 : 0 ;
+		ct.maxReadLen = alignments.GetReadLength() ;
 		
 		//printf( "%s\n", alignments.GetReadId() ) ;
 		if ( ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
