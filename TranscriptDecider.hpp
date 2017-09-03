@@ -124,6 +124,19 @@ private:
 		return cnt * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
 	}
 
+	void ConvertTranscriptAbundanceToFPKM( struct _subexon *subexons, struct _transcript &t )
+	{
+		int txptLen = 0 ;
+		int i, size ;
+
+		std::vector<int> subexonInd ;
+		t.seVector.GetOnesIndices( subexonInd ) ;
+		size = subexonInd.size() ;
+		for ( i = 0 ; i < size ; ++i )
+			txptLen += ( subexons[ subexonInd[i] ].end - subexons[ subexonInd[i] ].start + 1 ) ;
+		t.abundance = t.abundance / ( ( alignments.totalReadCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
+	}
+
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;
 
 	// The function to assign gene ids to subexons.
@@ -131,6 +144,10 @@ private:
 
 	// Initialize the structure to store transcript id 
 	void InitTranscriptId( int baseGeneId, int usedGeneId ) ; 
+	
+	int GetTranscriptGeneId( std::vector<int> &subexonInd, int baseGeneId ) ;
+	int GetTranscriptGeneId( struct _transcript &t, int baseGeneId ) ;
+	int RefineTranscripts( int baseGeneId, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
 
 	void OutputTranscript( FILE *fp, int baseGeneId, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:

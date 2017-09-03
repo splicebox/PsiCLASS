@@ -24,7 +24,11 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 
 			for ( j = 0 ; j < nextCnt ; ++j )
 				if ( transcript.seVector.Test( subexons[ subexonInd[i] ].next[j] ) )
-					break ;
+				{
+					int a = subexons[ subexonInd[i] ].next[j] ;
+					if ( subexons[ subexonInd[i] ].end + 1 < subexons[a].start ) // avoid the case like ..(...[...
+						break ;
+				}
 			if ( j < nextCnt )
 			{
 				if ( subexons[ subexonInd[i] ].rightStrand == 1 )
@@ -39,7 +43,6 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 	// TODO: transcript_id
 	char *chrom = alignments.GetChromName( subexons[0].chrId ) ;
 	char prefix[10] = "" ;
-	int a = subexonInd[0] ;
 	struct _subexon *catSubexons = new struct _subexon[ size + 1 ] ;
 	// Concatenate adjacent subexons 
 	catSubexons[0] = subexons[ subexonInd[0] ] ;
@@ -57,21 +60,22 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 		}
 	}
 	size = j ;
-
+	
+	int gid = GetTranscriptGeneId( subexonInd, baseGeneId ) ;
 	fprintf( fp, "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
 			chrom, catSubexons[0].start + 1, catSubexons[size - 1].end + 1, strand,
-			prefix, chrom, geneId[a],
-			prefix, chrom, geneId[a], transcriptId[ geneId[a] - baseGeneId ], transcript.abundance ) ;
+			prefix, chrom, gid,
+			prefix, chrom, gid, transcriptId[ gid - baseGeneId ], transcript.abundance ) ;
 	for ( i = 0 ; i < size ; ++i )
 	{
 		fprintf( fp, "%s\tCLASSES\texon\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; "
 				"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; Abundance \"%.6lf\"\n",
 				chrom, catSubexons[i].start + 1, catSubexons[i].end + 1, strand,
-				prefix, chrom, geneId[a],
-				prefix, chrom, geneId[a], transcriptId[ geneId[a] - baseGeneId ],
+				prefix, chrom, gid,
+				prefix, chrom, gid, transcriptId[ gid - baseGeneId ],
 				i + 1, transcript.abundance ) ;
 	}
-	++transcriptId[ geneId[a] - baseGeneId ] ;
+	++transcriptId[ gid - baseGeneId ] ;
 
 	delete catSubexons ;
 }
@@ -79,7 +83,11 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 void TranscriptDecider::SetGeneId( int tag, struct _subexon *subexons, int id )
 {
 	if ( geneId[tag] != -1 )
+	{
+		if ( geneId[tag] != id ) // a subexon may belong to more than one gene.
+			geneId[tag] = -2 ; 
 		return ;
+	}
 	int i ;
 	geneId[ tag ] = id ;
 	int cnt = subexons[tag].nextCnt ;
@@ -89,6 +97,28 @@ void TranscriptDecider::SetGeneId( int tag, struct _subexon *subexons, int id )
 	cnt = subexons[tag].prevCnt ;
 	for ( i = 0 ; i < cnt ; ++i )
 		SetGeneId( subexons[tag].prev[i], subexons, id ) ;
+}
+
+int TranscriptDecider::GetTranscriptGeneId( std::vector<int> &subexonInd, int baseGeneId )
+{
+	int i ;
+	int size = subexonInd.size() ;
+
+	for ( i = 0 ; i < size ; ++i )
+		if ( geneId[ subexonInd[i] ] != -2  )
+			return  geneId[ subexonInd[i] ] ;
+	return baseGeneId ; // should never reach here.
+}
+
+int TranscriptDecider::GetTranscriptGeneId( struct _transcript &t, int baseGeneId )
+{
+	if ( geneId[ t.first ] != -2 )
+		return geneId[ t.first ] ;
+	if ( geneId[ t.last ] != -2 )
+		return geneId[ t.last ] ;
+	std::vector<int> subexonInd ;
+	t.seVector.GetOnesIndices( subexonInd ) ;
+	return GetTranscriptGeneId( subexonInd, baseGeneId ) ;
 }
 
 void TranscriptDecider::InitTranscriptId( int baseGeneId, int usedGeneId )
@@ -924,6 +954,8 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 			value = 1e-6 ;
 		if ( value > maxAbundance )
 			maxAbundance = value ;
+		//printf( "abundance %d: %lf ", i, value ) ;
+		//alltranscripts[i].seVector.Print() ;
 	}
 	//printf( "%s: %lf\n", __func__, maxAbundance ) ;
 	
@@ -967,6 +999,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 				max = score ;
 				maxtag = i ;
 			}
+			//printf( "score: %d %lf %lf\n", i, cnt, score ) ;
 		}
 
 		if ( maxcnt == 0 || maxtag == -1 )
@@ -1022,7 +1055,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 	delete[] btable ;
 }
 
-int TranscriptDecider::RefineTranscripts( std::vector<struct _transcript> &transcripts, Constraints &constraints ) 
+int TranscriptDecider::RefineTranscripts( int baseGeneId, std::vector<struct _transcript> &transcripts, Constraints &constraints ) 
 {
 	int i, j ;
 	int tcnt = transcripts.size() ;
@@ -1030,7 +1063,39 @@ int TranscriptDecider::RefineTranscripts( std::vector<struct _transcript> &trans
 
 	std::vector<struct _matePairConstraint> &tc = constraints.matePairs ;
 	std::vector<struct _constraint> &scc = constraints.constraints ; //single-end constraints.constraints
+	
+	// Remove transcripts whose FPKM are too small.
+	double *geneMaxFPKM = new double[usedGeneId - baseGeneId ] ;
+	memset( geneMaxFPKM, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
+	int *txptGid = new int[tcnt] ;
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+		int gid = GetTranscriptGeneId( transcripts[i], baseGeneId ) ;
+		if ( transcripts[i].abundance > geneMaxFPKM[gid - baseGeneId ] )
+			geneMaxFPKM[ gid - baseGeneId ] = transcripts[i].abundance ;
+		txptGid[i] = gid ;
+	}
 
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+		if ( transcripts[i].abundance < 0.05 * geneMaxFPKM[ txptGid[i] - baseGeneId ] )
+			transcripts[i].abundance = -1 ;
+	}
+	
+	j = 0 ;
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+		if ( transcripts[i].abundance == -1 )
+		{
+			transcripts[i].seVector.Release() ; // Don't forget release the memory.
+			continue ;
+		}
+		transcripts[j] = transcripts[i] ;
+		++j ;
+	}
+	transcripts.resize( j ) ;
+	tcnt = j ;
+	delete []txptGid ;
 
 	/*==================================================================
 	Remove transcripts that seems duplicated
@@ -1215,7 +1280,9 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		
 		int size = predTranscripts.size() ;
 		InitTranscriptId( baseGeneId, usedGeneId ) ;
-		size = RefineTranscripts( predTranscripts, constraints[i] ) ;
+		for ( j = 0 ; j < size ; ++j )
+			ConvertTranscriptAbundanceToFPKM( subexons, predTranscripts[j] ) ;
+		size = RefineTranscripts( baseGeneId, predTranscripts, constraints[i] ) ;
 		for ( j = 0 ; j < size ; ++j )
 		{
 			OutputTranscript( outputFPs[i], baseGeneId, subexons, predTranscripts[j] ) ;

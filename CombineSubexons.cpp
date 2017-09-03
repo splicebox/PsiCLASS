@@ -213,6 +213,23 @@ int main( int argc, char *argv[] )
 			++i ;
 			continue ;
 		}
+		else if ( !strcmp( argv[i], "--ls" ) )
+		{
+			FILE *fpLs = fopen( argv[i + 1], "r" ) ;
+			char buffer[1024] ;
+			while ( fgets( buffer, sizeof( buffer ), fpLs ) != NULL )
+			{
+				int len = strlen( buffer ) ;
+				if ( buffer[len - 1] == '\n' )
+				{
+					buffer[len - 1] = '\0' ;
+					--len ;
+
+				}
+				char *fileName = strdup( buffer ) ;
+				files.push_back( fileName ) ;
+			}
+		}
 	}
 	int fileCnt = files.size() ;
 	// Obtain the chromosome ids through bam file.

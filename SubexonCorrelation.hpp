@@ -238,7 +238,7 @@ public:
 		if ( fileList.size() > 1 )
 			return correlation[i][j] ;
 		else
-			return 1.0 ;
+			return 0 ;
 	}
 } ;
 

@@ -190,9 +190,9 @@ double LogGammaDensity( double x, double k, double theta )
 double MixtureGammaAssignment( double x, double pi, double* k, double *theta )
 {
 	if ( pi == 1 )
-		return 0 ;
-	else if ( pi == 0 )
 		return 1 ;
+	else if ( pi == 0 )
+		return 0 ;
 
 	double lf0 = LogGammaDensity( x, k[0], theta[0] ) ;
 	double lf1 = LogGammaDensity( x, k[1], theta[1] ) ; 

@@ -18,6 +18,8 @@ struct _constraint
 	double normAbund ;
 	double abundance ;
 	int support ;
+	int uniqSupport ;
+	int maxReadLen ; // the longest read length support this constraint.
 
 	int info ; // other usages.
 	int first, last ; // indicate the first and last index of the subexons. 
@@ -28,6 +30,8 @@ struct _matePairConstraint
 	int i, j ;
 	
 	int support ;
+	int uniqSupport ;
+
 	double abundance ;
 	double normAbund ;
 	int effectiveCount ;

@@ -217,7 +217,7 @@ class Blocks
 				for ( i = 0 ; i < segCnt ; ++i )
 				{
 					//if ( i == 0 )
-					//	printf( "hi %d %d %d\n", i, segments[i].a, segments[i].b ) ;
+					//	printf( "hi %d %s %d %d\n", i, alignments.GetReadId(), segments[i].a, segments[i].b ) ;
 					for ( j = tag ; j < (int)exonBlocks.size() ; ++j )
 					{
 						if ( exonBlocks[j].end >= segments[i].a - 1 )
@@ -454,6 +454,8 @@ class Blocks
 						exonBlocks.pop_back() ;
 					}*/
 					if ( start > end )
+						//|| ( tmpB.start == rawExonBlocks[i].start && tmpB.end != rawExonBlocks[i].end && tmpB.end - tmpB.start + 1 <= 7 ) 
+						//|| ( tmpB.end == rawExonBlocks[i].end && tmpB.start != rawExonBlocks[i].start && tmpB.end - tmpB.start + 1 <= 7  )) // the case of too short overhang
 					{
 						exonBlocks.pop_back() ;
 					}

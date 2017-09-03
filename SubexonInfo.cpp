@@ -192,7 +192,6 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 	int i ;
 	double *z = new double[n] ; // the expectation that it assigned to model 0.
 	double *oneMinusZ = new double[n] ;
-
 	int t = 0 ;
 	while ( 1 )
 	{
@@ -221,7 +220,9 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 		// Use gradient descent to compute new k and theta.
 		if ( 1 ) //pi > 0 )
 		{
-			GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], -k[1], theta[1] * k[1], x, z, n ) ;
+			double bound ;
+			bound = ( theta[1] * k[1] > 1 ) ? 1 : theta[1] * k[1] ;
+			GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], -k[1], bound, x, z, n ) ;
 			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], k[0], -theta[0] * k[0], x, oneMinusZ,  n ) ;
 		}
 		else
@@ -347,6 +348,9 @@ int main( int argc, char *argv[] )
 	{
 		if ( support <= 0 )
 			continue ;
+		if ( !( uniqSupport > 1 || 
+			( secondarySupport > 10 ) ) )
+			continue ;
 		int chrId = alignments.GetChromIdFromName( chrom ) ; 
 		struct _splitSite ss ;
 		--start ;
@@ -389,6 +393,7 @@ int main( int argc, char *argv[] )
 	// Recompute the coverage for each block. 
 	alignments.Rewind() ;
 	//printf( "Before computeDepth: %d\n", regions.exonBlocks.size() ) ;
+
 	regions.ComputeDepth( alignments ) ;
 	//printf( "After computeDepth: %d\n", regions.exonBlocks.size() ) ;
 
@@ -548,15 +553,14 @@ int main( int argc, char *argv[] )
 
 		double p1, p2, p ;
 		
-		/*p1 = MixtureGammaAssignment( covRatio[i], piRatio, kRatio, thetaRatio ) ;
-		  p2 = MixtureGammaAssignment( cov[i], piCov, kCov, thetaCov  ) ;
-		  p = p1>p2 ? p1 : p2 ;*/
+		p1 = MixtureGammaAssignment( covRatio[i], piRatio, kRatio, thetaRatio ) ;
+		p2 = MixtureGammaAssignment( cov[i], piCov, kCov, thetaCov  ) ;
 
-		p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
+		/*p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
 		if ( piRatio != 0 )
 			p2 = GetPValue( cov[i], kCov, thetaCov ) ;//1 - gammad( cov[i] / thetaCov[0], kCov[0], &fault ) ;
 		else
-			p2 = p1 ;
+			p2 = p1 ;*/
 		//printf( "%lf %lf: %lf %lf\n", covRatio[i], cov[i], p1, p2 ) ;
 		p = p1 > p2 ? p1 : p2 ;
 		
@@ -589,15 +593,14 @@ int main( int argc, char *argv[] )
 		//double lf1 = -k[1] * log( theta[1] ) + ( k[1] - 1 ) * log( cov[i]) - cov[i] / theta[1] - lgamma( k[1] ) ;
 
 		double p1, p2, p ;
-			/*p1 = MixtureGammaAssignment( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
-			p2 = MixtureGammaAssignment( cov[i], overhangPiCov, overhangKCov, overhangThetaCov  ) ;
-			p = p1>p2 ? p1 : p2 ;*/
+		p1 = MixtureGammaAssignment( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
+		p2 = MixtureGammaAssignment( cov[i], overhangPiCov, overhangKCov, overhangThetaCov  ) ;
 			
-		p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
+		/*p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
 		if ( overhangPiRatio != 0)
 			p2 = GetPValue( cov[i], kCov, thetaCov ) ;//1 - gammad( cov[i] / thetaCov[0], kCov[0], &fault ) ;
 		else
-			p2 = p1 ;
+			p2 = p1 ;*/
 
 		p = p1 > p2 ? p1 : p2 ;
 		
@@ -632,10 +635,11 @@ int main( int argc, char *argv[] )
 
 	// Process the result for subexons seems like single-exon transcript (...)
 	int islandBlockCnt = islandBlocks.size() ;
+	std::sort( islandBlocks.begin(), islandBlocks.end(), CompBlocksByAvgDepth ) ;
 	for ( i = 0, j = 0 ; i < islandBlockCnt ; ++i )
 	{
 		if ( regions.GetAvgDepth( islandBlocks[i] ) != regions.GetAvgDepth( islandBlocks[j] ) )
-			++j ;
+			j = i ;
 		leftClassifier[ islandBlocks[i].contigId ] = 1 - (j + 1) / (double)( islandBlockCnt + 1 ) ;
 		rightClassifier[ islandBlocks[i].contigId ] = 1 - (j + 1) / (double)( islandBlockCnt + 1 ) ;
 	}
