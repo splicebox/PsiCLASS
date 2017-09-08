@@ -602,9 +602,9 @@ int main( int argc, char *argv[] )
 		p1 = MixtureGammaAssignment( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
 		p2 = MixtureGammaAssignment( cov[i], overhangPiCov, overhangKCov, overhangThetaCov  ) ;
 			
-		/*p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
+		/*p1 = GetPValue( covRatio[i], overhangKRatio, overhangThetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
 		if ( overhangPiRatio != 0)
-			p2 = GetPValue( cov[i], kCov, thetaCov ) ;//1 - gammad( cov[i] / thetaCov[0], kCov[0], &fault ) ;
+			p2 = GetPValue( cov[i], overhangKCov, overhangThetaCov ) ;//1 - gammad( cov[i] / thetaCov[0], kCov[0], &fault ) ;
 		else
 			p2 = p1 ;*/
 
@@ -643,13 +643,16 @@ int main( int argc, char *argv[] )
 
 	// Process the result for subexons seems like single-exon transcript (...)
 	int islandBlockCnt = islandBlocks.size() ;
-	std::sort( islandBlocks.begin(), islandBlocks.end(), CompBlocksByAvgDepth ) ;
+	//std::sort( islandBlocks.begin(), islandBlocks.end(), CompBlocksByAvgDepth ) ;
 	for ( i = 0, j = 0 ; i < islandBlockCnt ; ++i )
 	{
-		if ( regions.GetAvgDepth( islandBlocks[i] ) != regions.GetAvgDepth( islandBlocks[j] ) )
+		/*if ( regions.GetAvgDepth( islandBlocks[i] ) != regions.GetAvgDepth( islandBlocks[j] ) )
 			j = i ;
 		leftClassifier[ islandBlocks[i].contigId ] = 1 - (j + 1) / (double)( islandBlockCnt + 1 ) ;
-		rightClassifier[ islandBlocks[i].contigId ] = 1 - (j + 1) / (double)( islandBlockCnt + 1 ) ;
+		rightClassifier[ islandBlocks[i].contigId ] = 1 - (j + 1) / (double)( islandBlockCnt + 1 ) ;*/
+		double p = GetPValue( regions.GetAvgDepth( islandBlocks[i] ), kCov, thetaCov ) ;
+		leftClassifier[ islandBlocks[i].contigId ] = p ;
+		rightClassifier[ islandBlocks[i].contigId ] = p ;
 	}
 
 	

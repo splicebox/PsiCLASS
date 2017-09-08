@@ -83,16 +83,20 @@ public:
 		subexonCnt = subexons.size() ;
 		for ( i = 0 ; i < subexonCnt ; ++i )
 		{	
-			//printf( "hi1\n" ) ;
 			struct _subexon &se = subexons[i] ;
+			//printf( "hi1 %d: %d %d\n", i, se.prevCnt, se.prev[0] ) ;
 			int cnt = 0 ;
 
 			// due to filter, we may not fully match the coordinate and the subexon
-			for ( j = i - 1, k = 0 ; k < se.prevCnt && j >= 0 && subexons[j].end >= se.prev[0] ; --j )
+			int bound = 0 ;
+			if ( se.prevCnt > 0 )
+				bound = se.prev[0] ;
+			for ( j = i - 1, k = 0 ; k < se.prevCnt && j >= 0 && subexons[j].end >= bound ; --j )
 			{
+				//printf( " %d %d: %d %d\n", j, k, se.prev[ se.prevCnt - 1 - k], subexons[j].end ) ;
 				if ( subexons[j].end == se.prev[se.prevCnt - 1 - k] ) // notice the order is reversed
 				{
-					se.prev[cnt] = j ;
+					se.prev[se.prevCnt - 1 - cnt] = j ;
 					++k ;
 					++cnt ;
 				}
@@ -102,21 +106,21 @@ public:
 					++j ; // counter the --j in the loop
 				}
 			}
-			se.prevCnt = cnt ;
-			//printf( "hi2\n" ) ;
-			// Reverse the list
-			for ( j = 0, k = se.prevCnt - 1 ; j < k ; ++j, --k )
+			//printf( "hi2 %d : %d\n", i, se.prevCnt ) ;
+			// shft the list
+			for ( j = 0, k = se.prevCnt - cnt ; j < cnt ; ++j, ++k )
 			{
-				int tmp = se.prev[j] ;
 				se.prev[j] = se.prev[k] ;
-				se.prev[k] = tmp ;
 			}
+			se.prevCnt = cnt ;
 			cnt = 0 ;
-			for ( j = i + 1, k = 0 ; k < se.nextCnt && j < subexonCnt && subexons[j].start <= se.next[ se.nextCnt - 1 ] ; ++j )
+			if ( se.nextCnt > 0 )
+				bound = se.next[ se.nextCnt - 1] ;
+			for ( j = i + 1, k = 0 ; k < se.nextCnt && j < subexonCnt && subexons[j].start <= bound ; ++j )
 			{
 				if ( subexons[j].start == se.next[k] )
 				{
-					se.next[cnt] = j ;
+					se.next[cnt] = j ; // cnt is always less than k, so we don't need to worry about overwrite.
 					++k ;
 					++cnt ;
 				}

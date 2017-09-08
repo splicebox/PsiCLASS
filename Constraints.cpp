@@ -338,11 +338,11 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	{
 		printf( "constraints %d: %lf %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last ) ;
 		constraints[i].vector.Print() ;
-	}*/
+	}
 
-	/*for ( i = 0 ; i < matePairs.size() ; ++i )
+	for ( i = 0 ; i < matePairs.size() ; ++i )
 	{
-		printf( "mates %d: %lf %d %d\n", i, matePairs[i].normAbund, matePairs[i].i, matePairs[i].j ) ;
+		printf( "mates %d: %lf %d %d %d %d\n", i, matePairs[i].normAbund, matePairs[i].i, matePairs[i].j, matePairs[i].support, matePairs[i].uniqSupport ) ;
 	}*/
 
 	return 0 ;

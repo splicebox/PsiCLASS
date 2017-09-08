@@ -1190,8 +1190,10 @@ int TranscriptDecider::RefineTranscripts( int baseGeneId, std::vector<struct _tr
 		{
 			if ( !IsConstraintInTranscript( transcripts[i], scc[ tc[j].i ] ) || !IsConstraintInTranscript( transcripts[i], scc[ tc[j].j ] ) )
 				continue ;
-			support += scc[ tc[j].i ].support + scc[ tc[j].j ].support ;
-			uniqSupport += scc[ tc[j].i ].uniqSupport + scc[ tc[j].j ].uniqSupport ; 
+			//support += scc[ tc[j].i ].support + scc[ tc[j].j ].support ;
+			//uniqSupport += scc[ tc[j].i ].uniqSupport + scc[ tc[j].j ].uniqSupport ; 
+			support += tc[j].support ;
+			uniqSupport += tc[j].uniqSupport ;
 		}
 
 		if ( (double)uniqSupport < 0.05 * support )
