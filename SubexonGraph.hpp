@@ -63,6 +63,12 @@ public:
 				|| ( se.leftType == 2 && se.rightType == 0 ) // overhang
 				|| ( se.leftType == 2 && se.rightType == 1 ) ) // ir
 			{
+				if ( ( se.leftType == 0 && se.rightType == 1 ) 
+					|| ( se.leftType == 2 && se.rightType == 0 ) ) // if the overhang is too small
+				{
+					if ( se.end - se.start + 1 <= 7 )
+						continue ;
+				}
 				if ( se.leftClassifier >= classifierThreshold || se.leftClassifier < 0 )
 				//if ( se.leftClassifier < classifierThreshold )
 					continue ;
@@ -133,6 +139,92 @@ public:
 		rewind( fpSubexon ) ;
 		
 		visit = new int[ seCnt ] ;
+
+		// Adjust the classifier for hard boundary, if there is a overhang attached to that region.
+		for ( i = 0 ; i < seCnt ; ++i )
+		{
+			if ( subexons[i].leftType == 1 && subexons[i].leftClassifier < 1 )
+			{
+				for ( j = i - 1 ; j >= 0 ; --j )
+					if ( subexons[j].end < subexons[j + 1].start - 1 )
+						break ;
+				if ( subexons[j + 1].leftType == 0 )
+					subexons[i].leftClassifier = 1 ;
+			}
+			if ( subexons[i].rightType == 2 && subexons[i].rightClassifier < 1 )
+			{
+				for ( j = i + 1 ; j < seCnt ; ++j )
+					if ( subexons[j].start > subexons[j - 1].end + 1 )
+						break ;
+				if ( subexons[j - 1].rightType == 0 )
+					subexons[i].rightClassifier = 1 ;
+			}
+		}
+
+		// For the region of mixture of plus and minus strand subexons, if there is
+		// no overhang attached to it, we need to let the hard boundary be a candidate terminal sites.
+		for ( i = 0 ; i < seCnt ; )
+		{
+			// [i,j) is a region
+			int support[2] = {0, 0} ; // the index, 0 is for minus strand, 1 is for plus strand
+			for ( j = i + 1 ; j < seCnt ; ++j )
+			{
+				if ( subexons[j].start > subexons[j - 1].end + 1 )	
+					break ;
+			}
+
+			for ( k = i ; k < j ; ++k )
+			{
+				if ( subexons[k].leftStrand != 0 )
+					++support[ ( subexons[k].leftStrand + 1 ) / 2 ] ;
+				if ( subexons[k].rightStrand != 0 )
+					++support[ ( subexons[k].rightStrand + 1 ) / 2 ] ;
+			}
+			if ( support[0] == 0 || support[1] == 0 )
+			{
+				i = j ;
+				continue ;
+			}
+			// a mixture region. 
+			// We force a terminal site if we have only coming-in and no going-out introns.
+			int leftSupport[2], rightSupport[2] ;
+			int l ;
+			for ( k = i ; k < j ; ++k )
+			{
+				int cnt = subexons[k].prevCnt ; 
+				if ( subexons[k].leftStrand != 0 )
+					for ( l = 0 ; l < cnt ; ++l )
+						if ( subexons[k].prev[l] < i )
+						{
+							++leftSupport[ ( subexons[k].leftStrand + 1 ) / 2 ] ;
+							break ;
+						}
+				cnt = subexons[k].nextCnt ; 
+				if ( subexons[k].rightStrand != 0 )
+					for ( l = 0 ; l < cnt ; ++l )
+						if ( subexons[k].prev[l] < i )
+						{
+							++rightSupport[ ( subexons[k].rightStrand + 1 ) / 2 ] ;
+							break ;
+						}
+			}
+
+			if ( ( ( leftSupport[0] > 0 && rightSupport[0] == 0 ) || 
+				( leftSupport[1] > 0 && rightSupport[1] == 0 ) ) &&
+				subexons[j - 1].rightType != 0 )
+			{
+				subexons[j - 1].rightClassifier = 0 ;
+			}
+
+			if ( ( ( leftSupport[0] == 0 && rightSupport[0] > 0 ) || 
+				( leftSupport[1] == 0 && rightSupport[1] > 0 ) ) &&
+				subexons[j - 1].leftType != 0 )
+			{
+				subexons[j - 1].leftClassifier = 0 ;
+			}
+
+			i = j ;
+		}
 
 		this->classifierThreshold = classifierThreshold ;
 	} 

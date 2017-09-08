@@ -16,7 +16,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t--ls STRING: path to the list of single-sample subexon files.\n"
 	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" ;
 
-static const char *short_options = "s:b:h" ;
+static const char *short_options = "s:b:f:h" ;
 static struct option long_options[] =
 	{
 		{ "ls", required_argument, 0, 10000 },
@@ -24,7 +24,6 @@ static struct option long_options[] =
 	} ;
 
 
-double classifierThreshold ;
 
 int main( int argc, char *argv[] )
 {
@@ -40,6 +39,9 @@ int main( int argc, char *argv[] )
 	int c, option_index ; // For getopt
 	option_index = 0 ;
 	FILE *fpSubexon = NULL ;
+	double FPKMFraction = 0.05 ; 
+	double classifierThreshold ;
+	
 	std::vector<Alignments> alignmentFiles ;
 	SubexonCorrelation subexonCorrelation ;
 	
@@ -59,6 +61,10 @@ int main( int argc, char *argv[] )
 			Alignments a ;
 			a.Open( optarg ) ;
 			alignmentFiles.push_back( a ) ;
+		}
+		else if ( c == 'f' )
+		{
+			FPKMFraction = atof( optarg ) ; 		
 		}
 		else if ( c == 10000 )
 		{
@@ -100,10 +106,10 @@ int main( int argc, char *argv[] )
 		Constraints constraints( &alignmentFiles[i] ) ;
 		multiSampleConstraints.push_back( constraints ) ;
 	}
-	TranscriptDecider transcriptDecider( sampleCnt, alignmentFiles[0] ) ;
+	TranscriptDecider transcriptDecider( FPKMFraction, classifierThreshold, sampleCnt, alignmentFiles[0] ) ;
 
 	transcriptDecider.SetOutputFPs() ;
-
+	
 	int giCnt = subexonGraph.geneIntervals.size() ;
 	for ( i = 0 ; i < giCnt ; ++i )
 	{

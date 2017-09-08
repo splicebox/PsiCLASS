@@ -26,6 +26,9 @@ struct _splitSite // means the next position belongs to another block
 	char strand ;
 	int chrId ;
 	int type ; // 1-start of an exon. 2-end of an exon.
+	
+	int support ;
+	int uniqSupport ;
 
 	int64_t oppositePos ; // the position of the other sites to form the intron.
 } ;
@@ -37,7 +40,7 @@ struct _block
 	int64_t start, end ;
 	int64_t leftSplice, rightSplice ; // Some information about the left splice site and right splice site.
 					  // record the leftmost and rightmost coordinates of a splice site within this block 
-				          //or the length of read alignment support the splice sites.
+				          //or the length of read alignment support the splice sites. Or the number of support.
 	int64_t depthSum ;
 
 	int leftType, rightType ; //0-soft boundary, 1-start of an exon, 2-end of an exon.
@@ -596,7 +599,7 @@ class Blocks
 
 		void AddIntronInformation( std::vector<struct _splitSite> &sites )
 		{
-			// Add the connection information and the strand information.
+			// Add the connection information, support information and the strand information.
 			int i, j, k, tag ;
 			tag = 0 ;
 			int scnt = sites.size() ;
@@ -609,6 +612,21 @@ class Blocks
 				exonBlocks[i].prev = exonBlocks[i].next = NULL ;
 
 				exonBlocks[i].leftStrand = exonBlocks[i].rightStrand = '.' ;
+
+				exonBlocks[i].leftSplice = exonBlocks[i].rightSplice = 0 ;
+			}
+			
+			// Now, we add the region id
+			int regionId = 0 ;
+			for ( i = 0 ; i < exonBlockCnt ; )
+			{
+				for ( j = i + 1 ; j < exonBlockCnt ; ++j )
+					if ( exonBlocks[j].start > exonBlocks[j - 1].end + 1 )
+						break ;
+				for ( k = i ; k < j ; ++k )
+					exonBlocks[k].contigId = regionId ;
+				++regionId ;
+				i = j ;
 			}
 
 			for ( i = 0 ; i < scnt ; )	
@@ -673,6 +691,12 @@ class Blocks
 								exonBlocks[tag].prev[ exonBlocks[tag].prevCnt] = k ; // Note that the prev are sorted in decreasing order
 								++exonBlocks[k].nextCnt ;
 								++exonBlocks[tag].prevCnt ;
+								
+								if ( exonBlocks[k].contigId != exonBlocks[tag].contigId )
+								{
+									exonBlocks[tag].leftSplice += sites[l].support ;
+									exonBlocks[k].rightSplice += sites[l].support ;
+								}
 								break ;
 							}
 						}
@@ -769,7 +793,7 @@ class Blocks
 						exonBlocks[i].rightRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
 				}
 
-				if ( exonBlocks[i].leftType == 1 )
+				/*if ( exonBlocks[i].leftType == 1 )
 				{
 					// For the case (...[, the leftRatio is actuall the leftratio of the subexon on its right. 	
 					int len = 0 ;
@@ -799,10 +823,11 @@ class Blocks
 						avgDepth = 1 ;
 					if ( otherAvgDepth < 1 )
 						otherAvgDepth = 1 ;
-					
-					exonBlocks[i].leftRatio = sqrt( log( avgDepth ) ) - sqrt( log( otherAvgDepth ) ) ;
 
-				}
+					//exonBlocks[i].leftRatio = pow( log( avgDepth ) / log(2.0), 2.0 / 3.0 ) - pow( log( otherAvgDepth ) / log( 2.0 ), 2.0 / 3.0 );
+					exonBlocks[i].leftRatio = sqrt( avgDepth ) - log( avgDepth ) - ( sqrt( otherAvgDepth ) + log( otherAvgDepth ) ) ;
+
+				}*/
 				if ( exonBlocks[i].rightType == 0 && exonBlocks[i].leftType == 2  ) 
 				{
 					// for overhang subexon.
@@ -812,7 +837,7 @@ class Blocks
 						exonBlocks[i].leftRatio = ( avgDepth - 1 ) / ( anchorAvg - 1 ) ;
 
 				}
-				if ( exonBlocks[i].rightType == 2 ) 
+				/*if ( exonBlocks[i].rightType == 2 ) 
 				{
 					int len = 0 ;
 					double depthSum = 0 ;
@@ -842,9 +867,49 @@ class Blocks
 					if ( otherAvgDepth < 1 )
 						otherAvgDepth = 1 ;
 
-					exonBlocks[i].rightRatio = sqrt( log( avgDepth ) ) - sqrt( log( otherAvgDepth ) );
-				}
+					exonBlocks[i].rightRatio = sqrt( avgDepth ) - log( avgDepth ) - ( sqrt( otherAvgDepth ) + log( otherAvgDepth ) ) ;
+					//pow( log( avgDepth ) / log(2.0), 2.0 / 3.0 ) - pow( log( otherAvgDepth ) / log(2.0), 2.0 / 3.0 );
+				}*/
 				// The remaining case the islands, (...)
+			}
+
+			// go through each region of subexons, and only compute the ratio for the first and last hard boundary
+			for ( i = 0 ; i < exonBlockCnt ; )
+			{
+				// the blocks from [i,j) corresponds to a region, namely consecutive subexons.
+				for ( j = i + 1 ; j < exonBlockCnt ; ++j )
+					if ( exonBlocks[j].contigId != exonBlocks[i].contigId )
+						break ;
+
+				int leftSupport = 0 ;
+				int rightSupport = 0 ;
+				int leftTag = j, rightTag = i - 1  ;
+				for ( int k = i ; k < j ; ++k )
+				{
+					if ( exonBlocks[k].leftType == 1 && exonBlocks[k].leftSplice > 0 )	
+					{
+						leftSupport += exonBlocks[k].leftSplice ;
+						if ( k < leftTag )
+							leftTag = k ;
+					}
+					if ( exonBlocks[k].rightType == 2 && exonBlocks[k].rightSplice > 0 )
+					{
+						rightSupport += exonBlocks[k].rightSplice ;
+						if ( k > rightTag )
+							rightTag = k ;
+					}
+				}
+
+				if ( leftSupport > 0 && rightSupport > 0 )
+				{
+					// when the right splice support is much greater than that of the left side, there should be a soft boundary for the left side.
+					// Wether we want to include this soft boundary or not will be determined in class, when it looked at whether the overhang block
+					// 	should be kept or not.
+					exonBlocks[ leftTag ].leftRatio = sqrt( rightSupport ) - log( rightSupport ) - ( sqrt( leftSupport ) + log( leftSupport ) ) ;
+					exonBlocks[ rightTag ].rightRatio = sqrt( leftSupport ) - log( leftSupport ) - ( sqrt( rightSupport ) + log( rightSupport ) ) ;
+				}
+
+				i = j ; // don't forget this.
 			}
 		}
 } ;

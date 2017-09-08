@@ -80,7 +80,7 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 	delete catSubexons ;
 }
 
-void TranscriptDecider::SetGeneId( int tag, struct _subexon *subexons, int id )
+void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexons, int id )
 {
 	if ( geneId[tag] != -1 )
 	{
@@ -91,12 +91,18 @@ void TranscriptDecider::SetGeneId( int tag, struct _subexon *subexons, int id )
 	int i ;
 	geneId[ tag ] = id ;
 	int cnt = subexons[tag].nextCnt ;
-	for ( i = 0 ; i < cnt ; ++i )
-		SetGeneId( subexons[tag].next[i], subexons, id ) ;
+	if ( SubexonGraph::IsSameStrand( strand, subexons[tag].rightStrand ) )
+	{
+		for ( i = 0 ; i < cnt ; ++i )
+			SetGeneId( subexons[tag].next[i], strand, subexons, id ) ;
+	}
 
 	cnt = subexons[tag].prevCnt ;
-	for ( i = 0 ; i < cnt ; ++i )
-		SetGeneId( subexons[tag].prev[i], subexons, id ) ;
+	if ( SubexonGraph::IsSameStrand( strand, subexons[tag].leftStrand ) )
+	{
+		for ( i = 0 ; i < cnt ; ++i )
+			SetGeneId( subexons[tag].prev[i], strand, subexons, id ) ;
+	}
 }
 
 int TranscriptDecider::GetTranscriptGeneId( std::vector<int> &subexonInd, int baseGeneId )
@@ -272,7 +278,7 @@ void TranscriptDecider::CoalesceSameTranscripts( std::vector<struct _transcript>
 	t.resize( k + 1 ) ;
 }
 
-void TranscriptDecider::EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, std::vector<struct _transcript> &alltranscripts, int &atcnt )
+void TranscriptDecider::EnumerateTranscript( int tag, int strand, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, std::vector<struct _transcript> &alltranscripts, int &atcnt )
 {
 	int i ;
 	visit[ vcnt ] = tag ;
@@ -300,10 +306,20 @@ void TranscriptDecider::EnumerateTranscript( int tag, int visit[], int vcnt, str
 	}
 
 	for ( i = 0 ; i < subexons[tag].nextCnt ; ++i )
-		EnumerateTranscript( subexons[tag].next[i], visit, vcnt + 1, subexons, correlation, minCor, alltranscripts, atcnt ) ;
+	{
+		int a = subexons[tag].next[i] ;
+		if ( !SubexonGraph::IsSameStrand( subexons[tag].rightStrand, strand ) 
+			&& subexons[a].start > subexons[tag].end + 1 )
+			continue ;
+		int backupStrand = strand ;
+		if ( subexons[a].start > subexons[tag].end + 1 && strand == 0 )
+			strand = subexons[tag].rightStrand ;
+		EnumerateTranscript( subexons[tag].next[i], strand, visit, vcnt + 1, subexons, correlation, minCor, alltranscripts, atcnt ) ;
+		strand = backupStrand ;
+	}
 }
 
-void TranscriptDecider::SearchSubTranscript( int tag, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt,
+void TranscriptDecider::SearchSubTranscript( int tag, int strand, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt,
 std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) 
 {
 	int i ;
@@ -342,7 +358,7 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 	{
 		// Solve the subtranscript beginning with visit.
 		// Now we got the optimal transcript for visit. 
-		visitdp = SolveSubTranscript( visit, vcnt, tc, tcStartInd, attr ) ;	
+		visitdp = SolveSubTranscript( visit, vcnt, strand, tc, tcStartInd, attr ) ;	
 		keepSearch = false ;
 	}
 	//printf( "%s %d %d: visitdp.cover=%lf\n", __func__, parents[0], tag, visitdp.cover ) ;
@@ -470,14 +486,27 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 	if ( keepSearch )	
 	{
 		for ( i = 0 ; i < subexons[tag].nextCnt ; ++i )
-			SearchSubTranscript( subexons[tag].next[i], parents, pcnt, pdp, visit, vcnt, 
-				extends, extendCnt, tc, tcStartInd, attr ) ;
+		{
+			int b = subexons[tag].next[i] ;
+			if ( SubexonGraph::IsSameStrand( subexons[tag].rightStrand, strand ) ||
+					subexons[b].start == subexons[tag].end + 1 )		
+			{
+				int backupStrand = strand ;
+				if ( subexons[b].start > subexons[tag].end + 1 ) 
+					strand = subexons[tag].rightStrand ;
+
+				SearchSubTranscript( subexons[tag].next[i], strand, parents, pcnt, pdp, visit, vcnt, 
+						extends, extendCnt, tc, tcStartInd, attr ) ;
+				strand = backupStrand ;
+			}
+		}
+
 	}
 
 	return ;
 }
 
-struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) 
+struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int strand, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) 
 {
 	int i ;
 	int size ;
@@ -623,7 +652,18 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 	int *nextv = new int[ nextvCnt ] ;
 	for ( i = 0 ; i < size ; ++i )
 	{
-		SearchSubTranscript( subexons[ visit[vcnt - 1] ].next[i], visit, vcnt, visitdp, nextv, 0, extends, 0, tc, tcStartInd, attr ) ;		
+		int a = visit[vcnt - 1] ;
+		int b = subexons[a].next[i] ;
+		if ( SubexonGraph::IsSameStrand( subexons[a].rightStrand, strand ) ||
+			subexons[b].start == subexons[a].end + 1 )		
+		{
+			int backupStrand = strand ;
+			if ( subexons[b].start > subexons[a].end + 1 ) 
+				strand = subexons[a].rightStrand ;
+			SearchSubTranscript( subexons[ visit[vcnt - 1] ].next[i], strand, visit, vcnt, visitdp, nextv, 0, extends, 0, tc, tcStartInd, attr ) ;		
+			strand = backupStrand ;
+
+		}
 	}
 	//printf( "%s %d: %lf\n", __func__, visit[0], visitdp.cover ) ;	
 	delete[] nextv ;
@@ -656,9 +696,9 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, std::ve
 	}
 }
 
-void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &alltranscripts )
+void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, std::vector<struct _transcript> &alltranscripts )
 {
-	int i, j ;
+	int i, j, k ;
 	struct _dpAttribute attr ;
 	std::vector<struct _transcript> transcripts ;
 	std::vector<struct _constraint> &tc = constraints.constraints ;
@@ -708,7 +748,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		{
 			int visit[1] = {i} ;
 			struct _dp tmp ;
-			tmp = SolveSubTranscript( visit, 1, tc, 0, attr ) ;
+			tmp = SolveSubTranscript( visit, 1, 0, tc, 0, attr ) ;
 			
 			if ( tmp.cover > maxAbundance )
 				maxAbundance = tmp.cover ;
@@ -747,7 +787,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 					continue ;
 				int visit[1] = {i} ;
 				struct _dp tmp ;
-				tmp = SolveSubTranscript( visit, 1, tc, 0, attr ) ;
+				tmp = SolveSubTranscript( visit, 1, 0, tc, 0, attr ) ;
 
 				if ( tmp.cover > maxCoverDp.cover && tmp.cover > 0 )
 				{
@@ -773,7 +813,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				}
 			}
 			
-			double score = ComputeScore( maxCoverDp.cover, min, maxAbundance, 0 ) ;
+			double score = ComputeScore( maxCoverDp.cover, 1, min, maxAbundance, 0 ) ;
 			if ( bestScore == -1 || score > bestScore )	
 			{
 				bestScore = score ;
@@ -852,6 +892,26 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	}
 	CoalesceSameTranscripts( transcripts ) ;
 	int size = transcripts.size() ;
+	// Compute the correlation score
+	for ( i = 0 ; i < size ; ++i )
+	{
+		std::vector<int> subexonInd ;
+		transcripts[i].seVector.GetOnesIndices( subexonInd ) ;
+		double cor = 2.0 ;
+		int s = subexonInd.size() ;
+		for ( j = 0 ; j < s ; ++j )
+			for ( k = j + 1 ; j < s ; ++j )
+			{
+				double tmp = correlation.Query( subexonInd[j], subexonInd[k] ) ;
+				if ( tmp < cor )					
+					cor = tmp ;
+			}
+		if ( cor > 1 )
+			cor = 0 ;
+		transcripts[i].correlationScore = cor ;
+	}
+
+	// store the result
 	for ( i = 0 ; i < size ; ++i )
 		alltranscripts.push_back( transcripts[i] ) ;
 
@@ -889,6 +949,8 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 		return ;
 	double inf = -1 ; // infinity
 	int coalesceThreshold = 1024 ;
+	int *transcriptSeCnt = new int[ atcnt ] ;
+	double *transcriptAbundance = new double[atcnt] ; // the roughly estimated abundance based on constraints.
 	BitTable *btable = new BitTable[ atcnt ] ; 
 	for ( i = 0 ; i < atcnt ; ++i )
 		btable[i].Init( tcCnt ) ;
@@ -925,6 +987,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 				btableSet = true ;
 			}
 		}
+		transcriptSeCnt[i] = alltranscripts[i].seVector.Count() ;
 	}
 	if ( btableSet == false )
 	{
@@ -935,10 +998,16 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 	}
 
 	double maxAbundance = -1 ; // The abundance of the most-abundant transcript
+	BitTable coveredSeVector ;
+	BitTable bufferSeVector ;
+	coveredSeVector.Duplicate( alltranscripts[0].seVector ) ;
+	bufferSeVector.Duplicate( alltranscripts[0].seVector ) ;
 	for ( i = 0 ; i < atcnt ; ++i )
 	{
 		double value = inf ;
 		int tag = -1 ;
+		coveredSeVector.Reset() ;
+		bufferSeVector.Assign( alltranscripts[i].seVector ) ;
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
 			if ( btable[i].Test(j) && tc[j].abundance > 0 )
@@ -948,22 +1017,36 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 					value = tc[j].abundance ;
 					tag = j ;
 				}
+				coveredSeVector.Or( constraints.constraints[ tc[j].i ].vector ) ;
+				coveredSeVector.Or( constraints.constraints[ tc[j].j ].vector ) ;
 			}
 		}
+		bufferSeVector.Xor( coveredSeVector ) ;
+		if ( !bufferSeVector.IsAllZero() )
+			value = 0 ;
 		if ( tag == -1 ) 
-			value = 1e-6 ;
+			value = 0 ;
 		if ( value > maxAbundance )
 			maxAbundance = value ;
+		transcriptAbundance[i] = value ;
+		
+		
 		//printf( "abundance %d: %lf ", i, value ) ;
 		//alltranscripts[i].seVector.Print() ;
 	}
+	if ( maxAbundance == 0 )
+		maxAbundance = 1 ;
+	coveredSeVector.Release() ;
+	bufferSeVector.Release() ;
 	//printf( "%s: %lf\n", __func__, maxAbundance ) ;
 	
+	int iterCnt = -1 ;
 	while ( 1 )
 	{
 		double max = -1 ;
 		int maxtag = -1 ;
 		int maxcnt = -1 ;
+		++iterCnt ;
 
 		// Find the optimal candidate.
 		for ( i = 0 ; i < atcnt ; ++i )
@@ -973,24 +1056,17 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 			
 			for ( j = 0 ; j < tcCnt ; ++j )
 			{
-				if ( btable[i].Test( j ) )
+				if ( tc[j].abundance > 0 && btable[i].Test( j ) )
 				{
-					if ( tc[j].normAbund < value )
-						value = tc[j].normAbund ;
-
-					if ( tc[j].abundance > 0 )
-					{		
-						cnt += tc[j].effectiveCount ;
-					}
+					cnt += tc[j].effectiveCount ;
 				}
 			}
 
-			if ( value == inf )
-				value = 1e-6 ;
+			value = transcriptAbundance[i] ;
 			if ( cnt == 0 ) // This transcript does not satisfy any undepleted constraints.
 				continue ;
 			
-			double score = ComputeScore( cnt, value, maxAbundance, alltranscripts[i].correlationScore ) ;
+			double score = ComputeScore( cnt, 1.0, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;
 
@@ -999,7 +1075,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 				max = score ;
 				maxtag = i ;
 			}
-			//printf( "score: %d %lf %lf\n", i, cnt, score ) ;
+			//printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
 		}
 
 		if ( maxcnt == 0 || maxtag == -1 )
@@ -1007,12 +1083,14 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 
 		// Update the abundance for each transcript.	
 		double update = inf ;
+		int updateTag = 0 ;
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
 			if ( btable[ maxtag ].Test( j ) && tc[j].abundance > 0 && 
-					tc[j].abundance < update )
+					tc[j].abundance <= update )
 			{
 				update = tc[j].abundance ;	
+				updateTag = j ;
 			}
 		}
 
@@ -1029,12 +1107,12 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 			{
 				tc[j].abundance -= 1 * update ;
 				double factor = tc[j].effectiveCount ;
-
 				nt.abundance += ( tc[j].support * update / tc[j].normAbund * factor ) ;
 			}
-
 			if ( tc[j].abundance < 0 )
+			{
 				tc[j].abundance = 0 ;
+			}
 		}
 
 		transcripts.push_back( nt ) ;
@@ -1053,6 +1131,9 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 	for ( i = 0 ; i < atcnt ; ++i )
 		btable[i].Release() ;
 	delete[] btable ;
+
+	delete[] transcriptSeCnt ;
+	delete[] transcriptAbundance ;
 }
 
 int TranscriptDecider::RefineTranscripts( int baseGeneId, std::vector<struct _transcript> &transcripts, Constraints &constraints ) 
@@ -1078,7 +1159,7 @@ int TranscriptDecider::RefineTranscripts( int baseGeneId, std::vector<struct _tr
 
 	for ( i = 0 ; i < tcnt ; ++i )
 	{
-		if ( transcripts[i].abundance < 0.05 * geneMaxFPKM[ txptGid[i] - baseGeneId ] )
+		if ( transcripts[i].abundance < FPKMFraction * geneMaxFPKM[ txptGid[i] - baseGeneId ] )
 			transcripts[i].abundance = -1 ;
 	}
 	
@@ -1197,7 +1278,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	{
 		if ( geneId[i] == -1 )
 		{
-			SetGeneId( i, subexons, usedGeneId ) ;
+			SetGeneId( i, subexons[i].rightStrand, subexons, usedGeneId ) ;
 			++usedGeneId ;
 		}
 	}
@@ -1254,7 +1335,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		for ( i = 0 ; i < seCnt ; ++i )
 		{
 			if ( subexons[i].canBeStart )
-				EnumerateTranscript( i, f, 0, subexons, subexonCorrelation, 1, alltranscripts, atCnt ) ;
+				EnumerateTranscript( i, 0, f, 0, subexons, subexonCorrelation, 1, alltranscripts, atCnt ) ;
 		}
 		//printf( "transcript cnt: %d\n", atCnt ) ;
 		//printf( "%d %d\n", alltranscripts[0].seVector.Test( 1 ), constraints[0].matePairs.size() ) ;
@@ -1264,7 +1345,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		std::vector<struct _transcript> sampleTranscripts ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
-			PickTranscriptsByDP( subexons, seCnt, constraints[i], sampleTranscripts ) ;		
+			PickTranscriptsByDP( subexons, seCnt, constraints[i], subexonCorrelation, sampleTranscripts ) ;		
 			int size = sampleTranscripts.size() ;
 			for ( j = 0 ; j < size ; ++j )
 				alltranscripts.push_back( sampleTranscripts[j] ) ;
@@ -1273,6 +1354,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		CoalesceSameTranscripts( alltranscripts ) ;
 	}
 	transcriptId = new int[usedGeneId - baseGeneId] ;
+	
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		std::vector<struct _transcript> predTranscripts ;

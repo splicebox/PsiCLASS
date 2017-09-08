@@ -52,7 +52,8 @@ class TranscriptDecider
 {
 private:
 	int sampleCnt ;
-	
+	double FPKMFraction ;
+
 	Constraints *constraints ;
 	struct _subexon *subexons ;
 	int seCnt ;
@@ -67,9 +68,9 @@ private:
 	BitTable compatibleTestVectorT, compatibleTestVectorC ;
 
 	// The functions to pick transcripts through dynamic programming
-	void SearchSubTranscript( int tag, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
-	struct _dp SolveSubTranscript( int visit[], int vcnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
-	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &allTranscripts ) ;
+	void SearchSubTranscript( int tag, int strand, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
+	struct _dp SolveSubTranscript( int visit[], int vcnt, int strand, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
+	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, std::vector<struct _transcript> &allTranscripts ) ;
 
 	void SetDpContent( struct _dp &a, struct _dp &b, const struct _dpAttribute &attr )
 	{
@@ -94,7 +95,7 @@ private:
 	int SubTranscriptCount( int tag, struct _subexon *subexons, int f[] ) ;
 
 	// The methods when there is no need for DP
-	void EnumerateTranscript( int tag, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, std::vector<struct _transcript> &alltranscripts, int &atcnt ) ;
+	void EnumerateTranscript( int tag, int strand, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, std::vector<struct _transcript> &alltranscripts, int &atcnt ) ;
 	// For the simpler case, we can pick sample by sample.
 	void PickTranscripts( std::vector<struct _transcript> &alltranscripts, Constraints &constraints, SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) ; 
 
@@ -119,10 +120,11 @@ private:
 		return ((struct _pair32 *)p1)->b - ((struct _pair32 *)p2)->b ;
 	}
 
-	double ComputeScore( double cnt, double a, double A, double correlation )
+	double ComputeScore( double cnt, double seCnt, double a, double A, double correlation )
 	{
-		return cnt * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
+		return ( cnt / seCnt ) * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
 	}
+
 
 	void ConvertTranscriptAbundanceToFPKM( struct _subexon *subexons, struct _transcript &t )
 	{
@@ -140,7 +142,7 @@ private:
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;
 
 	// The function to assign gene ids to subexons.
-	void SetGeneId( int tag, struct _subexon *subexons, int id ) ;
+	void SetGeneId( int tag, int strand, struct _subexon *subexons, int id ) ;
 
 	// Initialize the structure to store transcript id 
 	void InitTranscriptId( int baseGeneId, int usedGeneId ) ; 
@@ -151,9 +153,10 @@ private:
 
 	void OutputTranscript( FILE *fp, int baseGeneId, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
-	TranscriptDecider( int sampleCnt, Alignments &a ): alignments( a )  
+	TranscriptDecider( double f, double c, int sampleCnt, Alignments &a ): alignments( a )  
 	{
-		canBeSoftBoundaryThreshold = 0.05 ;
+		FPKMFraction = f ;
+		canBeSoftBoundaryThreshold = c ;
 		usedGeneId = 0 ;
 		this->sampleCnt = sampleCnt ;
 	}

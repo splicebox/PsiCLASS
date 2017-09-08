@@ -62,7 +62,6 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 			ct.first = leftIdx ;
 		ct.last = rightIdx ;
 	}
-
 	return true ;
 }
 
@@ -175,7 +174,7 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 		{
 			int a = constraints[i].first ;
 			int b = constraints[i].last ;
-			int start, end ; // the range of the possible start sites of a read
+			int start, end ; // the range of the possible start sites of a read in subexons[a].
 			start = subexons[a].end + 1 - ( readLen - 1 ) ;
 			if ( start < subexons[a].start )
 				start = subexons[a].start ;
@@ -183,10 +182,12 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 			if ( subexons[b].end - subexons[b].start + 1 >= readLen - 1 )
 				end = subexons[a].end ;
 			else
+			{
 				end = subexons[a].end + 1 - ( readLen - ( subexons[b].end - subexons[b].start + 1 ) ) ;
+			}
 
 			if ( end < start ) // when we trimmed the subexon.
-				end = subexons[a].end ;
+				end = subexons[a].start ;
 
 			effectiveLength = end - start + 1 ;
 		}
@@ -312,7 +313,8 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	//for ( i = 0 ; i < matePairs.size() ; ++i )
 	//	printf( "matePair: %d %d %d\n", matePairs[i].i, matePairs[i].j, matePairs[i].support ) ;
 	// single-end data set
-	if ( matePairs.size() == 0 )
+	//if ( matePairs.size() == 0 )
+	if ( alignments.fragStdev == 0 )
 	{
 		int size = constraints.size() ;
 		
@@ -336,6 +338,11 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	{
 		printf( "constraints %d: %lf %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last ) ;
 		constraints[i].vector.Print() ;
+	}*/
+
+	/*for ( i = 0 ; i < matePairs.size() ; ++i )
+	{
+		printf( "mates %d: %lf %d %d\n", i, matePairs[i].normAbund, matePairs[i].i, matePairs[i].j ) ;
 	}*/
 
 	return 0 ;

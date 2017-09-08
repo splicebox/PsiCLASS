@@ -57,6 +57,7 @@ int CompDouble( const void *p1, const void *p2 )
 	return *(double *)p1 - *(double *)p2 ;
 }
 
+// Remove the same sites.
 void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
 {
 	std::sort( sites.begin(), sites.end(), CompSplitSite ) ;	
@@ -360,12 +361,16 @@ int main( int argc, char *argv[] )
 		ss.type = 2 ;
 		ss.oppositePos = end ;
 		ss.strand = strand[0] ;
+		ss.support = support ;
+		ss.uniqSupport = uniqSupport ;
 		splitSites.push_back( ss ) ;
 
 		ss.pos = end ; 
 		ss.type = 1 ;
 		ss.oppositePos = start ;
 		ss.strand = strand[0] ;
+		ss.support = support ;
+		ss.uniqSupport = uniqSupport ;
 		splitSites.push_back( ss ) ;
 	}
 	fclose( fp ) ;
@@ -403,10 +408,11 @@ int main( int argc, char *argv[] )
 	
 	// Put the intron informations
 	regions.AddIntronInformation( allSplitSites ) ;
+	//printf( "After add information.\n" ) ;
 
 	// Compute the average ratio against the left and right connected subexons.
 	regions.ComputeRatios() ;
-	
+	//printf( "After compute ratios.\n" ) ;	
 	
 	//printf( "Finish building regions.\n" ) ;	
 	if ( noStats ) 
@@ -615,10 +621,12 @@ int main( int argc, char *argv[] )
 	{
 		struct _block &e = regions.exonBlocks[i] ;
 		//if ( ( e.leftType == 0 && e.rightType == 1 ) || 
+		// variance-stabailizing transformation of poisson distribution. But we are more conservative here.
+		// The multiply 2 before that is because we ignore the region below 0, so we need to somehow renormalize the distribution.
 		if ( e.leftType == 1 )
 		{
-			if ( 2 * e.leftRatio >= 0 )
-				leftClassifier[i] = 2 * alnorm( 2 * e.leftRatio, true ) ;
+			if ( e.leftRatio >= 0 )
+				leftClassifier[i] = 2 * alnorm( e.leftRatio * 2.0 , true ) ;
 			else
 				leftClassifier[i] = 1 ;
 		}
@@ -626,8 +634,8 @@ int main( int argc, char *argv[] )
 		//if ( ( e.rightType == 0 && e.leftType == 2 ) || 
 		if ( e.rightType == 2 )
 		{
-			if ( 2 * e.rightRatio >= 0 )
-				rightClassifier[i] = 2 * alnorm( 2 * e.rightRatio, true ) ;
+			if ( e.rightRatio >= 0 )
+				rightClassifier[i] = 2 * alnorm( e.rightRatio * 2.0, true ) ;
 			else
 				rightClassifier[i] = 1 ;
 		}
