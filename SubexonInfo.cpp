@@ -194,6 +194,7 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 	double *z = new double[n] ; // the expectation that it assigned to model 0.
 	double *oneMinusZ = new double[n] ;
 	int t = 0 ;
+	double history[5] = {-1, -1, -1, -1, -1} ;
 	while ( 1 )
 	{
 		double npi, nk[2], ntheta[2] ;
@@ -237,14 +238,31 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 			return -1 ;
 		}
 		diff = ABS( nk[0] - k[0] ) + ABS( nk[1] - k[1] )
-			+ ABS( ntheta[0] - ntheta[0] ) + ABS( ntheta[1] - ntheta[1] ) ; // pi is fully determined by these 4 parameters.
+			+ ABS( ntheta[0] - theta[0] ) + ABS( ntheta[1] - theta[1] ) ; // pi is fully determined by these 4 parameters.
 		if ( diff < 1e-4 )
 			break ;
+		diff = ABS( nk[0] - history[1] ) + ABS( nk[1] - history[2] )
+			+ ABS( ntheta[0] - history[3]  ) + ABS( ntheta[1] - history[4] ) ; // pi is fully determined by these 4 parameters.
+		if ( diff < 1e-4 )
+			break ;
+
+		history[0] = pi ;
+		history[1] = k[0] ;
+		history[2] = k[1] ;
+		history[3] = theta[0] ;
+		history[4] = theta[1] ;
+		
 		pi = npi ;
 		k[0] = nk[0] ;
 		k[1] = nk[1] ;
 		theta[0] = ntheta[0] ;
 		theta[1] = ntheta[1] ;
+
+		/*double logLikelihood = 0 ;
+		for ( i = 0 ; i < n ; ++i )
+			logLikelihood += log( pi * exp( LogGammaDensity( x[i], k[0], theta[0]) ) + 
+				(1 - pi ) * exp( LogGammaDensity( x[i], k[1], theta[1] ) ) ) ;*/
+
 		//printf( "%lf %lf %lf %lf %lf\n", pi, k[0], theta[0], k[1], theta[1] ) ;
 		
 		++t ;
@@ -349,8 +367,8 @@ int main( int argc, char *argv[] )
 	{
 		if ( support <= 0 )
 			continue ;
-		if ( !( uniqSupport > 1 || 
-			( secondarySupport > 10 ) ) )
+		if ( !( uniqSupport >= 1 
+			|| secondarySupport > 10 ) )
 			continue ;
 		int chrId = alignments.GetChromIdFromName( chrom ) ; 
 		struct _splitSite ss ;
@@ -549,7 +567,6 @@ int main( int argc, char *argv[] )
 		++irBlockCnt ;
 	}
 	fclose( fp ) ;*/
-	//printf( "hi\n" ) ;
 	RatioAndCovEM( covRatio, cov, irBlockCnt, piRatio, kRatio, thetaRatio, piCov, kCov, thetaCov ) ;
 
 	for ( i = 0 ; i < irBlockCnt ; ++i )

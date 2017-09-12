@@ -12,14 +12,19 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"Required:\n"
 	"\t-s STRING: path to the subexon file.\n"
 	"\t-b STRING: path to the BAM file.\n"
+	"\t\tor\n"
+	"\t--ls STRING: path to the file of the list of single-sample subexon files.\n"
+	"\t--lb STRING: path to the file of the list of BAM files.\n"
 	"Optional:\n"
-	"\t--ls STRING: path to the list of single-sample subexon files.\n"
-	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" ;
+	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" 
+	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)\n"
+	;
 
 static const char *short_options = "s:b:f:h" ;
 static struct option long_options[] =
 	{
 		{ "ls", required_argument, 0, 10000 },
+		{ "lb", required_argument, 0, 10001 },
 		{ (char *)0, 0, 0, 0} 
 	} ;
 
@@ -27,7 +32,7 @@ static struct option long_options[] =
 
 int main( int argc, char *argv[] )
 {
-	int i, j, k ;
+	int i, j ;
 	int size ;
 
 	if ( argc <= 1 )
@@ -66,9 +71,27 @@ int main( int argc, char *argv[] )
 		{
 			FPKMFraction = atof( optarg ) ; 		
 		}
-		else if ( c == 10000 )
+		else if ( c == 10000 ) // the list of subexon files.
 		{
 			subexonCorrelation.Initialize( optarg ) ;
+		}
+		else if ( c == 10001 ) // the list of bam files.
+		{
+			FILE *fp = fopen( optarg, "r" ) ;
+			char buffer[1024] ;
+			while ( fgets( buffer, sizeof( buffer ), fp ) != NULL )
+			{
+				int len = strlen( buffer ) ;
+				if ( buffer[len - 1] == '\n' )
+				{
+					buffer[len - 1] = '\0' ;
+					--len ;
+
+				}
+				Alignments a ;
+				a.Open( buffer ) ;
+				alignmentFiles.push_back( a ) ;
+			}
 		}
 		else
 		{

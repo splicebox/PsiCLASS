@@ -191,7 +191,7 @@ public:
 			}
 			// a mixture region. 
 			// We force a terminal site if we have only coming-in and no going-out introns.
-			int leftSupport[2], rightSupport[2] ;
+			int leftSupport[2] = {0, 0}, rightSupport[2] = {0, 0};
 			int l ;
 			for ( k = i ; k < j ; ++k )
 			{
@@ -206,7 +206,7 @@ public:
 				cnt = subexons[k].nextCnt ; 
 				if ( subexons[k].rightStrand != 0 )
 					for ( l = 0 ; l < cnt ; ++l )
-						if ( subexons[k].prev[l] < i )
+						if ( subexons[k].next[l] >= j )
 						{
 							++rightSupport[ ( subexons[k].rightStrand + 1 ) / 2 ] ;
 							break ;

@@ -77,7 +77,7 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 	}
 	++transcriptId[ gid - baseGeneId ] ;
 
-	delete catSubexons ;
+	delete[] catSubexons ;
 }
 
 void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexons, int id )
@@ -1347,6 +1347,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		std::vector<struct _transcript> sampleTranscripts ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
+			sampleTranscripts.clear() ;
 			PickTranscriptsByDP( subexons, seCnt, constraints[i], subexonCorrelation, sampleTranscripts ) ;		
 			int size = sampleTranscripts.size() ;
 			for ( j = 0 ; j < size ; ++j )
@@ -1356,7 +1357,6 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		CoalesceSameTranscripts( alltranscripts ) ;
 	}
 	transcriptId = new int[usedGeneId - baseGeneId] ;
-	
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		std::vector<struct _transcript> predTranscripts ;

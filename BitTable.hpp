@@ -40,12 +40,12 @@ public:
 		if ( s & UNIT_MASK )
 		{
 			asize = s / UNIT_SIZE + 1 ;
-			tab = new UINT64[ asize ]() ;
+			tab = new UINT64[ asize ] ;
 		}
 		else
 		{
 			asize = s / UNIT_SIZE ;
-			tab = new UINT64[ asize ]() ;
+			tab = new UINT64[ asize ] ;
 		}
 
 		size = s ;
@@ -74,12 +74,12 @@ public:
 		if ( s & UNIT_MASK )
 		{
 			asize = s / UNIT_SIZE + 1 ;
-			tab = new UINT64[ asize ]() ;
+			tab = new UINT64[ asize ] ;
 		}
 		else
 		{
 			asize = s / UNIT_SIZE ;
-			tab = new UINT64[ asize ]() ;
+			tab = new UINT64[ asize ] ;
 		}
 
 		size = s ;
@@ -396,7 +396,7 @@ public:
 		int i ;
 		size = in.size ;
 		asize = in.asize ;
-		tab = new UINT64[ asize ]() ;
+		tab = new UINT64[ asize ] ;
 		for ( i = 0 ; i < asize ; ++i )
 			tab[i] = in.tab[i] ;
 	}
