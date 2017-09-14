@@ -13,7 +13,9 @@
 
 char usage[] = "combineSubexons [options]\n"
 	       "Required options:\n"
-	       "\t-s STRING: the path to the predicted subexon information. Can use multiple -s to specify multiple subexon prediction files\n" ;
+	       "\t-s STRING: the path to the predicted subexon information. Can use multiple -s to specify multiple subexon prediction files\n" 
+	       "\t\tor\n"
+	       "\t--ls STRING: the path to file of the list of the predicted subexon information.\n" ;
 
 struct _overhang
 {
@@ -59,8 +61,21 @@ bool CompSubexonSplit( struct _subexonSplit a, struct _subexonSplit b )
 		return false ;
 	else if ( a.pos != b.pos )
 		return a.pos < b.pos ;
-	else
+	else if ( a.type != b.type )
+	{
+		// the split site with no strand information should come first.
+		if ( a.type == 0 ) 
+			return true ;
+		else if ( b.type == 0 )
+			return false ;
 		return a.type < b.type ;
+	}
+	else if ( a.splitType != b.splitType )
+	{
+		return a.splitType < b.splitType ;
+	}
+	
+	return false ;
 }
 
 bool CompIrFromSamples( struct _seInterval a, struct _seInterval b )
@@ -161,6 +176,7 @@ int *MergePositions( int *old, int ocnt, int *add, int acnt, int &newCnt )
 	if ( newCnt == ocnt )
 		return old ;
 	k = 0 ;
+	//delete []old ;
 	ret = new int[ newCnt ] ;
 	for ( i = 0, j = 0 ; i < ocnt && j < acnt ; )
 	{
@@ -301,27 +317,28 @@ int main( int argc, char *argv[] )
 	{
 		if ( subexonSplits[i].splitType != 0 )
 			continue ;
-		else
+		int newSplitType = 0 ;
+		int newStrand = subexonSplits[i].strand ;
+		for ( j = i + 1 ; j < splitCnt ; ++j )
 		{
-			int newSplitType = 0 ;
-			for ( j = i + 1 ; j < splitCnt ; ++j )
+			if ( subexonSplits[i].type != subexonSplits[j].type || subexonSplits[i].pos != subexonSplits[j].pos ||
+					subexonSplits[i].chrId != subexonSplits[j].chrId )
+				break ;
+			if ( subexonSplits[j].splitType != 0 )
 			{
-				if ( subexonSplits[i].type != subexonSplits[j].type || subexonSplits[i].pos != subexonSplits[j].pos ||
-						subexonSplits[i].chrId != subexonSplits[j].chrId )
-					break ;
-				if ( subexonSplits[j].splitType != 0 )
-				{
-					newSplitType = subexonSplits[j].splitType ;
-					break ;
-				}
+				newSplitType = subexonSplits[j].splitType ;
+				newStrand = subexonSplits[j].strand ;
+				break ;
 			}
-			subexonSplits[i].splitType = newSplitType ;
 		}
+		subexonSplits[i].splitType = newSplitType ;
+		subexonSplits[i].strand = newStrand ;
 	}
-
+	
+	// Build subexons from the collected split sites.
 	std::vector<struct _subexon> subexons ;
 	int diffCnt = 0 ; // |start of subexon split| - |end of subexon split|
-
+	
 	for ( i = 0 ; i < splitCnt - 1 ; ++i )	
 	{
 		struct _subexon se ;
@@ -361,7 +378,10 @@ int main( int argc, char *argv[] )
 			continue ;
 		se.leftClassifier = se.rightClassifier = 0 ;
 		se.lcCnt = se.rcCnt = 0 ;
-		
+	
+		se.next = se.prev = NULL ;
+		se.nextCnt = se.prevCnt = 0 ;
+
 		subexons.push_back( se ) ;
 	}
 	// Merge the adjacent soft boundaries 
@@ -375,6 +395,7 @@ int main( int argc, char *argv[] )
 		{
 			rawSubexons[k].end = rawSubexons[i].end ;
 			rawSubexons[k].rightType = rawSubexons[i].rightType ;
+			rawSubexons[k].rightStrand = rawSubexons[i].rightStrand ;
 		}
 		else
 		{
@@ -384,6 +405,29 @@ int main( int argc, char *argv[] )
 	}
 	subexons.push_back( rawSubexons[k] ) ;		
 
+	// Remove overhang, ir subexons intron created after putting multiple sample to gether.
+	// eg: s0: [......)
+	//     s1: [...]--------[....]
+	//     s2: [...]..)-----[....]
+	// Though the overhang from s2 is filtered in readin, there will a new overhang created combining s0,s1.
+	// 	But be careful about how to compute the classifier for the overhang part contributed from s0.
+	// Furthermore, note that the case of single-exon island showed up in intron retention region after combining is not possible when get here.
+	//    eg: s0:[...]-----[...]
+	//        s1:      (.)
+	//        s2:[.............]
+	//  After merge adjacent soft boundaries, the single-exon island will disappear.
+	rawSubexons = subexons ;
+	seCnt = subexons.size() ;
+	subexons.clear() ;
+	for ( i = 0 ; i < seCnt ; ++i )
+	{
+		if ( ( rawSubexons[i].leftType == 2 && rawSubexons[i].rightType == 1 )		// ir
+			|| ( rawSubexons[i].leftType == 2 && rawSubexons[i].rightType == 0 )    // overhang	
+			|| ( rawSubexons[i].leftType == 0 && rawSubexons[i].rightType == 1 ) )  
+			continue ;
+		subexons.push_back( rawSubexons[i] ) ;
+	}
+	
 	// Remove the single-exon island if it shows up in the intron that is intron retentioned in some sample.
 	rawSubexons = subexons ;
 	seCnt = subexons.size() ;
@@ -588,7 +632,7 @@ int main( int argc, char *argv[] )
 			
 			for ( j = tag ; j < intervalCnt ; ++j )
 			{
-				if ( seIntervals[j].start > se.end || seIntervals[j].chrId > se.chrId )
+				if ( seIntervals[j].start > se.end || seIntervals[j].chrId > se.chrId ) // terminate if no overlap.
 					break ;
 				int idx ;	
 				if ( seIntervals[j].type == 0 )
@@ -596,7 +640,10 @@ int main( int argc, char *argv[] )
 					idx = seIntervals[j].idx ;
 					if ( subexons[idx].leftType == 1 && se.leftType == 1 && subexons[idx].start == se.start )
 					{
-						subexons[idx].leftClassifier -= 2.0 * log( se.leftClassifier ) ;		
+						double tmp = se.leftClassifier ;
+						if ( se.leftClassifier == 0 )
+							tmp = 1e-7 ;
+						subexons[idx].leftClassifier -= 2.0 * log( tmp ) ;		
 						++subexons[idx].lcCnt ;
 
 						subexons[idx].prev = MergePositions( subexons[idx].prev, subexons[idx].prevCnt, 
@@ -604,11 +651,26 @@ int main( int argc, char *argv[] )
 					}
 					if ( subexons[idx].rightType == 2 && se.rightType == 2 && subexons[idx].end == se.end )
 					{
-						subexons[idx].rightClassifier -= 2.0 * log( se.rightClassifier ) ;
+						double tmp = se.rightClassifier ;
+						if ( se.rightClassifier == 0 )
+							tmp = 1e-7 ;
+						subexons[idx].rightClassifier -= 2.0 * log( tmp ) ;
 						++subexons[idx].rcCnt ;
-						
+
 						subexons[idx].next = MergePositions( subexons[idx].next, subexons[idx].nextCnt, 
 										se.next, se.nextCnt, subexons[idx].nextCnt ) ;
+					}
+
+					if ( subexons[idx].leftType == 0 && subexons[idx].rightType == 0
+						&& se.leftType == 0 && se.rightType == 0 )
+					{
+						double tmp = se.leftClassifier ;
+						if ( se.leftClassifier == 0 )
+							tmp = 1e-7 ;
+						subexons[idx].leftClassifier -= 2.0 * log( tmp ) ;
+						subexons[idx].rightClassifier = subexons[idx].leftClassifier ;
+						++subexons[idx].lcCnt ;
+						++subexons[idx].rcCnt ;
 					}
 				}
 				else if ( seIntervals[j].type == 1 )
@@ -620,20 +682,31 @@ int main( int argc, char *argv[] )
 						int len = se.end - intronicInfos[idx].start + 1 ;
 						intronicInfos[idx].leftOverhang.length += len ;
 						++intronicInfos[idx].leftOverhang.cnt ;
+						
+						// Note that the sample subexon must have a soft boundary at right hand side, 
+						// otherwise, this part is not an intron and won't show up in intronic Info.
+						if ( se.leftType == 2 )
+						{
+							if ( se.leftRatio > 0 && se.avgDepth > 1 )
+							{
+								++intronicInfos[idx].leftOverhang.validCnt ;
 
-						if ( se.leftRatio > 0 && se.avgDepth > 1 )
+								double update = GetUpdateMixtureGammeClassifier( se.leftRatio, se.avgDepth, 
+										overhangPiRatio, overhangKRatio, overhangThetaRatio, 
+										overhangPiCov, overhangKCov, overhangThetaCov ) ;
+								intronicInfos[idx].leftOverhang.classifier += update ;				
+							}
+						}
+						else if ( se.leftType == 1 )
 						{
 							++intronicInfos[idx].leftOverhang.validCnt ;
-
-							// Note that the sample subexon must have a soft boundary at right hand side, 
-							// otherwise, this won't show up in intronic Info
-							double update = GetUpdateMixtureGammeClassifier( se.leftRatio, se.avgDepth, 
+							double update = GetUpdateMixtureGammeClassifier( 1.0, se.avgDepth, 
 									overhangPiRatio, overhangKRatio, overhangThetaRatio, 
 									overhangPiCov, overhangKCov, overhangThetaCov ) ;
-							//if ( se.start == 15154 )
-							//	printf( "hi %lf %lf: %d %d\n", se.leftRatio, se.avgDepth, seIntervals[tag].start, seIntervals[tag].end  ) ;
 							intronicInfos[idx].leftOverhang.classifier += update ;				
+
 						}
+						// ignore the contribution of single-exon island here?
 					}
 					// Overlap on the right part of intron
 					else if ( se.start > intronicInfos[idx].start && se.end >= intronicInfos[idx].end )
@@ -641,16 +714,30 @@ int main( int argc, char *argv[] )
 						int len = intronicInfos[idx].end - se.start + 1 ;
 						intronicInfos[idx].rightOverhang.length += len ;
 						++intronicInfos[idx].rightOverhang.cnt ;
-						if ( se.rightRatio > 0 && se.avgDepth > 1 )
+						
+						// Note that the sample subexon must have a soft boundary at left hand side, 
+						// otherwise, this won't show up in intronic Info
+						if ( se.rightType == 1 )
+						{
+							if ( se.rightRatio > 0 && se.avgDepth > 1 )
+							{
+								++intronicInfos[idx].rightOverhang.validCnt ;
+
+								double update = GetUpdateMixtureGammeClassifier( se.rightRatio, se.avgDepth, 
+										overhangPiRatio, overhangKRatio, overhangThetaRatio, 
+										overhangPiCov, overhangKCov, overhangThetaCov ) ;
+								intronicInfos[idx].rightOverhang.classifier += update ;				
+							}
+						}
+						else if ( se.rightType == 2 )
 						{
 							++intronicInfos[idx].rightOverhang.validCnt ;
 
-							// Note that the sample subexon must have a soft boundary at left hand side, 
-							// otherwise, this won't show up in intronic Info
-							double update = GetUpdateMixtureGammeClassifier( se.rightRatio, se.avgDepth, 
+							double update = GetUpdateMixtureGammeClassifier( 1, se.avgDepth, 
 									overhangPiRatio, overhangKRatio, overhangThetaRatio, 
 									overhangPiCov, overhangKCov, overhangThetaCov ) ;
 							intronicInfos[idx].rightOverhang.classifier += update ;				
+
 						}
 					}
 					// Intron is fully contained in this sample subexon, then it is a ir candidate
@@ -701,20 +788,27 @@ int main( int argc, char *argv[] )
 				delete[] sampleSubexons[i].prev ;
 		}
 	}
-
+	
 	// Convert the temporary statistics number into formal statistics result.
 	for ( i = 0 ; i < subexonCnt ; ++i ) 
 	{
 		struct _subexon &se = subexons[i] ;
-		if ( se.leftType == 1 )
-			se.leftClassifier = 1 - chicdf( se.leftClassifier, 2 * se.lcCnt ) ; 	
+		if ( se.leftType == 0 && se.rightType == 0 ) // single-exon txpt.
+		{
+			se.leftClassifier = se.rightClassifier = 1 - chicdf( se.rightClassifier, 2 * se.rcCnt ) ;
+		}
 		else
-			se.leftClassifier = -1 ;
+		{
+			if ( se.leftType == 1 )
+				se.leftClassifier = 1 - chicdf( se.leftClassifier, 2 * se.lcCnt ) ; 	
+			else
+				se.leftClassifier = -1 ;
 
-		if ( se.rightType == 2 )
-			se.rightClassifier = 1 - chicdf( se.rightClassifier, 2 * se.rcCnt ) ;
-		else
-			se.rightClassifier = -1 ;
+			if ( se.rightType == 2 )
+				se.rightClassifier = 1 - chicdf( se.rightClassifier, 2 * se.rcCnt ) ;
+			else
+				se.rightClassifier = -1 ;
+		}
 	}
 
 	int iiCnt = intronicInfos.size() ; //intronicInfo count
@@ -848,7 +942,7 @@ int main( int argc, char *argv[] )
 				// right overhang.
 				if ( ii.rightOverhang.cnt > 0 )
 				{
-					printf( "%s %d %d 0 1 . . -1 -1 -1 %lf %lf 0 0 %d\n",
+					printf( "%s %d %d 0 1 . . -1 -1 -1 %lf %lf 0 1 %d\n",
 						alignments.GetChromName( ii.chrId ), 
 						ii.end - ( ii.rightOverhang.length / ii.rightOverhang.cnt ) + 1, ii.end,
 						ii.rightOverhang.classifier, ii.rightOverhang.classifier,

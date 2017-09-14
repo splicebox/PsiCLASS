@@ -173,13 +173,16 @@ public:
 	// @return: the number of assembled transcript 
 	int Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation ) ;
 
-	void SetOutputFPs()
+	void SetOutputFPs( char *outputPrefix )
 	{
 		int i ;
 		char buffer[1024] ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
-			sprintf( buffer, "sample_%d.gtf", i ) ;
+			if ( outputPrefix[0] )
+				sprintf( buffer, "%s_sample_%d.gtf", outputPrefix, i ) ;
+			else
+				sprintf( buffer, "sample_%d.gtf", i ) ;
 			FILE *fp = fopen( buffer, "w" ) ;
 			outputFPs.push_back( fp ) ;
 		}
