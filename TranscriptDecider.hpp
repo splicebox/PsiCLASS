@@ -70,7 +70,7 @@ private:
 	// The functions to pick transcripts through dynamic programming
 	void SearchSubTranscript( int tag, int strand, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
 	struct _dp SolveSubTranscript( int visit[], int vcnt, int strand, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
-	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, std::vector<struct _transcript> &allTranscripts ) ;
+	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, struct _dpAttribute &attr, std::vector<struct _transcript> &allTranscripts ) ;
 
 	void SetDpContent( struct _dp &a, struct _dp &b, const struct _dpAttribute &attr )
 	{
@@ -82,6 +82,17 @@ private:
 		
 		a.minAbundance = attr.minAbundance ;
 		a.timeStamp = attr.timeStamp ;
+	} 
+
+	void ResetDpContent( struct _dp &d )
+	{
+		d.seVector.Reset() ;
+		d.first = -1 ;
+		d.last = -1 ;
+		d.cnt = -1 ;
+		d.cover = -1 ;
+		d.minAbundance = -1 ;
+		d.timeStamp = -1 ;
 	}
 
 	double canBeSoftBoundaryThreshold ;

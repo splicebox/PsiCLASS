@@ -157,6 +157,22 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 			double step = 0.5 ;
 			k = k - step * ( inverseHessian[0][0] * gradK + inverseHessian[0][1] * gradTheta ) ;
 			theta = theta - step * ( inverseHessian[1][0] * gradK + inverseHessian[1][1] * gradTheta ) ;
+
+			if ( k <= 1e-6 )
+			{
+				step = ( prevK - 1e-6 ) / ( inverseHessian[0][0] * gradK + inverseHessian[0][1] * gradTheta ) ;
+			}
+			if ( theta <= 1e-6 )
+			{
+				double tmp = ( prevTheta - 1e-6 ) / ( inverseHessian[1][0] * gradK + inverseHessian[1][1] * gradTheta ) ;
+				if ( tmp < step )
+					step = tmp ;
+			}
+			if ( step != 0.5 )
+			{
+				k = prevK - step * ( inverseHessian[0][0] * gradK + inverseHessian[0][1] * gradTheta ) ;
+				theta = prevTheta - step * ( inverseHessian[1][0] * gradK + inverseHessian[1][1] * gradTheta ) ;
+			}
 		}
 
 		if ( boundK > 0 && k > boundK )
@@ -289,7 +305,7 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	kRatio[1] = 0.5 ;
 	thetaRatio[0] = 0.05 ;
 	thetaRatio[1] = 1 ;
-	//printf( "hi1\n" ) ;
+	//printf( "hi1 %d\n", n ) ;
 	MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio ) ;
 	//printf( "hi2: %lf %lf %lf %lf %lf\n", piRatio, kRatio[0], thetaRatio[0], kRatio[1], thetaRatio[1] ) ;
 	
@@ -300,9 +316,10 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	kCov[0] = 1 ;
 	kCov[1] = 0.5 ;
 	thetaCov[0] = 3 ;
-	thetaCov[1] = 6 ;
+	thetaCov[1] = 12 ;
 	
-	// only do one iteration of EM, so that pi does not change.
+	// only do one iteration of EM, so that pi does not change?
+	// But it seems it still better to run full EM.
 	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 1 ) ;	
 	piCov = piRatio ;
 
@@ -315,6 +332,13 @@ double GetPValue( double x, double *k, double *theta )
 	double p ;
 	p = 1 - gammad( x / theta[0], k[0], &fault ) ;
 	return p ;
+}
+
+// Transform the cov number for better fitting 
+double TransformCov( double c )
+{
+	// original it is c-1.
+	return sqrt( c ) - 1 ;
 }
 
 int main( int argc, char *argv[] )
@@ -367,8 +391,9 @@ int main( int argc, char *argv[] )
 	{
 		if ( support <= 0 )
 			continue ;
-		if ( !( uniqSupport >= 1 
-			|| secondarySupport > 10 ) )
+		//if ( !( uniqSupport >= 1 
+		//	|| secondarySupport > 10 ) )
+		if ( uniqSupport <= 0.01 * ( uniqSupport + secondarySupport ) )
 			continue ;
 		int chrId = alignments.GetChromIdFromName( chrom ) ; 
 		struct _splitSite ss ;
@@ -537,7 +562,7 @@ int main( int argc, char *argv[] )
 			islandBlocks[ islandBlocks.size() - 1].contigId = i ;
 		}
 	}
-
+	
 	// Compute the histogram for each intron.
 	int irBlockCnt = irBlocks.size() ;
 	double *cov = new double[irBlockCnt] ;
@@ -548,7 +573,7 @@ int main( int argc, char *argv[] )
 	{
 		double avgDepth = regions.GetAvgDepth( irBlocks[i] ) ;
 		//cov[i] = ( avgDepth - 1 ) / ( flankingAvg - 1 ) ;
-		cov[i] = avgDepth - 1 ;
+		cov[i] = TransformCov( avgDepth ) ;
 
 		covRatio[i] = regions.PickLeftAndRightRatio( irBlocks[i] ) ; 
 		//cov[i] = avgDepth / anchorAvg ;
@@ -606,7 +631,7 @@ int main( int argc, char *argv[] )
 	for ( i = 0 ; i < overhangBlockCnt ; ++i )	
 	{
 		covRatio[i] = overhangBlocks[i].ratio ;
-		cov[i] = regions.GetAvgDepth( overhangBlocks[i] ) - 1 ;
+		cov[i] = TransformCov( regions.GetAvgDepth( overhangBlocks[i] ) ) ;
 	}
 	RatioAndCovEM( covRatio, cov, overhangBlockCnt, overhangPiRatio, overhangKRatio, overhangThetaRatio, overhangPiCov, overhangKCov, overhangThetaCov ) ;
 
@@ -667,7 +692,7 @@ int main( int argc, char *argv[] )
 			j = i ;
 		leftClassifier[ islandBlocks[i].contigId ] = 1 - (j + 1) / (double)( islandBlockCnt + 1 ) ;
 		rightClassifier[ islandBlocks[i].contigId ] = 1 - (j + 1) / (double)( islandBlockCnt + 1 ) ;*/
-		double p = GetPValue( regions.GetAvgDepth( islandBlocks[i] ), kCov, thetaCov ) ;
+		double p = GetPValue( TransformCov( regions.GetAvgDepth( islandBlocks[i] ) ), kCov, thetaCov ) ;
 		leftClassifier[ islandBlocks[i].contigId ] = p ;
 		rightClassifier[ islandBlocks[i].contigId ] = p ;
 	}

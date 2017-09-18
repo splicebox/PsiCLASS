@@ -381,7 +381,6 @@ int main( int argc, char *argv[] )
 	
 		se.next = se.prev = NULL ;
 		se.nextCnt = se.prevCnt = 0 ;
-
 		subexons.push_back( se ) ;
 	}
 	// Merge the adjacent soft boundaries 
@@ -438,6 +437,12 @@ int main( int argc, char *argv[] )
 
 	for ( i = 0 ; i < seCnt ; ++i )
 	{
+		if ( rawSubexons[i].leftType != 0 || rawSubexons[i].rightType != 0 )
+		{
+			subexons.push_back( rawSubexons[i] ) ;
+			continue ;
+		}
+		
 		while ( k < irFromSampleCnt )
 		{
 			// Locate the ir that ends after the island.
@@ -635,6 +640,7 @@ int main( int argc, char *argv[] )
 				if ( seIntervals[j].start > se.end || seIntervals[j].chrId > se.chrId ) // terminate if no overlap.
 					break ;
 				int idx ;	
+				
 				if ( seIntervals[j].type == 0 )
 				{
 					idx = seIntervals[j].idx ;
@@ -662,7 +668,7 @@ int main( int argc, char *argv[] )
 					}
 
 					if ( subexons[idx].leftType == 0 && subexons[idx].rightType == 0
-						&& se.leftType == 0 && se.rightType == 0 )
+						&& se.leftType == 0 && se.rightType == 0 ) // the single-exon island.
 					{
 						double tmp = se.leftClassifier ;
 						if ( se.leftClassifier == 0 )
@@ -834,6 +840,7 @@ int main( int argc, char *argv[] )
 	}
 
 	// Change the classifier for the hard boundaries if its adjacent intron has intron retention classifier
+	//    which collide with overhang subexon.
 	int intervalCnt = seIntervals.size() ;
 	for ( i = 0 ; i < intervalCnt ; ++i )
 	{

@@ -696,10 +696,10 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 	}
 }
 
-void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, std::vector<struct _transcript> &alltranscripts )
+void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, struct _dpAttribute &attr, std::vector<struct _transcript> &alltranscripts )
 {
 	int i, j, k ;
-	struct _dpAttribute attr ;
+	
 	std::vector<struct _transcript> transcripts ;
 	std::vector<struct _constraint> &tc = constraints.constraints ;
 	int tcCnt = tc.size() ;
@@ -707,11 +707,6 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 
 	printf( "tcCnt=%d\n", tcCnt ) ;
 
-	attr.f1 = new struct _dp[seCnt] ;
-	attr.f2 = new struct _dp*[seCnt] ;
-	for ( i = 0 ; i < seCnt ; ++i )
-		attr.f2[i] = new struct _dp[seCnt] ;
-	attr.hash = new struct _dp[HASH_MAX] ;
 	attr.timeStamp = 1 ;
 	attr.bufferTxpt.seVector.Init( seCnt ) ;
 	attr.subexons = subexons ;
@@ -719,25 +714,17 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 
 	double maxAbundance = -1 ;
 	// Initialize the dp data structure
-	memset( attr.f1, -1, sizeof( struct _dp ) * seCnt ) ;
+	/*memset( attr.f1, -1, sizeof( struct _dp ) * seCnt ) ;
 	for ( i = 0 ; i < seCnt ; ++i )
 		memset( attr.f2[i], -1, sizeof( struct _dp ) * seCnt ) ;
-	memset( attr.hash, -1, sizeof( struct _dp ) * HASH_MAX ) ;
+	memset( attr.hash, -1, sizeof( struct _dp ) * HASH_MAX ) ;*/
 	for ( i = 0 ; i < seCnt ; ++i )
-	{
-		attr.f1[i].seVector.Nullify() ;
-		attr.f1[i].seVector.Init( seCnt ) ;
+		ResetDpContent( attr.f1[i] ) ;
+	for ( i = 0 ; i < seCnt ; ++i )
 		for ( j = i ; j < seCnt ; ++j )
-		{
-			attr.f2[i][j].seVector.Nullify() ;
-			attr.f2[i][j].seVector.Init( seCnt ) ;
-		}
-	}
+			ResetDpContent( attr.f2[i][j] ) ;
 	for ( i = 0 ; i < HASH_MAX ; ++i )
-	{
-		attr.hash[i].seVector.Nullify() ;
-		attr.hash[i].seVector.Init( seCnt ) ;
-	}
+		ResetDpContent( attr.hash[i] ) ;
 
 	// Find the max abundance 
 	attr.forAbundance = true ;
@@ -916,21 +903,8 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		alltranscripts.push_back( transcripts[i] ) ;
 
 	// Release the memory
-	for ( i = 0 ; i < seCnt ; ++i )	
-	{
-		attr.f1[i].seVector.Release() ;
-		for ( j = i ; j < seCnt ; ++j )
-			attr.f2[i][j].seVector.Release() ;
-	}
-	for ( i = 0 ; i < HASH_MAX ; ++i )
-		attr.hash[i].seVector.Release() ;
 	attr.bufferTxpt.seVector.Release() ;
 
-	delete[] attr.f1 ;
-	for ( i = 0 ; i < seCnt ; ++i )
-		delete[] attr.f2[i] ;
-	delete[] attr.f2 ;
-	delete[] attr.hash ;
 	delete[] coveredTc ;	
 	maxCoverDp.seVector.Release() ;
 	bestDp.seVector.Release() ;
@@ -1345,14 +1319,56 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	else // Use dynamic programming to pick a set of candidate transcript.
 	{
 		std::vector<struct _transcript> sampleTranscripts ;
+		
+		// pre allocate the memory.
+		struct _dpAttribute attr ;
+		attr.f1 = new struct _dp[seCnt] ;
+		attr.f2 = new struct _dp*[seCnt] ;
+		for ( i = 0 ; i < seCnt ; ++i )
+			attr.f2[i] = new struct _dp[seCnt] ;
+		attr.hash = new struct _dp[HASH_MAX] ;
+		for ( i = 0 ; i < seCnt ; ++i )
+		{
+			attr.f1[i].seVector.Nullify() ;
+			attr.f1[i].seVector.Init( seCnt ) ;
+			for ( j = i ; j < seCnt ; ++j )
+			{
+				attr.f2[i][j].seVector.Nullify() ;
+				attr.f2[i][j].seVector.Init( seCnt ) ;
+			}
+		}
+		for ( i = 0 ; i < HASH_MAX ; ++i )
+		{
+			attr.hash[i].seVector.Nullify() ;
+			attr.hash[i].seVector.Init( seCnt ) ;
+		}
+		
+		// select candidate transcripts from each sample.
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
 			sampleTranscripts.clear() ;
-			PickTranscriptsByDP( subexons, seCnt, constraints[i], subexonCorrelation, sampleTranscripts ) ;		
+			PickTranscriptsByDP( subexons, seCnt, constraints[i], subexonCorrelation, attr, sampleTranscripts ) ;		
 			int size = sampleTranscripts.size() ;
 			for ( j = 0 ; j < size ; ++j )
 				alltranscripts.push_back( sampleTranscripts[j] ) ;
 		}
+		
+		// release the memory.
+		for ( i = 0 ; i < seCnt ; ++i )	
+		{
+			attr.f1[i].seVector.Release() ;
+			for ( j = i ; j < seCnt ; ++j )
+				attr.f2[i][j].seVector.Release() ;
+		}
+		for ( i = 0 ; i < HASH_MAX ; ++i )
+			attr.hash[i].seVector.Release() ;
+
+		delete[] attr.f1 ;
+		for ( i = 0 ; i < seCnt ; ++i )
+			delete[] attr.f2[i] ;
+		delete[] attr.f2 ;
+		delete[] attr.hash ;
+
 		// we can further pick a smaller subsets of transcripts here if the number is still to big. 
 		CoalesceSameTranscripts( alltranscripts ) ;
 	}

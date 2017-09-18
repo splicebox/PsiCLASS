@@ -108,7 +108,7 @@ class Blocks
 
 		void AdjustAndCreateExonBlocks( int tag, std::vector<struct _block> &newExonBlocks )
 		{
-			int i ;
+			int i, j ;
 			if ( exonBlocks[tag].depth != NULL )
 			{	
 				// Convert the increment and decrement into actual depth.
@@ -116,12 +116,17 @@ class Blocks
 				int *depth = exonBlocks[tag].depth ;
 				for ( i = 1 ; i < len ; ++i )
 					depth[i] = depth[i - 1] + depth[i] ;
+
+				struct _block island ; // the portion created by the hollow.
+				island.start = island.end = -1 ;
+				island.depthSum = 0 ;
+
 				/*if ( exonBlocks[tag].start == 1562344 )
 				{
 					for ( i = 0 ; i < len ; ++i )
 						printf( "%d\n", depth[i] ) ;
 				}*/
-				// Adjust boundary accordingly. TODO: create new subexons if there is hollow.
+				// Adjust boundary accordingly. 
 				int64_t adjustStart = exonBlocks[tag].start ; 
 				int64_t adjustEnd = exonBlocks[tag].end ;
 				
@@ -134,6 +139,28 @@ class Blocks
 					if ( exonBlocks[tag].rightType == 2 && i + exonBlocks[tag].start > exonBlocks[tag].rightSplice )
 						i = exonBlocks[tag].rightSplice - exonBlocks[tag].start ;
 					adjustStart = i  + exonBlocks[tag].start ;
+
+					if ( adjustStart > exonBlocks[tag].start )
+					{
+						int s, e ;
+						// firstly [s,e] is the range of depth array.
+						for ( s = 0 ; s < i ; ++s )
+							if ( depth[s] >= gMinDepth )
+								break ;
+						for ( e = i - 1 ; e >= s ; -- e )
+							if ( depth[e] >= gMinDepth )
+								break ;
+						if ( e >= s )
+						{
+							island = exonBlocks[tag] ;
+							island.depthSum = 0 ;
+							island.leftType = island.rightType = 0 ;
+							for ( j = s ; j <= e ; ++j )
+								island.depthSum += depth[j] ;
+							island.start = s + exonBlocks[tag].start ; // offset the coordinate.
+							island.end = e + exonBlocks[tag].start ;
+						}
+					}
 				}
 				else if ( exonBlocks[tag].leftType != 0 && exonBlocks[tag].rightType == 0 )
 				{
@@ -144,6 +171,28 @@ class Blocks
 					if ( exonBlocks[tag].leftType == 1 && i + exonBlocks[tag].start < exonBlocks[tag].leftSplice )
 						i = exonBlocks[tag].leftSplice - exonBlocks[tag].start ;
 					adjustEnd = i + exonBlocks[tag].start ; 
+
+					if ( adjustEnd < exonBlocks[tag].end )
+					{
+						int s, e ;
+						// firstly [s,e] is the range of depth array.
+						for ( s = i + 1 ; s < len ; ++s )
+							if ( depth[s] >= gMinDepth )
+								break ;
+						for ( e = len - 1 ; e >= s ; --e )
+							if ( depth[e] >= gMinDepth )
+								break ;
+						if ( e >= s )
+						{
+							island = exonBlocks[tag] ;
+							island.depthSum = 0 ;
+							island.leftType = island.rightType = 0 ;
+							for ( j = s ; j <= e ; ++j )
+								island.depthSum += depth[j] ;
+							island.start = s + exonBlocks[tag].start ; // offset the coordinate.
+							island.end = e + exonBlocks[tag].start ;
+						}
+					}
 				}
 				else if ( exonBlocks[tag].leftType == 0 && exonBlocks[tag].rightType == 0 )
 				{
@@ -174,7 +223,13 @@ class Blocks
 					return ;
 				exonBlocks[tag].start = adjustStart ;
 				exonBlocks[tag].end = adjustEnd ;
+				
+				if ( island.start != -1 && island.end < exonBlocks[tag].start )
+					newExonBlocks.push_back( island ) ;
+
 				newExonBlocks.push_back( exonBlocks[tag] ) ;
+				if ( island.start != -1 && island.start > exonBlocks[tag].end )
+					newExonBlocks.push_back( island ) ;
 			}
 		}
 	public:
