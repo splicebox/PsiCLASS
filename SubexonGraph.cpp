@@ -10,7 +10,7 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 		boundary = subexons[tag].end ;
 	//if ( subexons[tag].start == 2858011 )
 	//	printf( "%d: %d %d\n", tag, subexons[tag].nextCnt, subexons[tag].prevCnt) ;
-	int i ;
+	int i, j ;
 	if ( IsSameStrand( subexons[tag].rightStrand, strand ) )
 	{
 		int cnt = subexons[tag].nextCnt ;
@@ -27,10 +27,35 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 		// procedure in GetGenintervalIdx to decide whether we want to include
 		// this subexon or not.
 		// If I don't do this, the next gene interval will miss this subexon.
+
+		// Furthermore, I need to check whether this subexon from another strand is just interrupt our current search 
+		// eg: +[...-[...]-...]+
+		int seCnt = subexons.size() ;
+		bool search = false ;
+		for ( j = tag + 1 ; j < seCnt ; ++j )	
+			if ( subexons[j].start == subexons[j - 1].end + 1 )
+			{
+				if ( subexons[j].rightStrand == strand )
+				{
+					search = true ;
+					break ;
+				}
+			}
+			else
+				break ;
+		if ( search )
+		{
+			int cnt = subexons[tag].nextCnt ;
+			for ( i = 0 ; i < cnt ; ++i )
+			{
+				//printf( "next of %d: %d %d\n", tag, i, subexons[tag].next[i] ) ;
+				GetGeneBoundary( subexons[tag].next[i], strand, boundary, timeStamp ) ;
+			}
+		}
 		visit[tag] = -1 ;
 	}
 
-	if ( IsSameStrand( subexons[tag].leftStrand, strand ) )
+	/*if ( IsSameStrand( subexons[tag].leftStrand, strand ) )
 	{
 		int cnt = subexons[tag].prevCnt ;
 		for ( i = 0 ; i < cnt ; ++i )
@@ -39,7 +64,7 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 	else
 	{
 		visit[tag] = -1 ;
-	}
+	}*/
 }
 
 int SubexonGraph::GetGeneIntervalIdx( int startIdx, int &endIdx, int timeStamp )
