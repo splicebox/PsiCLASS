@@ -35,7 +35,7 @@ private:
 	int *visit ;
 	double classifierThreshold ;
 
-	void GetGeneBoundary( int tag, int strand, int &boundary, int timeStamp ) ;
+	void GetGeneBoundary( int tag, int &boundary, int timeStamp ) ;
 public:
 	std::vector<struct _subexon> subexons ;
 	std::vector<struct _geneInterval> geneIntervals ;

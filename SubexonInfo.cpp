@@ -93,15 +93,30 @@ void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
 	}*/
 }
 
+
+// When k=1, the gamma distribution becomes exponential distribution, and can be optimized analytically..
+// Maximize: sum_i z_i( log( 1/theta e^{-x_i / theta} )
+/*double ThetaOfExponentialDistribution( double *x, double *z, int n )
+{
+	double sumZ = 0;
+	double sumZX = 0 ;
+	for ( i = 0 ; i < n ; ++i )
+	{
+		sumZ += z[i] ;
+		sumZX += z[i] * x[i] ;
+	}
+}*/
+
 // for boundK, if it is positive, it represent the upper bound. If it is negative, -boundK will be the lower bound for k.
 // if boundK==0, there is no extra bound.
 // The same logic for boundProduct, which bounds k*theta
-void GradientDescentGammaDistribution( double &k, double &theta, double initK, double initTheta, double boundK, double boundMean, double *x, double *z, int n ) 
+void GradientDescentGammaDistribution( double &k, double &theta, double initK, double initTheta, double lowerBoundK, double upperBoundK, 
+	double lowerBoundMean, double upperBoundMean, double *x, double *z, int n ) 
 {
 	int i ;
 	k = initK ;
 	theta = initTheta ;
-	double c = 0.00001 ;
+	double c = 0.5 ;
 	int iterCnt = 1 ;
 
 	double sumZ = 0 ;
@@ -141,7 +156,7 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 		printf( "%lf %lf %lf %lf\n", sumZ, k, theta, sumZX ) ;	
 		printf( "%lf %lf %lf\n", gradK, gradTheta, det ) ;	
 		printf( "%lf %lf %lf %lf\n", Hessian[0][0], Hessian[0][1], Hessian[1][0], Hessian[1][1] ) ;*/
-		if ( det == 0 )
+		if ( det <= 1e-4 && det >=-1e-4 )
 		{
 			k = k + c / iterCnt * gradK ;
 			theta = theta + c / iterCnt * gradTheta ;
@@ -175,18 +190,18 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 			}
 		}
 
-		if ( boundK > 0 && k > boundK )
-			k = boundK ;
-		else if ( boundK < 0 && k < -boundK )
-			k = -boundK ;
+		if ( upperBoundK > 0 && k > upperBoundK )
+			k = upperBoundK ;
+		else if ( lowerBoundK > 0 && k < lowerBoundK )
+			k = lowerBoundK ;
 
-		if ( boundMean > 0 && k * theta > boundMean )
+		if ( upperBoundMean > 0 && k * theta > upperBoundMean )
 		{
-			theta = boundMean / k ;
+			theta = upperBoundMean / k ;
 		}
-		else if ( boundMean < 0 && k * theta < -boundMean )
+		else if ( lowerBoundMean > 0 && k * theta < lowerBoundMean )
 		{
-			theta = -boundMean / k ;
+			theta = lowerBoundMean / k ;
 		}
 
 		if ( k <= 1e-6 )
@@ -211,6 +226,12 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 	double *oneMinusZ = new double[n] ;
 	int t = 0 ;
 	double history[5] = {-1, -1, -1, -1, -1} ;
+	double maxX = -1 ;
+
+	for ( i = 0 ; i < n ; ++i )
+		if ( x[i] > maxX )
+			maxX = x[i] ;
+
 	while ( 1 )
 	{
 		double npi, nk[2], ntheta[2] ;
@@ -240,17 +261,19 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 		{
 			double bound ;
 			bound = ( theta[1] * k[1] > 1 ) ? 1 : theta[1] * k[1] ;
-			GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], -k[1], bound, x, z, n ) ;
-			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], k[0], -theta[0] * k[0], x, oneMinusZ,  n ) ;
+			GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], k[1], -1, -1, bound, x, z, n ) ; // It seems setting an upper bound 1 for k[0] is not a good idea.
+			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], -1, k[0], theta[0] * k[0], maxX, x, oneMinusZ,  n ) ;
 		}
 		else
 		{
-			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], 0, 0, x, oneMinusZ,  n ) ;
+			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], 0, 0, 0, 0, x, oneMinusZ,  n ) ;
 		}
 
 		double diff ;
 		if ( isnan( npi ) || isnan( nk[0] ) || isnan( nk[1] ) || isnan( ntheta[0] ) || isnan( ntheta[1] ) )
 		{
+			delete[] z ;
+			delete[] oneMinusZ ;
 			return -1 ;
 		}
 		diff = ABS( nk[0] - k[0] ) + ABS( nk[1] - k[1] )
@@ -305,10 +328,8 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	kRatio[1] = 0.5 ;
 	thetaRatio[0] = 0.05 ;
 	thetaRatio[1] = 1 ;
-	//printf( "hi1 %d\n", n ) ;
 	MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio ) ;
-	//printf( "hi2: %lf %lf %lf %lf %lf\n", piRatio, kRatio[0], thetaRatio[0], kRatio[1], thetaRatio[1] ) ;
-	
+
 	if ( IsParametersTheSame( kRatio, thetaRatio ) || piRatio <= 1e-4 )
 		piRatio = 0 ;	
 	
@@ -320,7 +341,7 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	
 	// only do one iteration of EM, so that pi does not change?
 	// But it seems it still better to run full EM.
-	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 1 ) ;	
+	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 1  ) ;	
 	piCov = piRatio ;
 
 	return 0 ;
@@ -334,11 +355,33 @@ double GetPValue( double x, double *k, double *theta )
 	return p ;
 }
 
+// if x's value is less than the average of (k0-1)*theta0, then we force x=(k0-1)*theta0,
+//    the mode of the model 0. Of course, it does not affect when k0<=1 already.
+double MixtureGammaAssignmentAdjust( double x, double pi, double* k, double *theta ) 
+{
+	if ( x < ( k[0] - 1 ) * theta[0] )
+	{
+		x = ( k[0] - 1 ) * theta[0] ;
+	}
+	return MixtureGammaAssignment( x, pi, k, theta ) ;
+}
+
+
 // Transform the cov number for better fitting 
 double TransformCov( double c )
 {
 	// original it is c-1.
-	return sqrt( c ) - 1 ;
+	// Use -2 instead of -1 is that many region covered to 1 reads will be filtered when
+	// build the subexons.
+	double ret = sqrt( c ) - 1 ;
+	/*if ( c <= 2 )
+		ret = 1e-6 ;
+	else
+	{
+		ret = sqrt( c ) - sqrt( 2 ) ;
+	}*/
+	return ret ;
+	//return log( c ) / log( 2.0 ) ;
 }
 
 int main( int argc, char *argv[] )
@@ -527,6 +570,7 @@ int main( int argc, char *argv[] )
 		if ( ltype == 2 && rtype == 1 )
 		{
 			// candidate intron retention.
+			// Note that when I compute the ratio, it is already made sure that the avgDepth>1.
 			double ratio = regions.PickLeftAndRightRatio( regions.exonBlocks[i] ) ;
 
 			//printf( "%lf %lf\n", regions.exonBlocks[i].leftRatio, regions.exonBlocks[i].rightRatio ) ;
@@ -601,8 +645,8 @@ int main( int argc, char *argv[] )
 
 		double p1, p2, p ;
 		
-		p1 = MixtureGammaAssignment( covRatio[i], piRatio, kRatio, thetaRatio ) ;
-		p2 = MixtureGammaAssignment( cov[i], piCov, kCov, thetaCov  ) ;
+		p1 = MixtureGammaAssignmentAdjust( covRatio[i], piRatio, kRatio, thetaRatio ) ;
+		p2 = MixtureGammaAssignmentAdjust( cov[i], piCov, kCov, thetaCov  ) ;
 
 		/*p1 = GetPValue( covRatio[i], kRatio, thetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
 		if ( piRatio != 0 )
@@ -641,8 +685,8 @@ int main( int argc, char *argv[] )
 		//double lf1 = -k[1] * log( theta[1] ) + ( k[1] - 1 ) * log( cov[i]) - cov[i] / theta[1] - lgamma( k[1] ) ;
 
 		double p1, p2, p ;
-		p1 = MixtureGammaAssignment( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
-		p2 = MixtureGammaAssignment( cov[i], overhangPiCov, overhangKCov, overhangThetaCov  ) ;
+		p1 = MixtureGammaAssignmentAdjust( covRatio[i], overhangPiRatio, overhangKRatio, overhangThetaRatio ) ;
+		p2 = MixtureGammaAssignmentAdjust( cov[i], overhangPiCov, overhangKCov, overhangThetaCov  ) ;
 			
 		/*p1 = GetPValue( covRatio[i], overhangKRatio, overhangThetaRatio ) ; //1 - gammad( covRatio[i] / thetaRatio[0], kRatio[0], &fault ) ;
 		if ( overhangPiRatio != 0)

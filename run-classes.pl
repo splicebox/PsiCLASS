@@ -36,6 +36,7 @@ sub system_call
 my @bamFiles ;
 my $spliceFile = "" ;
 my $bamFileList ;
+my $stage = 0 ;
 for ( $i = 0 ; $i < @ARGV ; ++$i )
 {
 	if ( $ARGV[$i] eq "--lb" )
@@ -63,6 +64,11 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 		}
 		++$i ;
 	}
+	elsif ( $ARGV[$i] eq "--stage" )
+	{
+		$stage = $ARGV[$i + 1] ;
+		++$i ;
+	}
 }
 if ( scalar( @bamFiles ) == 0 )
 {
@@ -70,33 +76,45 @@ if ( scalar( @bamFiles ) == 0 )
 }
 
 # Generate the splice file for each bam file.
-for ( $i = 0 ; $i < @bamFiles ; ++$i )
+if ( $stage <= 0 )
 {
-	system_call( "$WD/junc ".$bamFiles[$i]." -a > ${prefix}bam_$i.raw_splice" ) ;
-	if ( $spliceFile ne "" )
+	for ( $i = 0 ; $i < @bamFiles ; ++$i )
 	{
-		system_call( "perl $WD/ManipulateIntronFile.pl $spliceFile ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
-	}
-	else
-	{
-		#system_call( "awk \'{if (\$6>1) print;}\' ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
-		system_call( "mv ${prefix}bam_$i.raw_splice ${prefix}bam_$i.splice" ) ;
+		system_call( "$WD/junc ".$bamFiles[$i]." -a > ${prefix}bam_$i.raw_splice" ) ;
+		if ( $spliceFile ne "" )
+		{
+			system_call( "perl $WD/ManipulateIntronFile.pl $spliceFile ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
+		}
+		else
+		{
+#system_call( "awk \'{if (\$6>1) print;}\' ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
+			system_call( "mv ${prefix}bam_$i.raw_splice ${prefix}bam_$i.splice" ) ;
+		}
 	}
 }
 
 # Get subexons from each bam file
-open FPls, ">${prefix}subexon.list" ;
-for ( $i = 0 ; $i < @bamFiles ; ++$i )
+if ( $stage <= 1 )
 {
-	system_call( "$WD/subexon-info ".$bamFiles[$i]." ${prefix}bam_$i.splice > ${prefix}subexon_$i.out" ) ;	
-	print FPls "${prefix}subexon_$i.out\n" ;
+	open FPls, ">${prefix}subexon.list" ;
+	for ( $i = 0 ; $i < @bamFiles ; ++$i )
+	{
+		system_call( "$WD/subexon-info ".$bamFiles[$i]." ${prefix}bam_$i.splice > ${prefix}subexon_$i.out" ) ;	
+		print FPls "${prefix}subexon_$i.out\n" ;
+	}
 }
 
 # combine the subexons.
-$cmd = "$WD/combine-subexons --ls ${prefix}subexon.list > ${prefix}subexon_combined.out" ;
-system_call( "$cmd" ) ;
+if ( $stage <= 2 )
+{
+	$cmd = "$WD/combine-subexons --ls ${prefix}subexon.list > ${prefix}subexon_combined.out" ;
+	system_call( "$cmd" ) ;
+}
 
 # Run classes
-my $trimPrefix = substr( $prefix, 0, -1 ) ;
-$cmd = "$WD/classes --lb $bamFileList -s ${prefix}subexon_combine.out -o ${trimPrefix}" ;
-system_call( "$cmd" ) ;
+if ( $stage <= 3 )
+{
+	my $trimPrefix = substr( $prefix, 0, -1 ) ;
+	$cmd = "$WD/classes --lb $bamFileList -s ${prefix}subexon_combined.out -o ${trimPrefix} > classes.log" ;
+	system_call( "$cmd" ) ;
+}

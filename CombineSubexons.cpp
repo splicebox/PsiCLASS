@@ -94,22 +94,32 @@ bool CompIrFromSamples( struct _seInterval a, struct _seInterval b )
 		return false ;
 }
 
+// Keep this the same as in SubexonInfo.cpp.
+double TransformCov( double c )
+{
+	return sqrt( c ) - 1 ;
+}
 
 double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio, double kRatio[2], double thetaRatio[2],
 	double piCov, double kCov[2], double thetaCov[2] )
 {
 	double p1 = 0, p2 ;
+
+	cov = TransformCov( cov ) ;
+	if ( cov < ( kCov[0] - 1 ) * thetaCov[0] )
+		cov = ( kCov[0] - 1 ) * thetaCov[0] ;
+
 	if ( ratio > 0 )
 		p1 = MixtureGammaAssignment( ratio, piRatio, kRatio, thetaRatio ) ;
 	// Make sure cov > 1?	
-	p2 = MixtureGammaAssignment( cov - 1, piCov, kCov, thetaCov ) ;
+	p2 = MixtureGammaAssignment( cov, piCov, kCov, thetaCov ) ;
 	double ret = 0 ;
 	if ( p1 >= p2 ) // we should use ratio.
 		ret = LogGammaDensity( ratio, kRatio[1], thetaRatio[1] ) 
 			- LogGammaDensity( ratio, kRatio[0], thetaRatio[0] ) ;
 	else
-		ret = LogGammaDensity( cov - 1, kCov[1], thetaCov[1] ) 	
-			- LogGammaDensity( cov - 1, kCov[0], thetaCov[0] ) ;
+		ret = LogGammaDensity( cov, kCov[1], thetaCov[1] ) 	
+			- LogGammaDensity( cov, kCov[0], thetaCov[0] ) ;
 	return ret ;
 }
 
@@ -205,6 +215,8 @@ int *MergePositions( int *old, int ocnt, int *add, int acnt, int &newCnt )
 		ret[k] = add[j] ;
 	return ret ;
 }
+
+
 
 int main( int argc, char *argv[] )
 {
@@ -766,10 +778,23 @@ int main( int argc, char *argv[] )
 						}
 						else if ( se.leftType == 1 && se.rightType == 2 )
 						{
-							intronicInfos[idx].irClassifier += LogGammaDensity( 4.0, irKRatio[1], irThetaRatio[1] )
-							                                         - LogGammaDensity( 4.0, irKRatio[0], irThetaRatio[0] ) ;
-							++intronicInfos[idx].irCnt ;
-							++intronicInfos[idx].validIrCnt ;
+							//intronicInfos[idx].irClassifier += LogGammaDensity( 4.0, irKRatio[1], irThetaRatio[1] )
+							//                                         - LogGammaDensity( 4.0, irKRatio[0], irThetaRatio[0] ) ;
+							/*if ( se.start == 6643539 )
+							{
+								printf( "%lf: %lf %lf\n", se.avgDepth, MixtureGammaAssignment( ( irKCov[0] - 1 ) * irThetaCov[0], irPiRatio, irKCov, irThetaCov ),
+									MixtureGammaAssignment( TransformCov( 4.0 ), irPiRatio, irKCov, irThetaCov ) ) ;
+							}*/
+							if ( se.avgDepth > 1 )
+							{
+								// let the depth be the threshold to determine.
+								double update = GetUpdateMixtureGammeClassifier( 4.0, se.avgDepth,
+										irPiRatio, irKRatio, irThetaRatio,
+										irPiCov, irKCov, irThetaCov ) ;
+								intronicInfos[idx].irClassifier += update ;
+								++intronicInfos[idx].irCnt ;
+								++intronicInfos[idx].validIrCnt ;
+							}
 						}
 						else
 						{

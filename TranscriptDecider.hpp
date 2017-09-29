@@ -55,8 +55,8 @@ private:
 	double FPKMFraction ;
 
 	Constraints *constraints ;
-	struct _subexon *subexons ;
-	int seCnt ;
+	//struct _subexon *subexons ;
+	//int seCnt ;
 
 	int *geneId ; // assign the gene id to each subexon in this region.
 	int usedGeneId ;
@@ -66,6 +66,9 @@ private:
 	std::vector<FILE *> outputFPs ;
 
 	BitTable compatibleTestVectorT, compatibleTestVectorC ;
+
+	// Test whether subexon tag is a start subexon in a mixture region that corresponds to the start of a gene on another strand.
+	bool IsStartOfMixtureStrandRegion( int tag, struct _subexon *subexons, int seCnt ) ;
 
 	// The functions to pick transcripts through dynamic programming
 	void SearchSubTranscript( int tag, int strand, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;

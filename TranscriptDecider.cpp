@@ -86,8 +86,15 @@ void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexon
 	{
 		if ( geneId[tag] != id ) // a subexon may belong to more than one gene.
 			geneId[tag] = -2 ; 
-		return ;
+		else
+			return ;
+		// There is no need to terminate at the ambiguous exon, the strand will prevent
+		//    us from overwriting previous gene ids.
+		//return ; 
 	}
+	else if ( geneId[tag] == -2 )
+		return ;
+
 	int i ;
 	geneId[ tag ] = id ;
 	int cnt = subexons[tag].nextCnt ;
@@ -132,6 +139,29 @@ void TranscriptDecider::InitTranscriptId( int baseGeneId, int usedGeneId )
 	int i ;
 	for ( i = 0 ; i < usedGeneId - baseGeneId ; ++i )
 		transcriptId[i] = 0 ;
+}
+
+bool TranscriptDecider::IsStartOfMixtureStrandRegion( int tag, struct _subexon *subexons, int seCnt ) 
+{
+	int j, k ;
+	int leftStrandCnt[2] = {0, 0}, rightStrandCnt[2] = {0, 0};
+	for ( j = tag + 1 ; j < seCnt ; ++j )
+		if ( subexons[j].start > subexons[j - 1].end + 1 )
+			break ;
+	
+	for ( k = tag ; k < j ; ++k )
+	{
+		if ( subexons[k].leftStrand != 0 )
+			++leftStrandCnt[ ( subexons[k].leftStrand + 1 ) / 2 ] ;
+		if ( subexons[k].rightStrand != 0 )
+			++rightStrandCnt[ ( subexons[k].rightStrand + 1 ) / 2 ] ;
+	}
+
+	if ( rightStrandCnt[0] > 0 && leftStrandCnt[0] == 0 && leftStrandCnt[1] > 0 )
+		return true ;
+	if ( rightStrandCnt[1] > 0 && leftStrandCnt[1] == 0 && leftStrandCnt[0] > 0 )
+		return true ;
+	return false ;
 }
 
 // Return 0 - uncompatible or does not overlap at all. 1 - fully compatible. 2 - Head of the constraints compatible with the tail of the transcript
@@ -282,7 +312,7 @@ void TranscriptDecider::EnumerateTranscript( int tag, int strand, int visit[], i
 {
 	int i ;
 	visit[ vcnt ] = tag ;
-	//printf( "%s: %d %d %d\n", __func__, vcnt, tag, subexons[tag].nextCnt ) ;
+	//printf( "%s: %d %d %d %d\n", __func__, vcnt, tag, subexons[tag].nextCnt, strand ) ;
 	// Compute the correlation score
 	double minCor = correlationScore ;
 	for ( i = 0 ; i < vcnt - 1 ; ++i )
@@ -735,6 +765,10 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		{
 			int visit[1] = {i} ;
 			struct _dp tmp ;
+			
+			if ( IsStartOfMixtureStrandRegion( i, subexons, seCnt ) )
+				++attr.timeStamp ;
+			
 			tmp = SolveSubTranscript( visit, 1, 0, tc, 0, attr ) ;
 			
 			if ( tmp.cover > maxAbundance )
@@ -772,6 +806,9 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			{
 				if ( subexons[i].canBeStart == false )
 					continue ;
+				
+				if ( IsStartOfMixtureStrandRegion( i, subexons, seCnt ) )
+					++attr.timeStamp ;
 				int visit[1] = {i} ;
 				struct _dp tmp ;
 				tmp = SolveSubTranscript( visit, 1, 0, tc, 0, attr ) ;
@@ -780,6 +817,8 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				{
 					SetDpContent( maxCoverDp, tmp, attr ) ;
 				}
+				//if ( subexons[i].start == 6870264 || subexons[i].start == 6872237 )
+				//	printf( "%d: %lf\n", i, tmp.cover ) ;
 			}
 			
 			if ( maxCoverDp.cover == -1 )
@@ -844,9 +883,9 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			}*/
 		}
 
-		//printf( "update=%lf %d %d. %d %d\n", update, coveredTcCnt, tcCnt, 
-		//		bestDp.first, bestDp.last ) ;
-		//bestDp.seVector.Print() ;
+		/*printf( "update=%lf %d %d. %d %d %d\n", update, coveredTcCnt, tcCnt, 
+				bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
+		bestDp.seVector.Print() ;*/
 		
 		struct _transcript nt ;
 		nt.seVector.Duplicate( bestDp.seVector ) ; 
@@ -1130,9 +1169,9 @@ int TranscriptDecider::RefineTranscripts( int baseGeneId, std::vector<struct _tr
 			geneMaxFPKM[ gid - baseGeneId ] = transcripts[i].abundance ;
 		txptGid[i] = gid ;
 	}
-
 	for ( i = 0 ; i < tcnt ; ++i )
 	{
+		//printf( "%d: %lf %lf\n", txptGid[i], transcripts[i].abundance, geneMaxFPKM[ txptGid[i] - baseGeneId ] ) ;
 		if ( transcripts[i].abundance < FPKMFraction * geneMaxFPKM[ txptGid[i] - baseGeneId ] )
 			transcripts[i].abundance = -1 ;
 	}
@@ -1191,7 +1230,7 @@ int TranscriptDecider::RefineTranscripts( int baseGeneId, std::vector<struct _tr
 
 int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation )
 {
-	int i, j ;
+	int i, j, k ;
 	int cnt = 0 ;
 	int *f = new int[seCnt] ; // this is a general buffer for a type of usage.	
 	bool useDP = false ;
@@ -1247,6 +1286,49 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		//printf( "%d: %d %lf\n", subexons[i].canBeStart, subexons[i].prevCnt, subexons[i].leftClassifier ) ;
 	}
 
+	// Go through the cases of mixture region to set canBeStart/End.
+	// e.g: +[...]+_____+[....]-...]+____+[..)_____-[...]-
+	//                   ^ then we need to force a start point here.
+	// Do we need to associate a strand information with canBeStart, canBeEnd?
+	for ( i = 0 ; i < seCnt ; )
+	{
+		// [i, j) is a region.
+		for ( j = i + 1 ; j < seCnt ; ++j )
+			if ( subexons[j].start > subexons[j - 1].end + 1 )
+				break ;
+		if ( subexons[i].canBeStart == false ) // then subexons[i] must has a hard left boundary.
+		{
+			int leftStrandCnt[2] = {0, 0} ;
+			for ( k = i ; k < j ; ++k )
+			{
+				if ( !SubexonGraph::IsSameStrand( subexons[k].rightStrand, subexons[i].leftStrand ) )
+					break ;
+				if ( subexons[k].leftStrand != 0 )
+					++leftStrandCnt[ ( subexons[k].leftStrand + 1 ) / 2 ] ;
+			}
+			if ( k < j && leftStrandCnt[ ( subexons[k].rightStrand + 1 ) / 2 ] == 0 )
+				subexons[i].canBeStart = true ;
+		}
+
+		if ( subexons[j - 1].canBeEnd == false )
+		{
+			int rightStrandCnt[2] = {0, 0} ;
+			for ( k = j - 1 ; k >= i ; --k )	
+			{
+				if ( !SubexonGraph::IsSameStrand( subexons[k].leftStrand, subexons[j - 1].rightStrand ) )
+					break ;
+				if ( subexons[k].rightStrand != 0 )
+					++rightStrandCnt[ ( subexons[k].rightStrand + 1 ) / 2 ] ;
+			}
+			if ( k >= i && rightStrandCnt[ ( subexons[k].leftStrand + 1 ) / 2 ] == 0 )
+				subexons[j - 1].canBeEnd = true ;
+		}
+
+		//if ( subexons[i].start == 6870264)
+		//	printf( "hi %d %d\n",i , subexons[i].canBeStart ) ;
+		i = j ;
+	}
+
 	geneId = new int[ seCnt ] ;
 	memset( geneId, -1, sizeof( int ) * seCnt ) ;
 	int baseGeneId = usedGeneId ;
@@ -1258,6 +1340,11 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			++usedGeneId ;
 		}
 	}
+
+	/*for ( i = 0 ; i < seCnt ; ++i ) 
+	{
+		printf( "geneId %d: %d-%d %d\n", i, subexons[i].start, subexons[i].end, geneId[i] ) ;
+	}*/
 
 	cnt = 0 ;
 	memset( f, -1, sizeof( int ) * seCnt ) ;
@@ -1297,7 +1384,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	int atCnt = cnt ;
 	printf( "atCnt=%d %d %d %d\n", atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	std::vector<struct _transcript> alltranscripts ;
-	
+	//useDP = false ;	
 	if ( !useDP )
 	{
 		alltranscripts.resize( atCnt ) ;

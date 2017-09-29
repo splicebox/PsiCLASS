@@ -1,6 +1,6 @@
 #include "SubexonGraph.hpp"
 
-void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int timeStamp )
+void SubexonGraph::GetGeneBoundary( int tag, int &boundary, int timeStamp )
 {
 	if ( visit[tag] == timeStamp )	
 		return ;
@@ -10,61 +10,13 @@ void SubexonGraph::GetGeneBoundary( int tag, int strand, int &boundary, int time
 		boundary = subexons[tag].end ;
 	//if ( subexons[tag].start == 2858011 )
 	//	printf( "%d: %d %d\n", tag, subexons[tag].nextCnt, subexons[tag].prevCnt) ;
-	int i, j ;
-	if ( IsSameStrand( subexons[tag].rightStrand, strand ) )
+	int i ;
+	int cnt = subexons[tag].nextCnt ;
+	for ( i = 0 ; i < cnt ; ++i )
 	{
-		int cnt = subexons[tag].nextCnt ;
-		for ( i = 0 ; i < cnt ; ++i )
-		{
-			//printf( "next of %d: %d %d\n", tag, i, subexons[tag].next[i] ) ;
-			GetGeneBoundary( subexons[tag].next[i], strand, boundary, timeStamp ) ;
-		}
+		//printf( "next of %d: %d %d\n", tag, i, subexons[tag].next[i] ) ;
+		GetGeneBoundary( subexons[tag].next[i], boundary, timeStamp ) ;
 	}
-	else
-	{
-		// The only ways to reach this subexon is through the adjacent exon bouldary
-		// like ]...] or +[]+...+[]-. So we can regard this subexon as unvisited, and let the
-		// procedure in GetGenintervalIdx to decide whether we want to include
-		// this subexon or not.
-		// If I don't do this, the next gene interval will miss this subexon.
-
-		// Furthermore, I need to check whether this subexon from another strand is just interrupt our current search 
-		// eg: +[...-[...]-...]+
-		int seCnt = subexons.size() ;
-		bool search = false ;
-		for ( j = tag + 1 ; j < seCnt ; ++j )	
-			if ( subexons[j].start == subexons[j - 1].end + 1 )
-			{
-				if ( subexons[j].rightStrand == strand )
-				{
-					search = true ;
-					break ;
-				}
-			}
-			else
-				break ;
-		if ( search )
-		{
-			int cnt = subexons[tag].nextCnt ;
-			for ( i = 0 ; i < cnt ; ++i )
-			{
-				//printf( "next of %d: %d %d\n", tag, i, subexons[tag].next[i] ) ;
-				GetGeneBoundary( subexons[tag].next[i], strand, boundary, timeStamp ) ;
-			}
-		}
-		visit[tag] = -1 ;
-	}
-
-	/*if ( IsSameStrand( subexons[tag].leftStrand, strand ) )
-	{
-		int cnt = subexons[tag].prevCnt ;
-		for ( i = 0 ; i < cnt ; ++i )
-			GetGeneBoundary( subexons[tag].prev[i], strand, boundary, timeStamp ) ;
-	}
-	else
-	{
-		visit[tag] = -1 ;
-	}*/
 }
 
 int SubexonGraph::GetGeneIntervalIdx( int startIdx, int &endIdx, int timeStamp )
@@ -74,21 +26,14 @@ int SubexonGraph::GetGeneIntervalIdx( int startIdx, int &endIdx, int timeStamp )
 	if ( startIdx >= seCnt )
 		return -1 ;
 	int farthest = -1 ;
-	GetGeneBoundary( startIdx, subexons[ startIdx ].rightStrand, farthest, timeStamp ) ;
+	GetGeneBoundary( startIdx, farthest, timeStamp ) ;
 
 	for ( i = startIdx + 1 ; i < seCnt ; ++i )
 	{
 		if ( subexons[i].start > farthest || subexons[i].chrId != subexons[ startIdx ].chrId )								
 			break ;
-		if ( subexons[i].leftStrand != 0 )
-			GetGeneBoundary( i, subexons[i].leftStrand, farthest, timeStamp ) ;
-		else
-		{
-			// notice that if it is the case like ]+...]- and i is the subexon on the minus strand , then there will be
-			// another plus strand subexon, beyond the minus-strand subexon.
-			// So just use rightStrand here is reasonable.
-			GetGeneBoundary( i, subexons[i].rightStrand, farthest, timeStamp ) ;
-		}
+		
+		GetGeneBoundary( i, farthest, timeStamp ) ;
 	}
 	endIdx = i - 1 ;
 
