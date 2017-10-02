@@ -413,6 +413,11 @@ public:
 		tab = NULL ;
 	}
 
+	int GetSize()
+	{
+		return size ;
+	}
+
 	void Print()
 	{
 		int i ;

@@ -18,18 +18,22 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 		// locate the intron showed up in this transcript.
 		for ( i = 0 ; i < size - 1 ; ++i )
 		{
-			int nextCnt = subexons[ subexonInd[i] ].nextCnt ;
+			/*int nextCnt = subexons[ subexonInd[i] ].nextCnt ;
 			if ( nextCnt == 0 )
 				continue ;
 
 			for ( j = 0 ; j < nextCnt ; ++j )
-				if ( transcript.seVector.Test( subexons[ subexonInd[i] ].next[j] ) )
+			{
+				int a = subexons[ subexonInd[i] ].next[j] ;
+				if ( subexonInd[i + 1] == a 
+					&& subexons[ subexonInd[i] ].end + 1 < subexons[a].start ) // avoid the case like ..(...[...
 				{
-					int a = subexons[ subexonInd[i] ].next[j] ;
-					if ( subexons[ subexonInd[i] ].end + 1 < subexons[a].start ) // avoid the case like ..(...[...
-						break ;
+					break ;
 				}
-			if ( j < nextCnt )
+			}
+			if ( j < nextCnt )*/
+
+			if ( subexons[ subexonInd[i] ].end + 1 < subexons[ subexonInd[i + 1] ].start )
 			{
 				if ( subexons[ subexonInd[i] ].rightStrand == 1 )
 					strand[0] = '+' ;
@@ -80,9 +84,9 @@ void TranscriptDecider::OutputTranscript( FILE *fp, int baseGeneId, struct _sube
 	delete[] catSubexons ;
 }
 
-void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexons, int id )
+void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id )
 {
-	if ( geneId[tag] != -1 )
+	if ( geneId[tag] != -1 && geneId[tag] != -2 )
 	{
 		if ( geneId[tag] != id ) // a subexon may belong to more than one gene.
 			geneId[tag] = -2 ; 
@@ -94,22 +98,38 @@ void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexon
 	}
 	else if ( geneId[tag] == -2 )
 		return ;
-
+	//printf( "%d: %d %d %d %d\n", id, tag, subexons[tag].start, strand ) ;
 	int i ;
-	geneId[ tag ] = id ;
+	if ( geneId[tag] != -2 )
+		geneId[ tag ] = id ;
 	int cnt = subexons[tag].nextCnt ;
+	// Set through the introns.
 	if ( SubexonGraph::IsSameStrand( strand, subexons[tag].rightStrand ) )
 	{
 		for ( i = 0 ; i < cnt ; ++i )
-			SetGeneId( subexons[tag].next[i], strand, subexons, id ) ;
+			if ( subexons[ subexons[tag].next[i] ].start > subexons[tag].end + 1 )
+				SetGeneId( subexons[tag].next[i], strand, subexons, seCnt, id ) ;
 	}
 
 	cnt = subexons[tag].prevCnt ;
 	if ( SubexonGraph::IsSameStrand( strand, subexons[tag].leftStrand ) )
 	{
 		for ( i = 0 ; i < cnt ; ++i )
-			SetGeneId( subexons[tag].prev[i], strand, subexons, id ) ;
+			if ( subexons[ subexons[tag].prev[i] ].end < subexons[tag].start - 1 )
+				SetGeneId( subexons[tag].prev[i], strand, subexons, seCnt, id ) ;
 	}
+
+	// Set through the adjacent subexons.
+	if ( tag < seCnt - 1 && subexons[tag + 1].start == subexons[tag].end + 1 )
+	{
+		SetGeneId( tag + 1, strand, subexons, seCnt, id ) ;
+	}
+
+	if ( tag > 0 && subexons[tag].start - 1 == subexons[tag - 1].end )
+	{
+		SetGeneId( tag - 1, strand, subexons, seCnt, id ) ;
+	}
+	
 }
 
 int TranscriptDecider::GetTranscriptGeneId( std::vector<int> &subexonInd, int baseGeneId )
@@ -312,7 +332,7 @@ void TranscriptDecider::EnumerateTranscript( int tag, int strand, int visit[], i
 {
 	int i ;
 	visit[ vcnt ] = tag ;
-	//printf( "%s: %d %d %d %d\n", __func__, vcnt, tag, subexons[tag].nextCnt, strand ) ;
+	//printf( "%s: %d %d %d %d. %d %d\n", __func__, vcnt, tag, subexons[tag].nextCnt, strand, subexons[tag].start, subexons[tag].end ) ;
 	// Compute the correlation score
 	double minCor = correlationScore ;
 	for ( i = 0 ; i < vcnt - 1 ; ++i )
@@ -953,7 +973,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltranscripts, Constraints &constraints, 
 		SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) 
 {
-	int i, j ;
+	int i, j, k ;
 	std::vector<int> chosen ;
 	std::vector<struct _matePairConstraint> &tc = constraints.matePairs ;
 	int atcnt = alltranscripts.size() ;
@@ -1011,16 +1031,28 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 	}
 
 	double maxAbundance = -1 ; // The abundance of the most-abundant transcript
-	BitTable coveredSeVector ;
-	BitTable bufferSeVector ;
-	coveredSeVector.Duplicate( alltranscripts[0].seVector ) ;
-	bufferSeVector.Duplicate( alltranscripts[0].seVector ) ;
+	int seCnt = 0 ;
+	if ( atcnt > 0 )
+		seCnt = alltranscripts[0].seVector.GetSize() ;
+	struct _pair32 *chain = new struct _pair32[seCnt] ;
+	bool *covered = new bool[seCnt] ;
+	bool *usedConstraints = new bool[constraints.constraints.size() ] ;
+
 	for ( i = 0 ; i < atcnt ; ++i )
 	{
 		double value = inf ;
 		int tag = -1 ;
-		coveredSeVector.Reset() ;
-		bufferSeVector.Assign( alltranscripts[i].seVector ) ;
+		
+		std::vector<int> subexonIdx ;
+		alltranscripts[i].seVector.GetOnesIndices( subexonIdx ) ;
+		int seIdxCnt = subexonIdx.size() ;
+		for ( j = 0 ; j < seIdxCnt - 1 ; ++j )
+		{
+			chain[j].a = subexonIdx[j] ;
+			chain[j].b = subexonIdx[j + 1] ;
+			covered[j] = false ;
+		}
+		memset( usedConstraints, false, sizeof( bool ) * constraints.constraints.size() ) ;
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
 			if ( btable[i].Test(j) && tc[j].abundance > 0 )
@@ -1030,13 +1062,40 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 					value = tc[j].abundance ;
 					tag = j ;
 				}
-				coveredSeVector.Or( constraints.constraints[ tc[j].i ].vector ) ;
-				coveredSeVector.Or( constraints.constraints[ tc[j].j ].vector ) ;
+				
+				if ( !usedConstraints[ tc[j].i ] )
+				{
+					struct _constraint &c = constraints.constraints[ tc[j].i ] ;
+					for ( k = 0 ; k < seIdxCnt - 1 ; ++k )
+					{
+						// Note that since the constraint is already compatible with the txpt,
+						//   chain[k].a/b must be also adjacent in this constraint.
+						if ( c.vector.Test( chain[k].a ) && c.vector.Test( chain[k].b ) ) 
+							covered[k] = true ;
+					}
+					usedConstraints[ tc[j].i ] = true ;
+				}
+
+				if ( !usedConstraints[ tc[j].j ] )
+				{
+					struct _constraint &c = constraints.constraints[ tc[j].j ] ;
+					for ( k = 0 ; k < seIdxCnt - 1 ; ++k )
+					{
+						if ( c.vector.Test( chain[k].a ) && c.vector.Test( chain[k].b ) )
+							covered[k] = true ;
+					}
+					usedConstraints[ tc[j].j ] = true ;
+				}
 			}
 		}
-		bufferSeVector.Xor( coveredSeVector ) ;
-		if ( !bufferSeVector.IsAllZero() )
-			value = 0 ;
+		// Every two-subexon chain should be covered by some reads if a transcript is expressed highly enough
+		for ( j = 0 ; j < seIdxCnt - 1 ; ++j )	
+			if ( covered[j] == false )
+			{
+				value = 0 ;
+				break ;
+			}
+
 		if ( tag == -1 ) 
 			value = 0 ;
 		if ( value > maxAbundance )
@@ -1049,9 +1108,10 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 	}
 	if ( maxAbundance == 0 )
 		maxAbundance = 1 ;
-	coveredSeVector.Release() ;
-	bufferSeVector.Release() ;
 	//printf( "%s: %lf\n", __func__, maxAbundance ) ;
+	delete[] usedConstraints ;
+	delete[] covered ;
+	delete[] chain ;
 	
 	int iterCnt = -1 ;
 	while ( 1 )
@@ -1328,18 +1388,32 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		//	printf( "hi %d %d\n",i , subexons[i].canBeStart ) ;
 		i = j ;
 	}
-
+	/*for ( i = 0 ; i < seCnt ; ++i )
+	{
+		printf( "%d %d: %d %d\n", subexons[i].start, subexons[i].end, subexons[i].canBeStart, subexons[i].canBeEnd ) ;
+	}*/
 	geneId = new int[ seCnt ] ;
 	memset( geneId, -1, sizeof( int ) * seCnt ) ;
 	int baseGeneId = usedGeneId ;
-	for ( i = 0 ; i < seCnt ; ++i )
+	
+	for ( int strand = -1 ; strand <= 1 ; strand +=2 )
 	{
-		if ( geneId[i] == -1 )
+		for ( i = 0 ; i < seCnt ; ++i )
 		{
-			SetGeneId( i, subexons[i].rightStrand, subexons, usedGeneId ) ;
-			++usedGeneId ;
+			if ( geneId[i] == -1 && subexons[i].rightStrand == strand )
+			{
+				SetGeneId( i, strand, subexons, seCnt, usedGeneId ) ;
+				++usedGeneId ;
+			}
 		}
 	}
+
+	for ( i = 0 ; i < seCnt ; ++i )
+		if ( subexons[i].leftType == 0 && subexons[i].rightType == 0 )
+		{
+			geneId[i] = usedGeneId ;
+			++usedGeneId ;
+		}
 
 	/*for ( i = 0 ; i < seCnt ; ++i ) 
 	{

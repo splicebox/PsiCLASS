@@ -716,6 +716,25 @@ int main( int argc, char *argv[] )
 			else
 				leftClassifier[i] = 1 ;
 		}
+		/*else if ( e.leftType == 0 )
+		{
+			// If this region is a start of a gene, the other sample might introduce
+			//    a new intron before it. So we want to test whether this region can still
+			//    be a start of a gene even there is an intron before it.
+			for ( j = i + 1 ; j < blockCnt ; ++j )
+			{
+				if ( regions.exonBlocks[j].contigId != regions.exonBlocks[i].contigId )
+					break ;
+			}
+
+			for ( k = i ; k < j ; ++k )
+				if ( regions.exonBlocks[j].leftType == 1 )
+					break ;
+			if ( k >= j )
+			{
+				leftClassifier[i] = alnorm( )
+			}
+		}*/
 
 		//if ( ( e.rightType == 0 && e.leftType == 2 ) || 
 		if ( e.rightType == 2 )

@@ -938,7 +938,7 @@ class Blocks
 
 				int leftSupport = 0 ;
 				int rightSupport = 0 ;
-				int leftTag = j, rightTag = i - 1  ;
+				int leftTag = j, rightTag = i - 1  ; // the subexon of leftTag is actually on the right-hand side :).
 				for ( int k = i ; k < j ; ++k )
 				{
 					if ( exonBlocks[k].leftType == 1 && exonBlocks[k].leftSplice > 0 )	

@@ -29,6 +29,7 @@ struct _intronicInfo
 {
 	int chrId ;
 	int start, end ;
+	int leftSubexonIdx, rightSubexonIdx ;
 	double irClassifier ;
 	int irCnt ;
 	int validIrCnt ;
@@ -121,6 +122,14 @@ double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio
 		ret = LogGammaDensity( cov, kCov[1], thetaCov[1] ) 	
 			- LogGammaDensity( cov, kCov[0], thetaCov[0] ) ;
 	return ret ;
+}
+
+double GetPValueOfGeneEnd( double cov )
+{
+	double tmp = 2.0 * ( sqrt( cov ) - log( cov ) ) ;
+	if ( tmp <= 0 )
+		return 1.0 ;
+	return 2.0 * alnorm( tmp, true ) ;
 }
 
 char StrandNumToSymbol( int strand )
@@ -518,6 +527,8 @@ int main( int argc, char *argv[] )
 			nii.chrId = subexons[i].chrId ;
 			nii.start = ni.start ;
 			nii.end = ni.end ; 
+			nii.leftSubexonIdx = i ;
+			nii.rightSubexonIdx = i + 1 ;
 			nii.irClassifier = 0 ;
 			nii.irCnt = 0 ;
 			nii.validIrCnt = 0 ;
@@ -721,8 +732,11 @@ int main( int argc, char *argv[] )
 							double update = GetUpdateMixtureGammeClassifier( 1.0, se.avgDepth, 
 									overhangPiRatio, overhangKRatio, overhangThetaRatio, 
 									overhangPiCov, overhangKCov, overhangThetaCov ) ;
-							intronicInfos[idx].leftOverhang.classifier += update ;				
-
+							intronicInfos[idx].leftOverhang.classifier += update ;			
+							
+							int seIdx = intronicInfos[idx].leftSubexonIdx ;
+							subexons[seIdx].rightClassifier -= 2.0 * log( GetPValueOfGeneEnd( se.avgDepth ) ) ;
+							++subexons[ seIdx ].rcCnt ; 
 						}
 						// ignore the contribution of single-exon island here?
 					}
@@ -756,6 +770,13 @@ int main( int argc, char *argv[] )
 									overhangPiCov, overhangKCov, overhangThetaCov ) ;
 							intronicInfos[idx].rightOverhang.classifier += update ;				
 
+							int seIdx = intronicInfos[idx].rightSubexonIdx ;
+							/*if ( subexons[ seIdx ].start == 6873648 )
+							{
+								printf( "%lf %lf: %lf %lf %lf\n", subexons[seIdx].leftClassifier, GetPValueOfGeneEnd( se.avgDepth ), se.avgDepth, sqrt( se.avgDepth ), log( se.avgDepth ) )  ;
+							}*/
+							subexons[seIdx].leftClassifier -= 2.0 * log( GetPValueOfGeneEnd( se.avgDepth ) ) ;
+							++subexons[ seIdx ].lcCnt ;
 						}
 					}
 					// Intron is fully contained in this sample subexon, then it is a ir candidate
@@ -831,7 +852,9 @@ int main( int argc, char *argv[] )
 		else
 		{
 			if ( se.leftType == 1 )
+			{
 				se.leftClassifier = 1 - chicdf( se.leftClassifier, 2 * se.lcCnt ) ; 	
+			}
 			else
 				se.leftClassifier = -1 ;
 

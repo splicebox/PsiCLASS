@@ -156,7 +156,7 @@ private:
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;
 
 	// The function to assign gene ids to subexons.
-	void SetGeneId( int tag, int strand, struct _subexon *subexons, int id ) ;
+	void SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id ) ;
 
 	// Initialize the structure to store transcript id 
 	void InitTranscriptId( int baseGeneId, int usedGeneId ) ; 
