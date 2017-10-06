@@ -61,16 +61,30 @@ int CompDouble( const void *p1, const void *p2 )
 void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
 {
 	std::sort( sites.begin(), sites.end(), CompSplitSite ) ;	
-	int i ;
+	int i, j, l ;
 	int size = sites.size() ;
-	int k = 1 ;
-	for ( i = 1 ; i < size ; ++i )
+	int k = 0 ;
+	for ( i = 0 ; i < size ; )
 	{
-		if ( sites[i].chrId != sites[k - 1].chrId || sites[i].pos != sites[k - 1].pos || sites[i].type != sites[k - 1].type )
+		for ( j = i + 1 ; j < size ; ++j )
+			if ( sites[j].chrId != sites[i].chrId || sites[j].pos != sites[i].pos || sites[j].type != sites[i].type )
+				break ;
+		int strandCnt[2] = {0, 0} ;
+		for ( l = i ; l < j ; ++l )
 		{
-			sites[k] = sites[i] ;
-			++k ;
+			if ( sites[l].strand == '-' )
+				strandCnt[0] += sites[l].support ; 
+			else if ( sites[l].strand == '+' )
+				strandCnt[1] += sites[l].support ;
 		}
+
+		sites[k] = sites[i] ;
+		++k ;
+		if ( strandCnt[0] > strandCnt[1] )
+			sites[k].strand = '-' ;
+		else if ( strandCnt[1] > strandCnt[0] )
+			sites[k].strand = '+' ;
+
 		/*else
 		{
 			if ( sites[i].type != sites[k-1].type )
@@ -78,6 +92,7 @@ void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
 				printf( "%d\n", sites[i].pos ) ;
 			}
 		}*/
+		i = j ;
 	}
 	for ( i = size - 1 ; i >= k ; --i )
 		sites.pop_back() ;

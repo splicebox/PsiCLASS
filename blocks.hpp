@@ -40,7 +40,8 @@ struct _block
 	int64_t start, end ;
 	int64_t leftSplice, rightSplice ; // Some information about the left splice site and right splice site.
 					  // record the leftmost and rightmost coordinates of a splice site within this block 
-				          //or the length of read alignment support the splice sites. Or the number of support.
+				          //or the length of read alignment support the splice sites. 
+					  //Or the number of support.
 	int64_t depthSum ;
 
 	int leftType, rightType ; //0-soft boundary, 1-start of an exon, 2-end of an exon.
@@ -499,6 +500,7 @@ class Blocks
 					tmpB.leftType = leftType ;
 					tmpB.rightType = rightType ;
 					tmpB.depth = NULL ;
+
 					exonBlocks.push_back( tmpB ) ;
 					// handle the soft boundary is the same as the hard boundary case 
 					// or adjacent splice sites
@@ -665,9 +667,7 @@ class Blocks
 			{
 				exonBlocks[i].prevCnt = exonBlocks[i].nextCnt = 0 ;
 				exonBlocks[i].prev = exonBlocks[i].next = NULL ;
-
 				exonBlocks[i].leftStrand = exonBlocks[i].rightStrand = '.' ;
-
 				exonBlocks[i].leftSplice = exonBlocks[i].rightSplice = 0 ;
 			}
 			
@@ -694,6 +694,21 @@ class Blocks
 						break ;
 				}
 				// [i,j-1] are the indices of the sites with same coordinate
+				// It is possible a sites corresponds to 2 strands, then we should only keep one of them.
+				char strand = '.' ;
+				int strandSupport[2] = {0, 0};
+				for ( k = i ; k < j ; ++k )
+				{
+					if ( sites[k].strand == '-' )
+						strandSupport[0] += sites[k].support ;
+					else if ( sites[k].strand == '+' )
+						strandSupport[1] += sites[k].support ;
+				}
+				if ( strandSupport[0] > strandSupport[1] )
+					strand = '-' ;
+				else if ( strandSupport[1] > strandSupport[0] )
+					strand = '+' ;
+
 
 				int cnt = j - i ;
 				// Locate the first subexon that can overlap with this site
@@ -729,7 +744,7 @@ class Blocks
 				{
 					exonBlocks[tag].prevCnt = 0 ;
 					exonBlocks[tag].prev = new int[cnt] ;
-					exonBlocks[tag].leftStrand = sites[i].strand ;
+					exonBlocks[tag].leftStrand = strand ;
 
 					// And we also need to put the "next" here.
 					// Here we assume the oppositePos sorted in increasing order
@@ -742,12 +757,15 @@ class Blocks
 								break ;
 							if ( exonBlocks[k].end == sites[l].oppositePos )
 							{
+								if ( sites[l].strand != strand || 
+									sites[l].strand != exonBlocks[k].rightStrand )
+									break ;
 								exonBlocks[k].next[ exonBlocks[k].nextCnt ] = tag ;
 								exonBlocks[tag].prev[ exonBlocks[tag].prevCnt] = k ; // Note that the prev are sorted in decreasing order
 								++exonBlocks[k].nextCnt ;
 								++exonBlocks[tag].prevCnt ;
 								
-								if ( exonBlocks[k].contigId != exonBlocks[tag].contigId )
+								if ( exonBlocks[k].contigId != exonBlocks[tag].contigId ) // the support of introns between regions.
 								{
 									exonBlocks[tag].leftSplice += sites[l].support ;
 									exonBlocks[k].rightSplice += sites[l].support ;
@@ -761,7 +779,7 @@ class Blocks
 				{
 					exonBlocks[tag].nextCnt = 0 ; // cnt ; it should reach cnt after putting the ids in
 					exonBlocks[tag].next = new int[cnt] ;
-					exonBlocks[tag].rightStrand = sites[i].strand ;
+					exonBlocks[tag].rightStrand = strand ;
 				}
 
 				i = j ;

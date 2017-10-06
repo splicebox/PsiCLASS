@@ -458,6 +458,7 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		if ( belowMin && pdp.cover == -1 )	
 		{
 			pdp.cover = -2 ;
+			pdp.strand = strand ;
 		}
 		else if ( cover > pdp.cover )
 		{
@@ -465,11 +466,13 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 			pdp.seVector.Assign( subTxpt.seVector ) ;
 			pdp.first = subTxpt.first ;
 			pdp.last = subTxpt.last ;
+			pdp.strand = strand ;
 		}
 	}
 	else if ( visitdp.cover == -2 && pdp.cover == -1 )
 	{
 		pdp.cover = -2 ;
+		pdp.strand = strand ;
 	}
 
 	if ( subexons[tag].canBeEnd && ( visitdp.cover < 0 || attr.forAbundance ) ) 
@@ -521,6 +524,7 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		if ( belowMin && pdp.cover == -1 )	
 		{
 			pdp.cover = -2 ;
+			pdp.strand = strand ;
 		}
 		else if ( cover > pdp.cover )
 		{
@@ -528,6 +532,7 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 			pdp.seVector.Assign( subTxpt.seVector ) ;
 			pdp.first = subTxpt.first ;
 			pdp.last = subTxpt.last ;
+			pdp.strand = strand ;
 		}
 	}
 	//printf( "%s %d: pdp.cover=%lf\n", __func__, tag, pdp.cover ) ;
@@ -568,7 +573,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 	// Test whether it is stored in dp 
 	if ( vcnt == 1 )
 	{
-		if ( attr.f1[ visit[0] ].cover != -1 && ( attr.f1[ visit[0] ].timeStamp == attr.timeStamp  || 
+		if ( attr.f1[ visit[0] ].cover != -1 && attr.f1[ visit[0] ].strand == strand && ( attr.f1[ visit[0] ].timeStamp == attr.timeStamp  || 
 			( attr.f1[ visit[0] ].minAbundance < attr.minAbundance && attr.f1[visit[0]].cover == -2 ) ) )
 			return attr.f1[ visit[0] ] ;
 	}
@@ -577,7 +582,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 		int a = visit[0] ;
 		int b = visit[1] ;
 		
-		if ( attr.f2[a][b].cover != -2 && ( attr.f2[a][b].timeStamp == attr.timeStamp || 
+		if ( attr.f2[a][b].cover != -2 && attr.f2[a][b].strand == strand && ( attr.f2[a][b].timeStamp == attr.timeStamp || 
 			( attr.f2[a][b].minAbundance < attr.minAbundance && attr.f2[a][b].cover == -2 ) ) )
 		{
 			return attr.f2[a][b] ;
@@ -589,7 +594,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 		for ( i = 0 ; i < vcnt ; ++i )
 			key = ( key * 17 + visit[i] ) % HASH_MAX ;
 
-		if ( attr.hash[key].cover != -1 && attr.hash[key].cnt == vcnt && 
+		if ( attr.hash[key].cover != -1 && attr.hash[key].cnt == vcnt && attr.hash[key].strand == strand && 
 			( attr.hash[key].timeStamp == attr.timeStamp || 
 				( attr.hash[key].minAbundance < attr.minAbundance && attr.hash[key].cover == -2 ) ) )
 		{
@@ -659,6 +664,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 		visitdp.cover = cover ;
 		visitdp.first = subTxpt.first ;
 		visitdp.last = subTxpt.last ;
+		visitdp.strand = strand ;
 	}
 	
 	// Now we extend.
@@ -697,8 +703,8 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 
 	size = subexons[ visit[vcnt - 1] ].nextCnt ;
 	int nextvCnt = 1 ;
-	if ( extendCnt > 0 && extends[ extendCnt - 1 ] - visit[ vcnt - 1 ] > 1 )
-		nextvCnt = extends[ extendCnt - 1 ] - visit[ vcnt - 1 ] ;
+	if ( extendCnt > 0 && tc[ extends[ extendCnt - 1 ] ].last - visit[ vcnt - 1 ] > 1 )
+		nextvCnt = tc[ extends[ extendCnt - 1 ] ].last - visit[ vcnt - 1 ] ;
 	int *nextv = new int[ nextvCnt ] ;
 	for ( i = 0 ; i < size ; ++i )
 	{
@@ -710,12 +716,12 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 			int backupStrand = strand ;
 			if ( subexons[b].start > subexons[a].end + 1 ) 
 				strand = subexons[a].rightStrand ;
-			SearchSubTranscript( subexons[ visit[vcnt - 1] ].next[i], strand, visit, vcnt, visitdp, nextv, 0, extends, 0, tc, tcStartInd, attr ) ;		
+			SearchSubTranscript( subexons[ visit[vcnt - 1] ].next[i], strand, visit, vcnt, visitdp, nextv, 0, extends, extendCnt, tc, tcStartInd, attr ) ;		
 			strand = backupStrand ;
 
 		}
 	}
-	//printf( "%s %d: %lf\n", __func__, visit[0], visitdp.cover ) ;	
+	//printf( "%s %d(%d) %d %d %d: %lf\n", __func__, visit[0], subexons[ visit[vcnt - 1] ].canBeEnd, size, extendCnt, strand, visitdp.cover ) ;	
 	delete[] nextv ;
 	delete[] extends ;
 
@@ -786,9 +792,6 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			int visit[1] = {i} ;
 			struct _dp tmp ;
 			
-			if ( IsStartOfMixtureStrandRegion( i, subexons, seCnt ) )
-				++attr.timeStamp ;
-			
 			tmp = SolveSubTranscript( visit, 1, 0, tc, 0, attr ) ;
 			
 			if ( tmp.cover > maxAbundance )
@@ -826,9 +829,6 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			{
 				if ( subexons[i].canBeStart == false )
 					continue ;
-				
-				if ( IsStartOfMixtureStrandRegion( i, subexons, seCnt ) )
-					++attr.timeStamp ;
 				int visit[1] = {i} ;
 				struct _dp tmp ;
 				tmp = SolveSubTranscript( visit, 1, 0, tc, 0, attr ) ;

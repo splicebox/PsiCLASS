@@ -78,17 +78,36 @@ if ( scalar( @bamFiles ) == 0 )
 # Generate the splice file for each bam file.
 if ( $stage <= 0 )
 {
+	system_call( "echo -n > ${prefix}splice.list" ) ;
 	for ( $i = 0 ; $i < @bamFiles ; ++$i )
 	{
 		system_call( "$WD/junc ".$bamFiles[$i]." -a > ${prefix}bam_$i.raw_splice" ) ;
-		if ( $spliceFile ne "" )
-		{
-			system_call( "perl $WD/ManipulateIntronFile.pl $spliceFile ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
-		}
-		else
-		{
+		#if ( $spliceFile ne "" )
+		#{
+		#	system_call( "perl $WD/ManipulateIntronFile.pl $spliceFile ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
+		#}
+		#else
+		#{
 #system_call( "awk \'{if (\$6>1) print;}\' ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
-			system_call( "mv ${prefix}bam_$i.raw_splice ${prefix}bam_$i.splice" ) ;
+		#	system_call( "mv ${prefix}bam_$i.raw_splice ${prefix}bam_$i.splice" ) ;
+		#}
+
+		system_call( "echo ${prefix}bam_$i.raw_splice >> ${prefix}splice.list" )
+	}
+	
+	if ( $spliceFile ne "" )
+	{
+		for ( $i = 0 ; $i < @bamFiles ; ++$i )
+		{
+			system_call( "perl $WD/FilterSplice.pl ${prefix}bam_$i.raw_splice $spliceFile > ${prefix}bam_$i.splice" ) ;
+		}
+	}
+	else
+	{
+		system_call( "perl $WD/GetTrustedSplice.pl ${prefix}splice.list > ${prefix}bam.trusted_splice" ) ;
+		for ( $i = 0 ; $i < @bamFiles ; ++$i )
+		{
+			system_call( "perl $WD/FilterSplice.pl ${prefix}bam_$i.raw_splice ${prefix}bam.trusted_splice > ${prefix}bam_$i.splice" ) ;
 		}
 	}
 }

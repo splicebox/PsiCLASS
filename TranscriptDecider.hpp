@@ -29,6 +29,7 @@ struct _dp
 
 	double minAbundance ;
 	int timeStamp ;
+	int strand ;
 } ;
 
 
@@ -83,6 +84,7 @@ private:
 		a.cnt = b.cnt ;
 		a.cover = b.cover ;
 		
+		a.strand = b.strand ;
 		a.minAbundance = attr.minAbundance ;
 		a.timeStamp = attr.timeStamp ;
 	} 
