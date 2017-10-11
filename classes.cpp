@@ -45,7 +45,7 @@ int main( int argc, char *argv[] )
 	int c, option_index ; // For getopt
 	option_index = 0 ;
 	FILE *fpSubexon = NULL ;
-	double FPKMFraction = 0.05 ; 
+	double FPKMFraction = 0.01 ; 
 	double classifierThreshold ;
 	char outputPrefix[1024] = "" ;
 	

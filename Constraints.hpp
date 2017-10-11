@@ -142,6 +142,12 @@ public:
 			if ( heap[i].readId != NULL )
 				free( heap[i].readId ) ;
 		std::vector<struct _readIdHeap>().swap( heap ) ;
+
+		struct _readIdHeap nh ;
+		nh.readId = NULL ; 
+		nh.pos = nh.idx = nh.matePos = -1 ;
+		heap.push_back( nh ) ;
+		cachedMatePos = -1 ;
 	}
 
 	void Insert( char *id, int pos, int idx, int matePos )
@@ -169,7 +175,9 @@ public:
 			{
 				struct _readIdHeap r = Pop() ;
 				if ( r.readId )
+				{
 					free( r.readId ) ;
+				}
 				--size ;
 			}
 

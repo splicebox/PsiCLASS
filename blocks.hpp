@@ -436,6 +436,111 @@ class Blocks
 			return exonBlocks.size() ;
 		}
 
+		void FilterSplitSitesInRegions( std::vector<struct _splitSite> &sites )
+		{
+			int i, j, k ;
+			int size = sites.size() ;
+			int bsize = exonBlocks.size() ;
+			int tag = 0 ;
+			for ( i = 0 ; i < bsize ; ++i )
+			{
+				while ( tag < size && ( sites[tag].chrId < exonBlocks[i].chrId || 
+					( sites[tag].chrId == exonBlocks[i].chrId && sites[tag].pos < exonBlocks[i].start ) ) )
+				{
+					++tag ;
+				}
+				if ( tag >= size )
+					break ;
+
+				if ( sites[tag].chrId != exonBlocks[i].chrId || sites[tag].pos > exonBlocks[i].end )
+					continue ;
+
+				for ( j = tag + 1 ; j < size ; ++j )
+					if ( sites[j].chrId != exonBlocks[i].chrId || sites[j].pos > exonBlocks[i].end )
+						break ;
+
+				// [tag,j) holds the split sites in this region.
+				int leftStrandSupport[2] = {0, 0} ;
+				int rightStrandSupport[2] = {0, 0} ;
+				int strandCnt[2] = { 0, 0 } ;
+				for ( k = tag ; k < j ; ++k )			
+				{
+					if ( sites[k].strand == '-' )
+					{
+						++strandCnt[0] ;
+						if ( sites[k].oppositePos < exonBlocks[i].start )
+							leftStrandSupport[0] += sites[k].support ;
+						else if ( sites[k].oppositePos > exonBlocks[i].end )
+							rightStrandSupport[0]  += sites[k].support ;
+					}
+					else if ( sites[k].strand == '+' )
+					{
+						++strandCnt[1] ;
+						if ( sites[k].oppositePos < exonBlocks[i].start )
+							leftStrandSupport[1] += sites[k].support ;
+						else if ( sites[k].oppositePos > exonBlocks[i].end )
+							rightStrandSupport[1]  += sites[k].support ;
+					}
+					
+				}
+
+
+				if ( leftStrandSupport[0] == 0 && rightStrandSupport[0] == 0  
+					&& leftStrandSupport[1] != 0 && rightStrandSupport[1] != 0 && strandCnt[0] == 2 )
+				{
+					// check whether a different strand accidentally show up in this region.
+					bool remove = false ;
+					for ( k = tag ; k < j ; ++k )
+					{
+						if ( sites[k].strand == '-' &&
+							sites[k].oppositePos >= sites[k].pos && sites[k].oppositePos <= exonBlocks[i].end &&
+							sites[k].support <= 2 )
+						{
+							remove = true ;
+							break ;
+						}
+					}
+					
+					if ( remove )
+						for ( k = tag ; k < j ; ++k )
+							if ( sites[k].strand == '-' )
+								sites[k].support = -1 ;
+				}
+				else if ( leftStrandSupport[1] == 0 && rightStrandSupport[1] == 0  
+					&& leftStrandSupport[0] != 0 && rightStrandSupport[0] != 0 && strandCnt[1] == 2 )
+				{
+					// check whether a different strand accidentally show up in this region.
+					bool remove = false ;
+					for ( k = tag ; k < j ; ++k )
+					{
+						if ( sites[k].strand == '+' &&
+							sites[k].oppositePos >= sites[k].pos && sites[k].oppositePos <= exonBlocks[i].end &&
+							sites[k].support <= 2 )
+						{
+							remove = true ;
+							break ;
+						}
+					}
+					
+					if ( remove )
+						for ( k = tag ; k < j ; ++k )
+							if ( sites[k].strand == '+' )
+								sites[k].support = -1 ;
+				}
+	
+				tag = j ;
+			}
+
+			k = 0 ;
+			for ( i = 0 ; i < size ; ++i )
+				if ( sites[i].support > 0 )
+				{
+					sites[k] = sites[i] ;
+					++k ;
+				}
+			sites.resize( k ) ;
+		}
+
 
 		void SplitBlocks( Alignments &alignments, std::vector< struct _splitSite > &splitSites )	
 		{
@@ -956,7 +1061,7 @@ class Blocks
 
 				int leftSupport = 0 ;
 				int rightSupport = 0 ;
-				int leftTag = j, rightTag = i - 1  ; // the subexon of leftTag is actually on the right-hand side :).
+				int leftTag = j, rightTag = i - 1  ; 
 				for ( int k = i ; k < j ; ++k )
 				{
 					if ( exonBlocks[k].leftType == 1 && exonBlocks[k].leftSplice > 0 )	
@@ -978,8 +1083,8 @@ class Blocks
 					// when the right splice support is much greater than that of the left side, there should be a soft boundary for the left side.
 					// Wether we want to include this soft boundary or not will be determined in class, when it looked at whether the overhang block
 					// 	should be kept or not.
-					exonBlocks[ leftTag ].leftRatio = sqrt( rightSupport ) - log( rightSupport ) - ( sqrt( leftSupport ) + log( leftSupport ) ) ;
-					exonBlocks[ rightTag ].rightRatio = sqrt( leftSupport ) - log( leftSupport ) - ( sqrt( rightSupport ) + log( rightSupport ) ) ;
+					exonBlocks[ leftTag ].leftRatio = sqrt( rightSupport ) - log( ( rightSupport + leftSupport ) * 0.5 ) - ( sqrt( leftSupport ) ) ; //+ log( leftSupport ) ) ;
+					exonBlocks[ rightTag ].rightRatio = sqrt( leftSupport ) - log( ( rightSupport + leftSupport ) * 0.5 ) - ( sqrt( rightSupport ) ) ; //+ log( rightSupport ) ) ;
 				}
 
 				i = j ; // don't forget this.

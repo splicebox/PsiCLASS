@@ -179,7 +179,7 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 			if ( start < subexons[a].start )
 				start = subexons[a].start ;
 
-			if ( subexons[b].end - subexons[b].start + 1 >= readLen - 1 )
+			if ( subexons[b].end - subexons[b].start + 1 >= readLen - 1 || subexons[b].rightType == 0 )
 				end = subexons[a].end ;
 			else
 			{
@@ -193,6 +193,11 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 		}
 		
 		constraints[i].normAbund = (double)constraints[i].support / (double)effectiveLength ;
+		if ( ( subexons[ constraints[i].first ].leftType == 0 && subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 >= 8 * pAlignments->readLen ) 
+			|| ( subexons[ constraints[i].last ].rightType == 0 && subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 >= 8 * pAlignments->readLen ) ) // some random elongation of the sequence might lower the 	
+		{
+			constraints[i].normAbund *= 2 ;
+		}
 		constraints[i].abundance = constraints[i].normAbund ;
 	}
 
@@ -203,6 +208,24 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 		double b = constraints[ matePairs[i].j ].normAbund ;
 		
 		matePairs[i].normAbund = a < b ? a : b ;
+		
+		if ( matePairs[i].i != matePairs[i].j )
+		{
+			if ( subexons[ constraints[ matePairs[i].i ].first ].leftType == 0 
+					&& constraints[ matePairs[i].i ].first == constraints[ matePairs[i].i ].last 
+					&& a < b  )	
+			{
+				matePairs[i].normAbund = b ;
+			}
+			else if ( subexons[ constraints[ matePairs[i].j ].last ].rightType == 0 
+					&& constraints[ matePairs[i].j ].first == constraints[ matePairs[i].j ].last 
+					&& a > b  )	
+			{
+				matePairs[i].normAbund = a ;
+			}
+		}
+		//matePairs[i].normAbund = sqrt( a * b ) ;
+
 		matePairs[i].abundance = matePairs[i].normAbund ;
 	}
 }
@@ -250,7 +273,6 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		ct.uniqSupport = alignments.IsUnique() ? 1 : 0 ;
 		ct.maxReadLen = alignments.GetReadLength() ;
 		
-		//printf( "%s\n", alignments.GetReadId() ) ;
 		if ( ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
 				subexons, seCnt, tag, ct ) )
 		{
@@ -264,7 +286,6 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			alignments.GetMatePosition( mateChrId, matePos ) ;
 			if ( alignments.GetChromId() == mateChrId )
 			{
-				
 				if ( matePos < alignments.segments[0].a )
 				{
 					int mateIdx = mateReadIds.Query( alignments.GetReadId(), alignments.segments[0].a ) ;
@@ -334,7 +355,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	
 	ComputeNormAbund( subexons ) ;
 
-	/*for ( i = 0 ; i < constraints.size() ; ++i )
+	for ( i = 0 ; i < constraints.size() ; ++i )
 	{
 		printf( "constraints %d: %lf %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last ) ;
 		constraints[i].vector.Print() ;
@@ -343,7 +364,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	for ( i = 0 ; i < matePairs.size() ; ++i )
 	{
 		printf( "mates %d: %lf %d %d %d %d\n", i, matePairs[i].normAbund, matePairs[i].i, matePairs[i].j, matePairs[i].support, matePairs[i].uniqSupport ) ;
-	}*/
+	}
 
 	return 0 ;
 }

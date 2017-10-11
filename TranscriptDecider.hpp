@@ -11,7 +11,8 @@ struct _transcript
 {
 	BitTable seVector ;
 	double abundance ;
-	double correlationScore ;
+	double correlationScore ; 
+	double FPKM ;
 
 	int first, last ; // indicate the index of the first and last subexons.
 	bool partial ; // wehther this is a partial transcript.
@@ -61,6 +62,8 @@ private:
 
 	int *geneId ; // assign the gene id to each subexon in this region.
 	int usedGeneId ;
+	int baseGeneId, defaultGeneId[2] ;
+
 	int *transcriptId ; // the next transcript id for each gene id (we shift the gene id to 0 in this array.)
 	Alignments &alignments ; // for obtain the chromosome names.
 
@@ -139,6 +142,7 @@ private:
 	double ComputeScore( double cnt, double seCnt, double a, double A, double correlation )
 	{
 		return ( cnt / seCnt ) * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
+		//return ( cnt ) * ( exp( 1 + a / A ) ) + correlation ; 
 	}
 
 
@@ -152,7 +156,7 @@ private:
 		size = subexonInd.size() ;
 		for ( i = 0 ; i < size ; ++i )
 			txptLen += ( subexons[ subexonInd[i] ].end - subexons[ subexonInd[i] ].start + 1 ) ;
-		t.abundance = t.abundance / ( ( alignments.totalReadCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
+		t.FPKM = t.abundance / ( ( alignments.totalReadCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
 	}
 
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;
@@ -161,19 +165,40 @@ private:
 	void SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id ) ;
 
 	// Initialize the structure to store transcript id 
-	void InitTranscriptId( int baseGeneId, int usedGeneId ) ; 
+	void InitTranscriptId() ; 
 	
-	int GetTranscriptGeneId( std::vector<int> &subexonInd, int baseGeneId ) ;
-	int GetTranscriptGeneId( struct _transcript &t, int baseGeneId ) ;
-	int RefineTranscripts( int baseGeneId, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
+	int GetTranscriptGeneId( std::vector<int> &subexonInd, struct _subexon *subexons ) ;
+	int GetTranscriptGeneId( struct _transcript &t, struct _subexon *subexons ) ;
+	int RemoveNegativeAbundTranscripts( std::vector<struct _transcript> &transcripts )
+	{
+		int i, j ;
+		int tcnt = transcripts.size() ;
+		j = 0 ;
+		for ( i = 0 ; i < tcnt ; ++i )
+		{
+			if ( transcripts[i].abundance == -1 )
+			{
+				transcripts[i].seVector.Release() ; // Don't forget release the memory.
+				continue ;
+			}
+			transcripts[j] = transcripts[i] ;
+			++j ;
+		}
+		transcripts.resize( j ) ;
+		return j ;
+	}
 
-	void OutputTranscript( FILE *fp, int baseGeneId, struct _subexon *subexons, struct _transcript &transcript ) ;
+	int RefineTranscripts( struct _subexon *subexons, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
+
+	void OutputTranscript( FILE *fp, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
 	TranscriptDecider( double f, double c, int sampleCnt, Alignments &a ): alignments( a )  
 	{
 		FPKMFraction = f ;
 		canBeSoftBoundaryThreshold = c ;
 		usedGeneId = 0 ;
+		defaultGeneId[0] = -1 ;
+		defaultGeneId[1] = -1 ;
 		this->sampleCnt = sampleCnt ;
 	}
 	~TranscriptDecider() 

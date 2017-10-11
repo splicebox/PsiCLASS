@@ -57,11 +57,98 @@ int CompDouble( const void *p1, const void *p2 )
 	return *(double *)p1 - *(double *)p2 ;
 }
 
-// Remove the same sites.
-void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
+// Clean up the split sites;
+void FilterAndSortSplitSites( std::vector<struct _splitSite> &sites )
 {
 	std::sort( sites.begin(), sites.end(), CompSplitSite ) ;	
-	int i, j, l ;
+	int i, j, k, l ;
+	int size = sites.size() ;
+
+	for ( i = 0 ; i < size ; )
+	{
+		for ( j = i + 1 ; j < size ; ++j )
+			if ( sites[j].chrId != sites[i].chrId || sites[j].pos != sites[i].pos || sites[j].type != sites[i].type )
+				break ;
+		int maxSupport = 0 ;
+		for ( k = i ; k < j ; ++k )
+			if ( sites[k].support > maxSupport )
+				maxSupport = sites[k].support ;
+		
+		int strandCnt[2] = {0, 0} ;
+		char strand = '.' ;
+		for ( k = i ; k < j ; ++k )
+		{
+			if ( sites[k].strand == '-' )
+				strandCnt[0] += sites[k].support ; 
+			else if ( sites[k].strand == '+' )
+				strandCnt[1] += sites[k].support ;
+		}
+		if ( strandCnt[0] > strandCnt[1] )
+			strand = '-' ;
+		else if ( strandCnt[1] > strandCnt[0] )
+			strand = '+' ;
+
+		for ( k = i ; k < j ; ++k )
+		{
+			if ( ( sites[k].support < 0.01 * maxSupport && sites[k].support <= 3 ) 
+				|| sites[k].support < 0.001 * maxSupport || sites[k].strand != strand )
+			{
+				for ( l = i - 1 ; l >= 0 && sites[l].chrId == sites[i].chrId && sites[l].pos >= sites[k].oppositePos ; --l )
+				{
+					if ( sites[l].pos == sites[k].oppositePos && sites[l].oppositePos == sites[k].pos )
+					{
+						sites[l].support = -1 ;
+						sites[k].support = -1 ;
+						break ;
+					}
+				}
+
+				for ( l = j ; l < size && sites[l].chrId == sites[i].chrId && sites[l].pos <= sites[k].oppositePos ; ++l )
+				{
+					if ( sites[l].pos == sites[k].oppositePos && sites[l].oppositePos == sites[k].pos )
+					{
+						sites[l].support = -1 ;
+						sites[k].support = -1 ;
+						break ;
+					}
+				}
+			}
+			/*else if ( sites[k].support <= 1 && sites[k].oppositePos - sites[k].pos + 1 >= 30000 )
+			{
+				for ( l = j ; l < size && sites[l].chrId == sites[i].chrId && sites[l].pos <= sites[k].oppositePos ; ++l )
+				{
+					if ( sites[l].pos == sites[k].oppositePos && sites[l].oppositePos == sites[k].pos )
+					{
+						if ( l - j >= 20 )
+						{
+							sites[l].support = -1 ;
+							sites[k].support = -1 ;
+							break ;
+						}
+					}
+				}
+				
+			}*/
+		}
+		i = j ;
+	}
+
+	k = 0 ;
+	for ( i = 0 ; i < size ; ++i )
+	{
+		if ( sites[i].support > 0 )
+		{
+			sites[k] = sites[i] ;
+			++k ;
+		}
+	}
+	sites.resize( k ) ;
+}
+
+// Remove the same sites.
+void KeepUniqSplitSites( std::vector< struct _splitSite> &sites )
+{
+	int i, j ;
 	int size = sites.size() ;
 	int k = 0 ;
 	for ( i = 0 ; i < size ; )
@@ -69,22 +156,8 @@ void CleanAndSortSplitSites( std::vector< struct _splitSite> &sites )
 		for ( j = i + 1 ; j < size ; ++j )
 			if ( sites[j].chrId != sites[i].chrId || sites[j].pos != sites[i].pos || sites[j].type != sites[i].type )
 				break ;
-		int strandCnt[2] = {0, 0} ;
-		for ( l = i ; l < j ; ++l )
-		{
-			if ( sites[l].strand == '-' )
-				strandCnt[0] += sites[l].support ; 
-			else if ( sites[l].strand == '+' )
-				strandCnt[1] += sites[l].support ;
-		}
-
 		sites[k] = sites[i] ;
 		++k ;
-		if ( strandCnt[0] > strandCnt[1] )
-			sites[k].strand = '-' ;
-		else if ( strandCnt[1] > strandCnt[0] )
-			sites[k].strand = '+' ;
-
 		/*else
 		{
 			if ( sites[i].type != sites[k-1].type )
@@ -477,16 +550,18 @@ int main( int argc, char *argv[] )
 	fclose( fp ) ;
 	//printf( "ss:%d\n", splitSites.size() ) ;
 	
-	allSplitSites = splitSites ;
-
-	CleanAndSortSplitSites( splitSites ) ;
-	std::sort( allSplitSites.begin(), allSplitSites.end(), CompSplitSite ) ;
 	//printf( "ss:%d\n", splitSites.size() ) ;
 
 	// Build the blocks
 	Blocks regions ;
 	regions.BuildExonBlocks( alignments ) ;
 	//printf( "%d\n", regions.exonBlocks.size() ) ;
+	
+	FilterAndSortSplitSites( splitSites ) ;
+	regions.FilterSplitSitesInRegions( splitSites ) ;
+	allSplitSites = splitSites ;
+	KeepUniqSplitSites( splitSites ) ;
+	
 	// Split the blocks using split site
 	regions.SplitBlocks( alignments, splitSites ) ;
 	//printf( "%d\n", regions.exonBlocks.size() ) ;

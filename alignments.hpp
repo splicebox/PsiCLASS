@@ -215,8 +215,16 @@ public:
 
 	void GetMatePosition( int &chrId, int64_t &pos )
 	{
-		chrId = b->core.mtid ;
-		pos = b->core.mpos ; //+ 1 ;
+		if ( b->core.flag & 0x8 )
+		{
+			chrId = -1 ;
+			pos = -1 ;
+		}
+		else
+		{
+			chrId = b->core.mtid ;
+			pos = b->core.mpos ; //+ 1 ;
+		}
 	}
 
 	int GetRepeatPosition( int &chrId, int64_t &pos )
