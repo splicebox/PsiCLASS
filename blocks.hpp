@@ -260,18 +260,28 @@ class Blocks
 
 		int BuildExonBlocks( Alignments &alignments )
 		{
-			unsigned int tag = 0 ;
+			int tag = 0 ;
 			while ( alignments.Next() )
 			{
 				int i, j, k ;
 				int segCnt = alignments.segCnt ;
 				struct _pair *segments = alignments.segments ;
-
-				while ( tag < exonBlocks.size() && ( exonBlocks[tag].end < segments[0].a - 1 
+				int eid = 0 ; // the exonblock id that the segment update
+				
+				// locate the first exonblock that beyond the start of the read.
+				while ( tag < (int)exonBlocks.size() && ( exonBlocks[tag].end < segments[0].a - 1 
 							|| exonBlocks[tag].chrId != alignments.GetChromId() ) )  
 				{
 					++tag ;
 				}
+				// due to the merge of exon blocks, we might need roll back
+				--tag ;
+				while ( tag >= 0 && ( exonBlocks[tag].end >= segments[0].a - 1 
+							&& exonBlocks[tag].chrId == alignments.GetChromId() ) )
+				{
+					--tag ;
+				}
+				++tag ;
 
 				for ( i = 0 ; i < segCnt ; ++i )
 				{
@@ -282,7 +292,6 @@ class Blocks
 						if ( exonBlocks[j].end >= segments[i].a - 1 )
 							break ;
 					}
-
 					if ( j >= (int)exonBlocks.size() )
 					{
 						// Append a new block
@@ -299,6 +308,8 @@ class Blocks
 							newSeg.rightSplice = segments[i].b ;
 
 						exonBlocks.push_back( newSeg ) ;
+
+						eid = exonBlocks.size() - 1 ;
 					}
 					else if ( exonBlocks[j].end < segments[i].b || 
 							( exonBlocks[j].start > segments[i].a && exonBlocks[j].start <= segments[i].b + 1 ) ) 
@@ -312,6 +323,7 @@ class Blocks
 								exonBlocks[j].leftSplice = segments[i].a ;
 							if ( i < segCnt - 1 && segments[i].b > exonBlocks[j].rightSplice )
 								exonBlocks[j].rightSplice = segments[i].b ;
+							eid = j ;
 
 							// Merge with next few exon blocks
 							for ( k = j + 1 ; k < (int)exonBlocks.size() ; ++k )
@@ -349,6 +361,7 @@ class Blocks
 								exonBlocks[j].leftSplice = segments[i].a ;
 							if ( i < segCnt - 1 && segments[i].b > exonBlocks[j].rightSplice )
 								exonBlocks[j].rightSplice = segments[i].b ;
+							eid = j ;
 
 							// Merge with few previous exon blocks
 							for ( k = j - 1 ; k >= 0 ; --k )
@@ -373,6 +386,7 @@ class Blocks
 							if ( k < j - 1 )
 							{
 								int a, b ;
+								eid = k + 1 ;
 								for ( a = k + 2, b = j + 1 ; b < (int)exonBlocks.size() ; ++a, ++b )
 									exonBlocks[a] = exonBlocks[b] ;
 								for ( a = 0 ; a < ( j - 1 ) - k ; ++a )
@@ -403,14 +417,46 @@ class Blocks
 						for ( a = size ; a > j ; --a )
 							exonBlocks[a] = exonBlocks[a - 1] ;
 						exonBlocks[a] = newSeg ;
+
+						eid = a ;
 					}
 					else
 					{
 						// The segment is contained in j
+						eid = -1 ;
 					}
+
+					// Merge the block with the mate if the gap is very small
+					// Note that since reads are already sorted by coordinate,
+					//    the previous exon blocks is built completely. 
+					/*int64_t matePos ;
+					int mateChrId ;
+					alignments.GetMatePosition( mateChrId, matePos ) ;
+					if ( i == 0 && eid > 0 && mateChrId == exonBlocks[ eid ].chrId 
+						&& matePos < segments[0].a 
+						&& matePos >= exonBlocks[eid - 1].start 
+						&& matePos <= exonBlocks[eid - 1].end
+						&& segments[0].a - matePos + 1 <= 500
+						&& exonBlocks[eid-1].chrId == exonBlocks[eid].chrId 
+						&& exonBlocks[eid].start - exonBlocks[eid - 1].end - 1 <= 30 )
+					{
+						printf( "%d: (%d-%d) (%d-%d). %d %d\n",  ( segments[0].a + alignments.readLen - 1 ) - matePos + 1, exonBlocks[eid - 1].start, exonBlocks[eid - 1].end,
+							exonBlocks[eid].start,
+							exonBlocks[eid].end, eid, exonBlocks.size() ) ;
+						exonBlocks[eid - 1].end = exonBlocks[eid].end ;
+
+						if ( exonBlocks[eid].leftSplice != -1 && ( exonBlocks[eid - 1].leftSplice == -1 || exonBlocks[eid].leftSplice < exonBlocks[eid - 1].leftSplice ) )
+							exonBlocks[eid - 1].leftSplice = exonBlocks[k].leftSplice ;
+						if ( exonBlocks[eid].rightSplice != -1 && exonBlocks[eid].rightSplice > exonBlocks[eid - 1].rightSplice )
+							exonBlocks[eid - 1].rightSplice = exonBlocks[eid].rightSplice ;
+
+						int size = exonBlocks.size() ;
+						for ( j = eid ; j < size - 1 ; ++j )
+							exonBlocks[j] = exonBlocks[j + 1] ;
+						exonBlocks.pop_back() ;
+					}*/
 				}
 			}
-
 			/*for ( int i = 0 ; i < (int)exonBlocks.size() ; ++i )
 			  {
 			  printf( "%d %d\n", exonBlocks[i].start, exonBlocks[i].end ) ;

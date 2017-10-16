@@ -355,7 +355,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	
 	ComputeNormAbund( subexons ) ;
 
-	for ( i = 0 ; i < constraints.size() ; ++i )
+	/*for ( i = 0 ; i < constraints.size() ; ++i )
 	{
 		printf( "constraints %d: %lf %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last ) ;
 		constraints[i].vector.Print() ;
@@ -364,7 +364,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	for ( i = 0 ; i < matePairs.size() ; ++i )
 	{
 		printf( "mates %d: %lf %d %d %d %d\n", i, matePairs[i].normAbund, matePairs[i].i, matePairs[i].j, matePairs[i].support, matePairs[i].uniqSupport ) ;
-	}
+	}*/
 
 	return 0 ;
 }

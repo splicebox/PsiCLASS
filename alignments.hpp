@@ -388,8 +388,8 @@ public:
 			
 			for ( i = 0 ; i < mateDiffCnt * 0.7 ; ++i )
 			{
-				sum += mateDiff[i] ;
-				sumsq += mateDiff[i] * mateDiff[i] ;
+				sum += ( mateDiff[i] + readLen );
+				sumsq += ( mateDiff[i] + readLen ) * ( mateDiff[i] + readLen ) ;
 			}
 			k = i ;
 			fragLen = (int)( sum / k ) ;

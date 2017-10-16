@@ -307,7 +307,7 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 	}
 }
 
-double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, int iter = -1 )
+double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, double meanBoundModelTrue[2], int iter = 1000 )
 {
 	int i ;
 	double *z = new double[n] ; // the expectation that it assigned to model 0.
@@ -315,11 +315,13 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 	int t = 0 ;
 	double history[5] = {-1, -1, -1, -1, -1} ;
 	double maxX = -1 ;
-
+	
 	for ( i = 0 ; i < n ; ++i )
 		if ( x[i] > maxX )
 			maxX = x[i] ;
-
+	if ( maxX > meanBoundModelTrue[1] && meanBoundModelTrue[1] >= 0 )
+		maxX = meanBoundModelTrue[1] ;
+		
 	while ( 1 )
 	{
 		double npi, nk[2], ntheta[2] ;
@@ -390,7 +392,7 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 			logLikelihood += log( pi * exp( LogGammaDensity( x[i], k[0], theta[0]) ) + 
 				(1 - pi ) * exp( LogGammaDensity( x[i], k[1], theta[1] ) ) ) ;*/
 
-		//printf( "%lf %lf %lf %lf %lf\n", pi, k[0], theta[0], k[1], theta[1] ) ;
+		//printf( "%d: %lf %lf %lf %lf %lf\n", t, pi, k[0], theta[0], k[1], theta[1] ) ;
 		
 		++t ;
 		if ( iter != -1 && t >= iter )
@@ -411,25 +413,70 @@ bool IsParametersTheSame( double *k, double *theta )
 int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double kRatio[2], 
 	double thetaRatio[2], double &piCov, double kCov[2], double thetaCov[2] )
 {
-	piRatio = 0.8 ; // mixture coefficient for model 0 and 1
-	kRatio[0] = 1 ;
-	kRatio[1] = 0.5 ;
+	int i ;
+	piRatio = 0.6 ; // mixture coefficient for model 0 and 1
+	kRatio[0] = 0.9 ;
+	kRatio[1] = 0.45 ;
 	thetaRatio[0] = 0.05 ;
 	thetaRatio[1] = 1 ;
-	MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio ) ;
+	double meanBoundModelTrue[2] = {-1, 1} ;
+
+	/*double *filteredCovRatio = new double[n] ;// ignore the ratio that is greater than 5.
+	int m = 0 ;
+	for ( i = 0 ; i < n ; ++i )
+		if ( covRatio[i] < 1.0 )
+		{
+			filteredCovRatio[m] = covRatio[i] ;
+			++m ;
+		}*/
+	srand( 17 ) ;
+	int maxTries = 10 ;
+	int t = 0 ;
+
+	while ( 1 )
+	{
+		MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio, meanBoundModelTrue ) ;
+		if ( piRatio > 0.999 )
+		{
+			piRatio = 0.6 ;
+			kRatio[0] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
+			kRatio[1] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
+			thetaRatio[0] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
+			thetaRatio[1] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
+
+			if ( kRatio[0] < kRatio[1] )
+			{	
+				if ( rand() & 1 )
+					kRatio[0] = kRatio[1] ;
+				else
+					kRatio[1] = kRatio[0] ;
+			}
+			if ( kRatio[0] * thetaRatio[0] > kRatio[1] * thetaRatio[1] )
+			{
+				thetaRatio[0] = kRatio[1] * thetaRatio[1] / kRatio[0] ;
+			}
+			++t ;
+			if ( t > maxTries )
+				break ;
+			continue ;
+		}
+		break ;
+	}
+	//delete[] filteredCovRatio ;
 
 	if ( IsParametersTheSame( kRatio, thetaRatio ) || piRatio <= 1e-4 )
 		piRatio = 0 ;	
 	
 	piCov = piRatio ; // mixture coefficient for model 0 and 1
-	kCov[0] = 1 ;
-	kCov[1] = 0.5 ;
+	kCov[0] = 0.9 ;
+	kCov[1] = 0.45 ;
 	thetaCov[0] = 3 ;
 	thetaCov[1] = 12 ;
 	
 	// only do one iteration of EM, so that pi does not change?
 	// But it seems it still better to run full EM.
-	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 1  ) ;	
+	meanBoundModelTrue[1] = -1 ;
+	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, meanBoundModelTrue, 1  ) ;	
 	piCov = piRatio ;
 
 	return 0 ;

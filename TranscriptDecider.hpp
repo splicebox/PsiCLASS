@@ -159,6 +159,11 @@ private:
 		t.FPKM = t.abundance / ( ( alignments.totalReadCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
 	}
 
+	int GetTranscriptLengthFromAbundanceAndFPKM( double abundance, double FPKM )
+	{
+		return int( abundance / ( FPKM / 1000.0 ) / ( alignments.totalReadCnt / 1000000.0  ) + 0.5 ) ;
+	}
+
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;
 
 	// The function to assign gene ids to subexons.
