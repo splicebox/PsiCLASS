@@ -24,6 +24,8 @@ private:
 	std::map<std::string, int> chrNameToId ;
 	bool allowSupplementary ;
 
+	bool atBegin ;
+	bool atEnd ;
 
 	static int CompInt( const void *p1, const void *p2 )
 	{
@@ -46,6 +48,8 @@ private:
 			chrNameToId[s] = i ;
 		}
 		opened = true ;
+		atBegin = true ;
+		atEnd = false ;
 	}
 public:
 	struct _pair segments[MAX_SEG_COUNT] ;		
@@ -60,6 +64,8 @@ public:
 	{ 
 		b = NULL ; 
 		opened = false ; 
+		atBegin = true ;
+		atEnd = false ;
 		allowSupplementary = false ;
 
 		totalReadCnt = 0 ;
@@ -93,12 +99,22 @@ public:
 		return opened ;
 	}
 
+	bool IsAtBegin()
+	{
+		return atBegin ;
+	}
+
+	bool IsAtEnd()
+	{
+		return atEnd ;
+	}
+
 	int Next()
 	{
 		int i ;
 		int start = 0, len = 0 ;
 		uint32_t *rawCigar ;
-
+		atBegin = false ;
 		while ( 1 )
 		{
 			while ( 1 )
@@ -108,7 +124,10 @@ public:
 				b = bam_init1() ;
 
 				if ( samread( fpSam, b ) <= 0 )
+				{
+					atEnd = true ;
 					return 0 ;
+				}
 				if ( b->core.flag & 0xC )
 					continue ;
 

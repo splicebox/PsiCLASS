@@ -1268,21 +1268,28 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, std::vector
 	// Remove transcripts whose FPKM are too small.
 	double *geneMaxFPKM = new double[usedGeneId - baseGeneId ] ;
 	memset( geneMaxFPKM, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
-	double *geneMaxCov = new double[ usedGeneId - baseGeneId ] ;
-	memset( geneMaxCov, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
+	//double *geneMaxCov = new double[ usedGeneId - baseGeneId ] ;
+	//memset( geneMaxCov, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
 
 	int *txptGid = new int[tcnt] ;
 	for ( i = 0 ; i < tcnt ; ++i )
 	{
 		int gid = GetTranscriptGeneId( transcripts[i], subexons ) ;
-		int len = GetTranscriptLengthFromAbundanceAndFPKM( transcripts[i].abundance, transcripts[i].FPKM ) ;
+		//int len = GetTranscriptLengthFromAbundanceAndFPKM( transcripts[i].abundance, transcripts[i].FPKM ) ;
 		//printf( "%lf %lf %d\n", transcripts[i].abundance, transcripts[i].FPKM, len ) ;
 		if ( transcripts[i].FPKM > geneMaxFPKM[gid - baseGeneId ] )
 			geneMaxFPKM[ gid - baseGeneId ] = transcripts[i].FPKM ;
-		if ( transcripts[i].abundance * alignments.readLen / len > geneMaxCov[gid - baseGeneId ] )
-			geneMaxCov[gid - baseGeneId] = ( transcripts[i].abundance * alignments.readLen ) / len ;
+		//if ( transcripts[i].abundance * alignments.readLen / len > geneMaxCov[gid - baseGeneId ] )
+		//	geneMaxCov[gid - baseGeneId] = ( transcripts[i].abundance * alignments.readLen ) / len ;
 		txptGid[i] = gid ;
 	}
+	BitTable bufferTable ;
+	if ( tcnt > 0 )
+	{
+		bufferTable.Duplicate( transcripts[0].seVector ) ;
+	}
+
+	int sccCnt = scc.size() ;
 	for ( i = 0 ; i < tcnt ; ++i )
 	{
 		//printf( "%d: %lf %lf\n", txptGid[i], transcripts[i].abundance, geneMaxFPKM[ txptGid[i] - baseGeneId ] ) ;
@@ -1291,13 +1298,32 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, std::vector
 		if ( transcripts[i].abundance != -1 )
 		{
 			int len = GetTranscriptLengthFromAbundanceAndFPKM( transcripts[i].abundance, transcripts[i].FPKM ) ;
-			if ( ( geneMaxCov[ txptGid[i] - baseGeneId ] >= 2.5 || transcripts[i].seVector.Count() <= 3 ) && ( transcripts[i].abundance * alignments.readLen ) / len < 2.5 )
-				transcripts[i].abundance = -1 ;
+			if ( /*geneMaxCov[ txptGid[i] - baseGeneId ] >= 2.5 &&*/ ( transcripts[i].abundance * alignments.readLen ) / len < 2.5 )
+			{
+				// Test whether this transcript is fully covered. If so ,we can filter it.
+				bufferTable.Reset() ;
+				for ( j = 0 ; j < sccCnt ; ++j )	
+				{
+					if ( !IsConstraintInTranscript( transcripts[i], scc[j] ) ) 
+						continue ;
+					bufferTable.Or( scc[j].vector ) ;
+				}
+
+				if ( bufferTable.IsEqual( transcripts[i].seVector ) )
+					transcripts[i].abundance = -1 ;
+				/*else
+				{
+					transcripts[i].seVector.Print() ;
+					bufferTable.Print() ;
+					OutputTranscript( stderr, subexons, transcripts[i] ) ;
+				}*/
+			}
 		}
 	}
 	
 	tcnt = RemoveNegativeAbundTranscripts( transcripts )  ;
-	delete []geneMaxCov ;
+	//delete []geneMaxCov ;
+	bufferTable.Release() ;
 	delete []geneMaxFPKM ;
 	delete []txptGid ;
 

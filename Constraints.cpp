@@ -249,8 +249,19 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	mateReadIds.Clear() ;
 	
 	// Start to build the constraints. 
-	while ( alignments.Next() )
+	bool callNext = false ; // the last used alignment
+	if ( alignments.IsAtBegin() )
+		callNext = true ;
+	while ( !alignments.IsAtEnd() )
 	{
+		if ( callNext )
+		{
+			if ( !alignments.Next() )
+				break ;
+		}
+		else
+			callNext = true ;
+
 		if ( alignments.GetChromId() < subexons[0].chrId )
 			continue ;
 		else if ( alignments.GetChromId() > subexons[0].chrId )
