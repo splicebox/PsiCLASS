@@ -439,10 +439,18 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 		if ( piRatio > 0.999 )
 		{
 			piRatio = 0.6 ;
-			kRatio[0] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
-			kRatio[1] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
-			thetaRatio[0] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
-			thetaRatio[1] += ( ( rand() - RAND_MAX * 0.5 ) / (double)RAND_MAX  ) ;
+			kRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			if ( kRatio[0] <= 0 )
+				kRatio[0] = 0.9 ;
+			kRatio[1] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			if ( kRatio[1] <= 0 )
+				kRatio[1] = 0.45 ;
+			thetaRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			if ( thetaRatio[0] <= 0 )
+				thetaRatio[0] = 0.05 ;
+			thetaRatio[1] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			if ( thetaRatio[1] <= 0 )
+				thetaRatio[1] = 1 ;
 
 			if ( kRatio[0] < kRatio[1] )
 			{	

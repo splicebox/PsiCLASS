@@ -1060,6 +1060,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 		struct _pair32 *chain = new struct _pair32[seCnt] ;
 		bool *covered = new bool[seCnt] ;
 		bool *usedConstraints = new bool[constraints.constraints.size() ] ;
+		double *coveredPortion = new double[atcnt] ;
 
 		for ( i = 0 ; i < atcnt ; ++i )
 		{
@@ -1115,12 +1116,15 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 				}
 			}
 			// Every two-subexon chain should be covered by some reads if a transcript is expressed highly enough
+			int cnt = 0 ;
 			for ( j = 0 ; j < seIdxCnt - 1 ; ++j )	
 				if ( covered[j] == false )
 				{
 					value = 0 ;
-					break ;
 				}
+				else
+					++cnt ;
+			coveredPortion[i] = (double)cnt / (double)( seIdxCnt - 1 ) ;
 
 			if ( tag == -1 ) 
 				value = 0 ;
@@ -1134,10 +1138,17 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 			//alltranscripts[i].seVector.Print() ;
 		}
 		if ( maxAbundance == 0 )
+		{
+			for ( i = 0 ; i < atcnt ; ++i )
+			{
+				transcriptAbundance[i] = coveredPortion[i] ;
+			}
 			maxAbundance = 1 ;
+		}
 		//printf( "%s: %lf\n", __func__, maxAbundance ) ;
 		delete[] usedConstraints ;
 		delete[] covered ;
+		delete[] coveredPortion ;
 		delete[] chain ;
 	}
 	else 
@@ -1177,7 +1188,6 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 			value = transcriptAbundance[i] ;
 			if ( cnt == 0 ) // This transcript does not satisfy any undepleted constraints.
 				continue ;
-			
 			double score = ComputeScore( cnt, 1.0, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;
@@ -1298,7 +1308,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, std::vector
 		if ( transcripts[i].abundance != -1 )
 		{
 			int len = GetTranscriptLengthFromAbundanceAndFPKM( transcripts[i].abundance, transcripts[i].FPKM ) ;
-			if ( /*geneMaxCov[ txptGid[i] - baseGeneId ] >= 2.5 &&*/ ( transcripts[i].abundance * alignments.readLen ) / len < 2.5 )
+			if ( /*geneMaxCov[ txptGid[i] - baseGeneId ] >= 2.5 &&*/ ( tcnt > 1 || len <= 1000 || transcripts[i].seVector.Count() <= 3 ) && ( transcripts[i].abundance * alignments.readLen ) / len < 2.5 )
 			{
 				// Test whether this transcript is fully covered. If so ,we can filter it.
 				bufferTable.Reset() ;
@@ -1308,7 +1318,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, std::vector
 						continue ;
 					bufferTable.Or( scc[j].vector ) ;
 				}
-
+				//printf( "%d %lf\n", len, ( transcripts[i].abundance * alignments.readLen ) / len ) ;
 				if ( bufferTable.IsEqual( transcripts[i].seVector ) )
 					transcripts[i].abundance = -1 ;
 				/*else
