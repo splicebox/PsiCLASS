@@ -1545,7 +1545,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			double msize = constraints[i].matePairs.size() ;
 			double csize = constraints[i].constraints.size() ;
 			if ( cnt > ( csize / msize ) * ( csize / msize ) * seCnt 
-				&& cnt > USE_DP / ( msize * msize ) )
+				&& cnt > USE_DP / ( msize * msize ) && cnt > 50 )
 			{
 				useDP = true ;
 				break ;

@@ -307,7 +307,7 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 	}
 }
 
-double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, double meanBoundModelTrue[2], int iter = 1000 )
+double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, double meanBound[2], int iter = 1000 )
 {
 	int i ;
 	double *z = new double[n] ; // the expectation that it assigned to model 0.
@@ -319,8 +319,8 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, d
 	for ( i = 0 ; i < n ; ++i )
 		if ( x[i] > maxX )
 			maxX = x[i] ;
-	if ( maxX > meanBoundModelTrue[1] && meanBoundModelTrue[1] >= 0 )
-		maxX = meanBoundModelTrue[1] ;
+	if ( maxX > meanBound[1] && meanBound[1] >= 0 )
+		maxX = meanBound[1] ;
 		
 	while ( 1 )
 	{
@@ -350,8 +350,16 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, d
 		if ( 1 ) //pi > 0 )
 		{
 			double bound ;
-			bound = ( theta[1] * k[1] > 1 ) ? 1 : theta[1] * k[1] ;
-			GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], k[1], -1, -1, bound, x, z, n ) ; // It seems setting an upper bound 1 for k[0] is not a good idea.
+			if ( meanBound[1] != -1 )  // the EM for ratio
+			{
+				bound = ( theta[1] * k[1] > 1 ) ? 1 : theta[1] * k[1] ;
+				GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], k[1], -1, -1, bound, x, z, n ) ; // It seems setting an upper bound 1 for k[0] is not a good idea.
+			}
+			else
+			{
+				bound = ( theta[1] * k[1] > 1 ) ? 1 : theta[1] * k[1] ;
+				GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], k[1], -1, meanBound[0], bound, x, z, n ) ; // It seems setting an upper bound 1 for k[0] is not a good idea.
+			}
 			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], -1, k[0], theta[0] * k[0], maxX, x, oneMinusZ,  n ) ;
 		}
 		else
@@ -419,7 +427,7 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	kRatio[1] = 0.45 ;
 	thetaRatio[0] = 0.05 ;
 	thetaRatio[1] = 1 ;
-	double meanBoundModelTrue[2] = {-1, 1} ;
+	double meanBound[2] = {-1, 1} ; // [0] is for the lower bound of the noise model, [1] is for the upper bound of the true model
 
 	/*double *filteredCovRatio = new double[n] ;// ignore the ratio that is greater than 5.
 	int m = 0 ;
@@ -435,20 +443,20 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 
 	while ( 1 )
 	{
-		MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio, meanBoundModelTrue ) ;
+		MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio, meanBound ) ;
 		if ( piRatio > 0.999 )
 		{
 			piRatio = 0.6 ;
-			kRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			kRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX * 0.1 ) ;
 			if ( kRatio[0] <= 0 )
 				kRatio[0] = 0.9 ;
-			kRatio[1] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			kRatio[1] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX * 0.1 ) ;
 			if ( kRatio[1] <= 0 )
 				kRatio[1] = 0.45 ;
-			thetaRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			thetaRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX * 0.1 ) ;
 			if ( thetaRatio[0] <= 0 )
 				thetaRatio[0] = 0.05 ;
-			thetaRatio[1] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX  ) ;
+			thetaRatio[1] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX * 0.1 ) ;
 			if ( thetaRatio[1] <= 0 )
 				thetaRatio[1] = 1 ;
 
@@ -483,8 +491,10 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	
 	// only do one iteration of EM, so that pi does not change?
 	// But it seems it still better to run full EM.
-	meanBoundModelTrue[1] = -1 ;
-	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, meanBoundModelTrue, 1  ) ;	
+	meanBound[0] = 0.01 ;
+	meanBound[1] = -1 ;
+
+	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, meanBound, 1 ) ;	
 	piCov = piRatio ;
 
 	return 0 ;

@@ -52,6 +52,21 @@ struct _subexonSplit
 	int splitType ; //0-soft boundary, 1-start of an exon, 2-end of an exon.
 	int strand ;
 } ;
+
+struct _interval // exon or intron
+{
+	int chrId ;
+	int start, end ;
+	int strand ;
+	int sampleSupport ;
+} ;
+
+struct _subexonSupplement // supplement the subexon structure defined in SubexonGraph.
+{
+	int *nextSupport ;		
+	int *prevSupport ;
+} ;
+
 char buffer[4096] ;
 
 bool CompSubexonSplit( struct _subexonSplit a, struct _subexonSplit b )
@@ -79,6 +94,18 @@ bool CompSubexonSplit( struct _subexonSplit a, struct _subexonSplit b )
 	return false ;
 }
 
+bool CompInterval( struct _interval a, struct _interval b )
+{
+	if ( a.chrId < b.chrId )
+		return true ;
+	else if ( a.chrId > b.chrId )
+		return false ;
+	else if ( a.start != b.start )
+		return a.start < b.end ;
+	else if ( a.end != b.end )
+		return a.end < b.end ;
+	return false ;
+}
 bool CompIrFromSamples( struct _seInterval a, struct _seInterval b )
 {
 	if ( a.chrId < b.chrId )
@@ -152,7 +179,7 @@ int StrandSymbolToNum( char c )
 		return 0 ;
 }
 
-int *MergePositions( int *old, int ocnt, int *add, int acnt, int &newCnt )
+int *MergePositions( int *old, int ocnt, int *add, int acnt, int &newCnt, int **support )
 {
 	int i, j, k ;
 	int *ret ;
@@ -165,8 +192,10 @@ int *MergePositions( int *old, int ocnt, int *add, int acnt, int &newCnt )
 	{
 		newCnt = acnt ;
 		ret = new int[acnt] ;
+		*support = new int[acnt] ;
 		for ( i = 0 ; i < acnt ; ++i )
 		{
+			(*support)[i] = 1 ;
 			ret[i] = add[i] ;		
 		}
 		return ret ;
@@ -193,39 +222,125 @@ int *MergePositions( int *old, int ocnt, int *add, int acnt, int &newCnt )
 	newCnt = newCnt + ( ocnt - i ) + ( acnt - j ) ;
 	// no new elements.
 	if ( newCnt == ocnt )
+	{
+		i = 0 ;
+		for ( j = 0 ; j < acnt ; ++j )
+		{
+			for ( ; old[i] < add[j] ; ++i )
+				;
+			++(*support)[i] ;
+		}
 		return old ;
+	}
 	k = 0 ;
 	//delete []old ;
 	ret = new int[ newCnt ] ;
+	int *bufferSupport = new int[newCnt] ;
 	for ( i = 0, j = 0 ; i < ocnt && j < acnt ; )
 	{
 		if ( old[i] < add[j] )
 		{
 			ret[k] = old[i] ;
+			bufferSupport[k] = (*support)[i] ;
 			++i ;
 			++k ;
 		}
 		else if ( old[i] == add[j] )
 		{
 			ret[k] = old[i] ;
+			bufferSupport[k] = (*support)[i] + 1 ;
 			++i ; ++j ;
 			++k ;
 		}
 		else 
 		{
 			ret[k] = add[j] ;
+			bufferSupport[k] = 1 ;
 			++j ;
 			++k ;
 		}
 	}
 	for ( ; i < ocnt ; ++i, ++k )
+	{
 		ret[k] = old[i] ;
+		bufferSupport[k] = (*support)[i] ;
+	}
 	for ( ; j < acnt ; ++j, ++k )
+	{
 		ret[k] = add[j] ;
+		bufferSupport[k] = 1 ;
+	}
+	delete[] old ;
+	delete[] *support ;
+	*support = bufferSupport ;
 	return ret ;
 }
 
+void CoalesceIntervals( std::vector<struct _interval> &intervals )
+{
+	int i, k ;
+	std::sort( intervals.begin(), intervals.end(), CompInterval ) ;
+	int cnt = intervals.size() ;
+	k = 0 ;
+	for ( i = 1 ; i < cnt ; ++i )
+	{
+		if ( intervals[i].chrId == intervals[k].chrId && intervals[i].start == intervals[k].start && intervals[i].end == intervals[k].end )
+			intervals[k].sampleSupport += intervals[i].sampleSupport ;
+		else
+		{
+			++k ;
+			intervals[k] = intervals[i] ;
+		}
+	}
+	intervals.resize( k + 1 ) ;
+}
 
+// Remove the connection that does not match the boundary
+//  of subexons.
+void CleanUpSubexonConnections( std::vector<struct _subexon> &subexons )
+{
+	int seCnt = subexons.size() ;
+	int i, j, k, m ;
+	for ( i = 0 ; i < seCnt ; ++i )
+	{
+		if ( subexons[i].prevCnt > 0 )	
+		{
+			for ( k = i ; k >= 0 ; --k )
+				if ( subexons[k].chrId != subexons[i].chrId || subexons[k].end <= subexons[i].prev[0] )
+					break ;
+			if ( subexons[k].chrId != subexons[i].chrId )
+				++k ;
+			m = 0 ;
+			for ( j = 0 ; j < subexons[i].prevCnt ; ++j )
+			{
+				for ( ; k <= i ; ++k )
+					if ( subexons[k].end >= subexons[i].prev[j] )
+						break ;
+				if ( subexons[k].end == subexons[i].prev[j] )
+				{
+					subexons[i].prev[m] = subexons[i].prev[j] ;
+					++m ;
+				}
+			}
+			subexons[i].prevCnt = m ;
+		}
+
+		m = 0 ;
+		k = i ;
+		for ( j = 0 ; j < subexons[i].nextCnt ; ++j )
+		{
+			for ( ; k < seCnt ; ++k )
+				if ( subexons[k].chrId != subexons[i].chrId || subexons[k].start >= subexons[i].next[j] )			
+					break ;
+				if ( subexons[k].start == subexons[i].next[j] )
+				{
+					subexons[i].next[m] = subexons[i].next[j] ;
+					++m ;
+				}
+		}
+		subexons[i].nextCnt = m ;
+	}
+}
 
 int main( int argc, char *argv[] )
 {
@@ -282,6 +397,9 @@ int main( int argc, char *argv[] )
 	// Collect the split sites of subexons.
 	std::vector<struct _subexonSplit> subexonSplits ;
 	std::vector<struct _seInterval> irFromSamples ;
+	std::vector<struct _interval> introns ;
+	std::vector<struct _interval> exons ;
+
 
 	for ( k = 0 ; k < fileCnt ; ++k )
 	{
@@ -294,7 +412,7 @@ int main( int argc, char *argv[] )
 			if ( buffer[0] == '#' )
 				continue ;
 
-			SubexonGraph::InputSubexon( buffer, alignments, se ) ;
+			SubexonGraph::InputSubexon( buffer, alignments, se, true ) ;
 
 			// Record all the intron rentention from the samples
 			if ( se.leftType == 2 && se.rightType == 1 )
@@ -306,13 +424,36 @@ int main( int argc, char *argv[] )
 
 				irFromSamples.push_back( si ) ;
 			}
-			
+
 			// Ignore overhang subexons and ir subexons for now.
 			if ( ( se.leftType == 0 && se.rightType == 1 ) 
-				|| ( se.leftType == 2 && se.rightType == 0 ) 
-				|| ( se.leftType == 2 && se.rightType == 1 ) )
+					|| ( se.leftType == 2 && se.rightType == 0 ) 
+					|| ( se.leftType == 2 && se.rightType == 1 ) )
 				continue ;
-			
+
+			if ( se.leftType == 1 && se.rightType == 2 ) // a full exon, we allow mixtured strand here.
+			{
+				struct _interval ni ;
+				ni.chrId = se.chrId ;
+				ni.start = se.start ;
+				ni.end = se.end ;
+				ni.strand = se.rightStrand ;  
+				ni.sampleSupport = 1 ;
+				exons.push_back( ni ) ;
+			}
+
+			for ( i = 0 ; i < se.nextCnt ; ++i )
+			{
+				struct _interval ni ;
+				ni.chrId = se.chrId ;
+				ni.start = se.end ;
+				ni.end = se.next[i] ;
+				ni.strand = se.rightStrand ;  
+				ni.sampleSupport = 1 ;
+				if ( ni.start + 1 < ni.end )
+					introns.push_back( ni ) ;
+			}
+
 			sp.chrId = se.chrId ;
 			sp.pos = se.start ;
 			sp.type = 1 ;
@@ -326,14 +467,83 @@ int main( int argc, char *argv[] )
 			sp.splitType = se.rightType ;				
 			sp.strand = se.rightStrand ;
 			subexonSplits.push_back( sp ) ;
-		}	
+
+			if ( se.prevCnt > 0 )
+				delete[] se.prev ;
+			if ( se.nextCnt > 0 )
+				delete[] se.next ;
+		}
+		CoalesceIntervals( exons ) ;
+		CoalesceIntervals( introns ) ;
 		fclose( fp ) ;
 	}
+	// Obtain the split sites from the introns.
+	int intronCnt = introns.size() ;
+	std::vector<struct _subexonSplit> intronSplits ;
+	for ( i = 0 ; i < intronCnt ; ++i )
+	{
+		if ( introns[i].sampleSupport < 0.05 * fileCnt )
+		{
+			continue ;
+		}
+		struct _interval &it = introns[i] ;
+		struct _subexonSplit sp ;
+		sp.chrId = it.chrId ;
+		sp.pos = it.start ;
+		sp.type = 2 ;
+		sp.splitType = 2 ;			
+		sp.strand = it.strand ;
+		intronSplits.push_back( sp ) ;
+
+		sp.chrId = it.chrId ;
+		sp.pos = it.end ;
+		sp.type = 1 ;
+		sp.splitType = 1 ;				
+		sp.strand = it.strand ;
+		intronSplits.push_back( sp ) ;
+	}
+
 	// Pair up the split sites to get subexons
+	std::sort( intronSplits.begin(), intronSplits.end(), CompSubexonSplit ) ;
 	std::sort( subexonSplits.begin(), subexonSplits.end(), CompSubexonSplit ) ;
 
-	// Force the soft boundary that collides with hard boundaries to be hard boundary.
+	// Convert the hard boundary to soft boundary if the split sites is filtered from the introns
 	int splitCnt = subexonSplits.size() ;
+	int intronSplitCnt = intronSplits.size() ;
+	k = 0 ;
+	for ( i = 0 ; i < splitCnt ; ++i )
+	{
+		if ( subexonSplits[i].type != subexonSplits[i].splitType )
+			continue ;
+			
+		while ( k < intronCnt && ( intronSplits[k].chrId < subexonSplits[i].chrId 
+			|| ( intronSplits[k].chrId == subexonSplits[i].chrId && intronSplits[k].pos < subexonSplits[i].pos ) ) )			
+			++k ;
+		j = k ;
+		while ( j < intronCnt && intronSplits[j].chrId == subexonSplits[i].chrId 
+			&& intronSplits[j].pos == subexonSplits[i].pos && intronSplits[j].splitType != subexonSplits[i].splitType )			
+			++j ;
+		
+		// the split site is filtered.
+		if ( j >= intronSplitCnt || intronSplits[j].chrId != subexonSplits[i].chrId ||
+			intronSplits[j].pos > subexonSplits[i].pos )
+		{
+			//printf( "%d %d. %d %d\n", subexonSplits[i].pos, intronSplits[j].pos, intronSplits[j].chrId , subexonSplits[i].chrId ) ;
+			subexonSplits[i].splitType = 0 ;
+			// Convert the adjacent subexon split.
+			for ( int l = i + 1 ; i < splitCnt && subexonSplits[l].chrId == subexonSplits[i].chrId 
+				&& subexonSplits[l].pos == subexonSplits[i].pos + 1 ; ++l )
+			{
+				if ( subexonSplits[l].type != subexonSplits[i].type 
+					&& subexonSplits[l].splitType == subexonSplits[l].splitType )
+				{
+					subexonSplits[l].splitType = 0 ;	
+				}
+			}
+		}
+	}
+	
+	// Force the soft boundary that collides with hard boundaries to be hard boundary.
 	for ( i = 0 ; i < splitCnt ; ++i )
 	{
 		if ( subexonSplits[i].splitType != 0 )
@@ -404,13 +614,17 @@ int main( int argc, char *argv[] )
 		se.nextCnt = se.prevCnt = 0 ;
 		subexons.push_back( se ) ;
 	}
+
 	// Merge the adjacent soft boundaries 
 	std::vector<struct _subexon> rawSubexons = subexons ;
 	int seCnt = subexons.size() ;
+	int exonCnt = exons.size() ;
 	subexons.clear() ;
-	for ( i = 1, k = 0 ; i < seCnt ; ++i )
+
+	k = 0 ; // hold index for exon.
+	for ( i = 0 ; i < seCnt ;  )
 	{
-		if ( rawSubexons[k].rightType == 0 && rawSubexons[i].leftType == 0 
+		/*if ( rawSubexons[k].rightType == 0 && rawSubexons[i].leftType == 0 
 			&& rawSubexons[k].end + 1 == rawSubexons[i].start )			
 		{
 			rawSubexons[k].end = rawSubexons[i].end ;
@@ -421,9 +635,57 @@ int main( int argc, char *argv[] )
 		{
 			subexons.push_back( rawSubexons[k] ) ;		
 			k = i ;
+		}*/
+
+		while ( k < exonCnt && ( exons[k].chrId < rawSubexons[i].chrId 
+				|| ( exons[k].chrId == rawSubexons[i].chrId && exons[k].start < rawSubexons[i].start ) ) )
+			++k ;
+
+		for ( j = i + 1 ; j < seCnt ; ++j )
+		{
+			if ( rawSubexons[j - 1].chrId != rawSubexons[j].chrId || rawSubexons[j - 1].rightType != 0 || rawSubexons[j].leftType != 0 
+				|| rawSubexons[j - 1].end + 1 != rawSubexons[j].start )
+				break ;
 		}
-	}
-	subexons.push_back( rawSubexons[k] ) ;		
+		// rawsubexons[i...j-1] will be merged.
+		bool merge = true ;
+		if ( rawSubexons[i].leftType == 1 && rawSubexons[j - 1].rightType == 2 && j - i > 1 
+			&& rawSubexons[j - 1].end - rawSubexons[i].start >= 400 )
+		{
+			merge = false ;
+			for ( int l = k ; l < exonCnt ; ++l )
+			{
+				if ( exons[l].chrId != rawSubexons[i].chrId && exons[l].start > rawSubexons[i].start )
+					break ;
+				if ( exons[l].end == rawSubexons[j - 1].end )
+				{
+					merge = true ;
+					break ;
+				}
+			}
+			
+			if ( merge == false )
+			{
+				if ( rawSubexons[i].end + 1 == rawSubexons[j - 1].start )
+				{
+					--rawSubexons[i].end ;
+					++rawSubexons[j - 1].start ;
+				}
+				subexons.push_back( rawSubexons[i] ) ;
+				subexons.push_back( rawSubexons[j - 1] ) ;
+			}
+		}
+
+		if ( merge )
+		{
+			rawSubexons[i].end = rawSubexons[j - 1].end ;
+			rawSubexons[i].rightType = rawSubexons[j - 1].rightType ;
+			rawSubexons[i].rightStrand = rawSubexons[j - 1].rightStrand ;
+			subexons.push_back( rawSubexons[i] ) ;		
+		}
+
+		i = j ;
+	} 
 
 	// Remove overhang, ir subexons intron created after putting multiple sample to gether.
 	// eg: s0: [......)
@@ -496,6 +758,9 @@ int main( int argc, char *argv[] )
 	seCnt = subexons.size() ;
 	std::vector<struct _intronicInfo> intronicInfos ;
 	std::vector<struct _seInterval> seIntervals ;
+	std::vector<struct _subexonSupplement> subexonInfo ;
+
+	subexonInfo.resize( seCnt ) ;
 	for ( i = 0 ; i < seCnt ; ++i )
 	{
 		struct _seInterval ni ; // new interval
@@ -505,6 +770,8 @@ int main( int argc, char *argv[] )
 		ni.idx = i ;
 		ni.chrId = subexons[i].chrId ;
 		seIntervals.push_back( ni ) ;
+
+		subexonInfo[i].prevSupport = subexonInfo[i].nextSupport = NULL ;
 		
 		/*int nexti ;
 		for ( nexti = i + 1 ; nexti < seCnt ; ++nexti )
@@ -674,9 +941,9 @@ int main( int argc, char *argv[] )
 							tmp = 1e-7 ;
 						subexons[idx].leftClassifier -= 2.0 * log( tmp ) ;		
 						++subexons[idx].lcCnt ;
-
+						
 						subexons[idx].prev = MergePositions( subexons[idx].prev, subexons[idx].prevCnt, 
-										se.prev, se.prevCnt, subexons[idx].prevCnt ) ;
+										se.prev, se.prevCnt, subexons[idx].prevCnt, &subexonInfo[idx].prevSupport ) ;
 					}
 					if ( subexons[idx].rightType == 2 && se.rightType == 2 && subexons[idx].end == se.end )
 					{
@@ -687,7 +954,7 @@ int main( int argc, char *argv[] )
 						++subexons[idx].rcCnt ;
 
 						subexons[idx].next = MergePositions( subexons[idx].next, subexons[idx].nextCnt, 
-										se.next, se.nextCnt, subexons[idx].nextCnt ) ;
+										se.next, se.nextCnt, subexons[idx].nextCnt, &subexonInfo[idx].nextSupport ) ;
 					}
 
 					if ( subexons[idx].leftType == 0 && subexons[idx].rightType == 0
@@ -840,7 +1107,9 @@ int main( int argc, char *argv[] )
 				delete[] sampleSubexons[i].prev ;
 		}
 	}
-	
+
+	CleanUpSubexonConnections( subexons ) ;
+
 	// Convert the temporary statistics number into formal statistics result.
 	for ( i = 0 ; i < subexonCnt ; ++i ) 
 	{
@@ -870,7 +1139,17 @@ int main( int argc, char *argv[] )
 	{
 		struct _intronicInfo &ii = intronicInfos[i] ;
 		if ( ii.validIrCnt > 0 )
+		{
+			/*for ( j = 0 ; j < fileCnt - ii.validIrCnt ; ++j )
+			{
+				ii.irClassifier -= log( 1000.0 ) ;
+			}*/
+			if ( ii.validIrCnt < fileCnt * 0.15 )
+				ii.irClassifier -= log( 1000.0 ) ;
+			else if ( ii.validIrCnt < fileCnt * 0.5 )
+				ii.irClassifier -= log( 100.0 ) ;
 			ii.irClassifier = (double)1.0 / ( 1.0 + exp( ii.irClassifier + log( 1 - avgIrPiRatio ) - log( avgIrPiRatio ) ) ) ;
+		}
 		else
 			ii.irClassifier = -1 ;
 		
