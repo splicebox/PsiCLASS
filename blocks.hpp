@@ -207,6 +207,43 @@ class Blocks
 							break ;
 					adjustEnd = i + exonBlocks[tag].start ;
 				}
+				else if ( exonBlocks[tag].leftType == 1 && exonBlocks[tag].rightType == 2
+					&& exonBlocks[tag].end - exonBlocks[tag].start >= 400 )
+				{
+					// The possible merge of two genes or merge of UTRs, if we don't break the low coverage part.
+					// If we decide to cut, I'll reuse the variable "island" to represent the subexon on right hand side.
+					for ( i = 0 ; i < len ; ++i )
+					{
+						if ( depth[i] < gMinDepth )
+							break ;
+					}
+
+					for ( j = len - 1 ; j >= 0 ; --j )
+						if ( depth[j] < gMinDepth )
+							break ;
+
+					if ( j - i + 1 > 15 )
+					{
+						// we break.	
+						++i ; --j ;
+
+						adjustEnd = i + exonBlocks[tag].start ;
+
+						if ( j < len - 1 )
+						{
+							int l ;
+							island = exonBlocks[tag] ;
+							island.depthSum = 0 ;
+							island.leftType = 0 ; 
+							for ( l = j ; l <= len - 1 ; ++l )
+								island.depthSum += depth[j] ;
+							island.start = j + exonBlocks[tag].start ; // offset the coordinate.
+							island.end = exonBlocks[tag].end ;
+						}
+						
+						exonBlocks[tag].rightType = 0 ; // put it here, so the island can get the right info
+					}
+				}
 
 				int lostDepthSum = 0 ;
 				for ( i = exonBlocks[tag].start ; i < adjustStart ; ++i  )

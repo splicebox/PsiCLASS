@@ -23,7 +23,7 @@ while ( <FP1> )
 		my $key = $cols[0]." ".$cols[1]." ".$cols[2]." ".$cols[4] ;
 		if ( $cols[3] <= 0 )
 		{
-			$cols[3] = 1 ;
+			$cols[3] = 0.1 ;
 		}
 
 		if ( ! defined $spliceSupport{$key} )

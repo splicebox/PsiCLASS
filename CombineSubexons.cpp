@@ -153,6 +153,8 @@ double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio
 
 double GetPValueOfGeneEnd( double cov )
 {
+	if ( cov <= 2.0 )
+		return 1.0 ;
 	double tmp = 2.0 * ( sqrt( cov ) - log( cov ) ) ;
 	if ( tmp <= 0 )
 		return 1.0 ;
@@ -540,6 +542,17 @@ int main( int argc, char *argv[] )
 					subexonSplits[l].splitType = 0 ;	
 				}
 			}
+
+			// And the other direction
+			for ( int l = i - 1 ; l >= 0 && subexonSplits[l].chrId == subexonSplits[i].chrId 
+				&& subexonSplits[l].pos == subexonSplits[i].pos - 1 ; --l )
+			{
+				if ( subexonSplits[l].type != subexonSplits[i].type 
+					&& subexonSplits[l].splitType == subexonSplits[l].splitType )
+				{
+					subexonSplits[l].splitType = 0 ;	
+				}
+			}
 		}
 	}
 	
@@ -597,24 +610,34 @@ int main( int argc, char *argv[] )
 		se.leftType = subexonSplits[i].splitType ;
 		se.leftStrand = subexonSplits[i].strand ;
 		if ( subexonSplits[i].type == 2 )	
+		{
+			se.leftStrand = 0 ;
 			++se.start ;
+		}
 
 		se.end = subexonSplits[i + 1].pos ;
 		se.rightType = subexonSplits[i + 1].splitType ;
 		se.rightStrand = subexonSplits[i + 1].strand ;
 		if ( subexonSplits[i + 1].type == 1 )
+		{
+			se.rightStrand = 0 ;
 			--se.end ;
+		}
 			
 		if ( se.start > se.end ) //Note: this handles the case of repeated subexon split.
 			continue ;
 		se.leftClassifier = se.rightClassifier = 0 ;
 		se.lcCnt = se.rcCnt = 0 ;
-	
+		
+		/*if ( se.start == 6536524 )	
+		{
+			printf( "%d-%d: %d\n", se.start, se.end, se.leftType ) ;
+		}*/
+
 		se.next = se.prev = NULL ;
 		se.nextCnt = se.prevCnt = 0 ;
 		subexons.push_back( se ) ;
 	}
-
 	// Merge the adjacent soft boundaries 
 	std::vector<struct _subexon> rawSubexons = subexons ;
 	int seCnt = subexons.size() ;
@@ -653,6 +676,7 @@ int main( int argc, char *argv[] )
 			&& rawSubexons[j - 1].end - rawSubexons[i].start >= 400 )
 		{
 			merge = false ;
+			int sampleSupport = 0 ;
 			for ( int l = k ; l < exonCnt ; ++l )
 			{
 				if ( exons[l].chrId != rawSubexons[i].chrId && exons[l].start > rawSubexons[i].start )
@@ -660,7 +684,16 @@ int main( int argc, char *argv[] )
 				if ( exons[l].end == rawSubexons[j - 1].end )
 				{
 					merge = true ;
+					sampleSupport = exons[l].sampleSupport ;
 					break ;
+				}
+			}
+
+			if ( merge == true && rawSubexons[j - 1].end - rawSubexons[i].start >= 1000 )
+			{
+				if ( sampleSupport <= 0.2 * fileCnt )
+				{
+					merge = false ;
 				}
 			}
 			
@@ -681,6 +714,15 @@ int main( int argc, char *argv[] )
 			rawSubexons[i].end = rawSubexons[j - 1].end ;
 			rawSubexons[i].rightType = rawSubexons[j - 1].rightType ;
 			rawSubexons[i].rightStrand = rawSubexons[j - 1].rightStrand ;
+			
+			if ( rawSubexons[i].leftType == 0 && rawSubexons[i].rightType != 0 )
+			{
+				rawSubexons[i].start = rawSubexons[ ( i + j - 1 ) / 2 ].start ;
+			}
+			else if ( rawSubexons[i].rightType == 0 && rawSubexons[i].leftType != 0 )
+			{
+				rawSubexons[i].end = rawSubexons[ ( i + j - 1 ) / 2 ].end ;
+			}
 			subexons.push_back( rawSubexons[i] ) ;		
 		}
 
@@ -944,6 +986,22 @@ int main( int argc, char *argv[] )
 						
 						subexons[idx].prev = MergePositions( subexons[idx].prev, subexons[idx].prevCnt, 
 										se.prev, se.prevCnt, subexons[idx].prevCnt, &subexonInfo[idx].prevSupport ) ;
+
+						if ( se.rightType == 0 ) // a gene end here
+						{
+							for ( int l = idx ; l < subexonCnt ; ++l )
+							{
+								if ( l > idx && ( subexons[l].end > subexons[l - 1].start + 1 
+									|| subexons[l].chrId != subexons[l - 1].chrId ) )				
+									break ;
+								if ( subexons[l].rightType == 2 )
+								{
+									subexons[l].rightClassifier -= 2.0 * log( GetPValueOfGeneEnd( se.avgDepth ) ) ; 			
+									++subexons[l].rcCnt ;
+									break ;
+								}
+							}
+						}
 					}
 					if ( subexons[idx].rightType == 2 && se.rightType == 2 && subexons[idx].end == se.end )
 					{
@@ -955,6 +1013,22 @@ int main( int argc, char *argv[] )
 
 						subexons[idx].next = MergePositions( subexons[idx].next, subexons[idx].nextCnt, 
 										se.next, se.nextCnt, subexons[idx].nextCnt, &subexonInfo[idx].nextSupport ) ;
+
+						if ( se.leftType == 0 )
+						{
+							for ( int l = idx ; l >= 0 ; --l )
+							{
+								if ( l < idx && ( subexons[l].end < subexons[l + 1].start - 1 
+											|| subexons[l].chrId != subexons[l + 1].chrId ) )				
+									break ;
+								if ( subexons[l].leftType == 1 )
+								{
+									subexons[l].leftClassifier -= 2.0 * log( GetPValueOfGeneEnd( se.avgDepth ) ) ; 			
+									++subexons[l].lcCnt ;
+									break ;
+								}
+							}
+						}
 					}
 
 					if ( subexons[idx].leftType == 0 && subexons[idx].rightType == 0
@@ -1199,19 +1273,9 @@ int main( int argc, char *argv[] )
 			struct _subexon &se = subexons[ seIntervals[i].idx ] ;
 			
 			char ls, rs ;
-			if ( se.leftStrand == 1 )
-				ls = '+' ;
-			else if ( se.leftStrand == -1 )
-				ls = '-' ;
-			else
-				ls = '.' ;
 
-			if ( se.rightStrand == 1 )
-				rs = '+' ;
-			else if ( se.rightStrand == -1 )
-				rs = '-' ;
-			else
-				rs = '.' ;
+			ls = StrandNumToSymbol( se.leftStrand ) ;
+			rs = StrandNumToSymbol( se.rightStrand ) ;
 
 			printf( "%s %d %d %d %d %c %c -1 -1 -1 %lf %lf ", alignments.GetChromName( se.chrId ), se.start, se.end,
 					se.leftType, se.rightType, ls, rs, se.leftClassifier, se.rightClassifier ) ;
