@@ -18,10 +18,11 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)\n"
 	"\t-o STRING: the prefix of the output file. (default: not used)"
 	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" 
-	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)\n"
+	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.01)\n"
+	"\t-d FLOAT: filter the transcript whose average read depth is less than the given number. (default: 2.5)\n"
 	;
 
-static const char *short_options = "s:b:f:o:h" ;
+static const char *short_options = "s:b:f:o:d:h" ;
 static struct option long_options[] =
 	{
 		{ "ls", required_argument, 0, 10000 },
@@ -47,6 +48,7 @@ int main( int argc, char *argv[] )
 	FILE *fpSubexon = NULL ;
 	double FPKMFraction = 0.01 ; 
 	double classifierThreshold ;
+	double txptMinReadDepth = 2.5 ;
 	char outputPrefix[1024] = "" ;
 	
 	std::vector<Alignments> alignmentFiles ;
@@ -76,6 +78,10 @@ int main( int argc, char *argv[] )
 		else if ( c == 'o' )
 		{
 			strcpy( outputPrefix, optarg ) ;	
+		}
+		else if ( c == 'd' )
+		{
+			txptMinReadDepth = atof( optarg ) ;
 		}
 		else if ( c == 10000 ) // the list of subexon files.
 		{
@@ -135,7 +141,7 @@ int main( int argc, char *argv[] )
 		Constraints constraints( &alignmentFiles[i] ) ;
 		multiSampleConstraints.push_back( constraints ) ;
 	}
-	TranscriptDecider transcriptDecider( FPKMFraction, classifierThreshold, sampleCnt, alignmentFiles[0] ) ;
+	TranscriptDecider transcriptDecider( FPKMFraction, classifierThreshold, txptMinReadDepth, sampleCnt, alignmentFiles[0] ) ;
 
 	transcriptDecider.SetOutputFPs( outputPrefix ) ;
 	

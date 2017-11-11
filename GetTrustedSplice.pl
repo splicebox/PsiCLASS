@@ -7,6 +7,7 @@ die "usage: a.pl path_to_list_of_splice_file > trusted.splice\n" if ( @ARGV == 0
 
 my %spliceSupport ;
 my %spliceUniqSupport ;
+my %spliceSecSupport ;
 
 open FP1, $ARGV[0] ;
 my $sampleCnt = 0 ;
@@ -29,12 +30,14 @@ while ( <FP1> )
 		if ( ! defined $spliceSupport{$key} )
 		{
 			$spliceSupport{ $key } = $cols[3] ;
-			$spliceUniqSupport{ $key } = $cols[3] ;
+			$spliceUniqSupport{ $key } = $cols[5] ;
+			$spliceSecSupport{ $key } = $cols[6] ;
 		}
 		else
 		{
 			$spliceSupport{ $key } += $cols[3] ;
-			$spliceUniqSupport{ $key } += $cols[3] ;
+			$spliceUniqSupport{ $key } += $cols[5] ;
+			$spliceSecSupport{ $key } += $cols[6] ;
 		}
 	}
 	close FP2 ;
@@ -44,11 +47,15 @@ close FP1 ;
 foreach my $key (keys %spliceSupport)
 {
 	next if ( $spliceSupport{ $key } / $sampleCnt < 0.5 ) ;
-	next if ( $spliceUniqSupport{$key} / $spliceSupport{$key} < 0.01 ) ;
+	next if ( $spliceUniqSupport{$key} / ( $spliceSecSupport{$key} + $spliceUniqSupport{$key} ) < 0.01 ) ;
 	my @cols = split /\s+/, $key ;
 	if ( $cols[2] - $cols[1] + 1 > 10000 )
 	{
 		next if ( $spliceSupport{ $key } / $sampleCnt < 1 ) ;
+	}
+	if ( $cols[2] - $cols[1] + 1 > 100000 )
+	{
+		next if ( $spliceUniqSupport{$key} / ( $spliceSecSupport{$key} + $spliceUniqSupport{$key} ) < 0.1 ) ;
 	}
 	print $cols[0], " ", $cols[1], " ", $cols[2], " 10 ", $cols[3], " 10 0 0 0\n" ;
 }

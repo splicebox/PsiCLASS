@@ -208,30 +208,56 @@ class Blocks
 					adjustEnd = i + exonBlocks[tag].start ;
 				}
 				else if ( exonBlocks[tag].leftType == 1 && exonBlocks[tag].rightType == 2
-					&& exonBlocks[tag].end - exonBlocks[tag].start >= 400 )
+					&& exonBlocks[tag].end - exonBlocks[tag].start + 1 >= 1000 )
 				{
 					// The possible merge of two genes or merge of UTRs, if we don't break the low coverage part.
 					// If we decide to cut, I'll reuse the variable "island" to represent the subexon on right hand side.
-					for ( i = 0 ; i < len ; ++i )
+					int l ;
+					int gapSize = 30 ;
+					for ( i = 0 ; i <= len - ( gapSize + 1 ) ; ++i )
 					{
 						if ( depth[i] < gMinDepth )
-							break ;
+						{
+							for ( l = i ; l < i + ( gapSize + 1 )  ; ++l )
+								if ( depth[l] >= gMinDepth )
+									break ;
+							if ( l < i + ( gapSize + 1 ) )
+							{
+								i = l - 1 ;
+								continue ;
+							}
+							else
+								break ;
+						}
 					}
 
-					for ( j = len - 1 ; j >= 0 ; --j )
+					for ( j = len - 1 ; j >= ( gapSize + 1 ) - 1 ; --j )
+					{
 						if ( depth[j] < gMinDepth )
-							break ;
+						{
+							for ( l = j ; l >= j - ( gapSize + 1 ) + 1 ; --l )
+								if ( depth[l] >= gMinDepth )
+									break ;
 
-					if ( j - i + 1 > 15 )
+							if ( l >= j - ( gapSize + 1 ) + 1 )
+							{
+								j = l + 1 ;
+								continue ;
+							}
+							else
+								break ;
+						}
+					}
+
+					if ( j - i + 1 > gapSize )
 					{
 						// we break.	
-						++i ; --j ;
+						--i ; ++j ;
 
 						adjustEnd = i + exonBlocks[tag].start ;
 
 						if ( j < len - 1 )
 						{
-							int l ;
 							island = exonBlocks[tag] ;
 							island.depthSum = 0 ;
 							island.leftType = 0 ; 
@@ -242,6 +268,7 @@ class Blocks
 						}
 						
 						exonBlocks[tag].rightType = 0 ; // put it here, so the island can get the right info
+						//fprintf( stderr, "break %d %d %d %d.\n", (int)exonBlocks[tag].start, (int)adjustEnd, i + (int)exonBlocks[tag].start, j + (int)exonBlocks[tag].start ) ;
 					}
 				}
 

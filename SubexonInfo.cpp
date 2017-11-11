@@ -307,7 +307,7 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 	}
 }
 
-double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, double meanBound[2], int iter = 1000 )
+double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, int tries, double meanBound[2], int iter = 1000 )
 {
 	int i ;
 	double *z = new double[n] ; // the expectation that it assigned to model 0.
@@ -315,7 +315,9 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, d
 	int t = 0 ;
 	double history[5] = {-1, -1, -1, -1, -1} ;
 	double maxX = -1 ;
-	
+	if ( n <= 0 )	
+		return 0 ;
+
 	for ( i = 0 ; i < n ; ++i )
 		if ( x[i] > maxX )
 			maxX = x[i] ;
@@ -352,12 +354,12 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, d
 			double bound ;
 			if ( meanBound[1] != -1 )  // the EM for ratio
 			{
-				bound = ( theta[1] * k[1] > 1 ) ? 1 : theta[1] * k[1] ;
+				bound = ( theta[1] * k[1] > 1 ) ? 1 : ( theta[1] * k[1] ) / ( 1 + tries );
 				GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], k[1], -1, -1, bound, x, z, n ) ; // It seems setting an upper bound 1 for k[0] is not a good idea.
 			}
 			else
 			{
-				bound = ( theta[1] * k[1] > 1 ) ? 1 : theta[1] * k[1] ;
+				bound = ( theta[1] * k[1] > 1 ) ? 1 : ( theta[1] * k[1] ) / ( 1 + tries ) ;
 				GradientDescentGammaDistribution( nk[0], ntheta[0], k[0], theta[0], k[1], -1, meanBound[0], bound, x, z, n ) ; // It seems setting an upper bound 1 for k[0] is not a good idea.
 			}
 			GradientDescentGammaDistribution( nk[1], ntheta[1], k[1], theta[1], -1, k[0], theta[0] * k[0], maxX, x, oneMinusZ,  n ) ;
@@ -413,7 +415,7 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, d
 
 bool IsParametersTheSame( double *k, double *theta )
 {
-	if ( ABS( k[0] - k[1] ) < 1e-4 && ABS( theta[0] - theta[1] ) < 1e-4 )	
+	if ( ABS( k[0] - k[1] ) < 1e-2 && ABS( theta[0] - theta[1] ) < 1e-2 )	
 		return true ;
 	return false ;
 }
@@ -440,11 +442,15 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	srand( 17 ) ;
 	int maxTries = 10 ;
 	int t = 0 ;
-
+	double *buffer = new double[n] ;
+	for ( i = 0 ; i < n ; ++i )
+		buffer[i] = covRatio[i] ;
+	qsort( buffer, n, sizeof( double ), CompDouble ) ;
+	//covRatio = buffer ;
 	while ( 1 )
 	{
-		MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio, meanBound ) ;
-		if ( piRatio > 0.999 )
+		MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio, t, meanBound ) ;
+		if ( piRatio > 0.999 || piRatio < 0.001 || IsParametersTheSame( kRatio, thetaRatio ) )
 		{
 			piRatio = 0.6 ;
 			kRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX * 0.1 ) ;
@@ -459,7 +465,6 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 			thetaRatio[1] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX * 0.1 ) ;
 			if ( thetaRatio[1] <= 0 )
 				thetaRatio[1] = 1 ;
-
 			if ( kRatio[0] < kRatio[1] )
 			{	
 				if ( rand() & 1 )
@@ -471,16 +476,26 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 			{
 				thetaRatio[0] = kRatio[1] * thetaRatio[1] / kRatio[0] ;
 			}
+			//printf( "%lf %lf %lf %lf %lf\n", piRatio, kRatio[0], kRatio[1], thetaRatio[0], thetaRatio[1] ) ;
+
 			++t ;
 			if ( t > maxTries )
 				break ;
 			continue ;
 		}
+		
 		break ;
 	}
 	//delete[] filteredCovRatio ;
-
-	if ( IsParametersTheSame( kRatio, thetaRatio ) || piRatio <= 1e-4 )
+	if ( t > maxTries )
+	{
+		piRatio = 0.6 ; // mixture coefficient for model 0 and 1
+		kRatio[0] = 0.9 ;
+		kRatio[1] = 0.45 ;
+		thetaRatio[0] = 0.05 ;
+		thetaRatio[1] = 1 ;
+	}
+	if ( IsParametersTheSame( kRatio, thetaRatio ) || piRatio <= 1e-3 )
 		piRatio = 0 ;	
 	
 	piCov = piRatio ; // mixture coefficient for model 0 and 1
@@ -494,8 +509,10 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	meanBound[0] = 0.01 ;
 	meanBound[1] = -1 ;
 
-	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, meanBound, 1 ) ;	
+	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 0, meanBound, 1 ) ;	
 	piCov = piRatio ;
+
+	delete []buffer ;
 
 	return 0 ;
 }

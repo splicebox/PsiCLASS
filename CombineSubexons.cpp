@@ -673,7 +673,7 @@ int main( int argc, char *argv[] )
 		// rawsubexons[i...j-1] will be merged.
 		bool merge = true ;
 		if ( rawSubexons[i].leftType == 1 && rawSubexons[j - 1].rightType == 2 && j - i > 1 
-			&& rawSubexons[j - 1].end - rawSubexons[i].start >= 400 )
+			&& rawSubexons[j - 1].end - rawSubexons[i].start >= 1000 )
 		{
 			merge = false ;
 			int sampleSupport = 0 ;
@@ -1214,14 +1214,14 @@ int main( int argc, char *argv[] )
 		struct _intronicInfo &ii = intronicInfos[i] ;
 		if ( ii.validIrCnt > 0 )
 		{
-			/*for ( j = 0 ; j < fileCnt - ii.validIrCnt ; ++j )
+			for ( j = 0 ; j < fileCnt - ii.validIrCnt ; ++j )
 			{
-				ii.irClassifier -= log( 1000.0 ) ;
-			}*/
-			if ( ii.validIrCnt < fileCnt * 0.15 )
+				ii.irClassifier -= log( 10.0 ) ;
+			}
+			/*if ( ii.validIrCnt < fileCnt * 0.15 )
 				ii.irClassifier -= log( 1000.0 ) ;
 			else if ( ii.validIrCnt < fileCnt * 0.5 )
-				ii.irClassifier -= log( 100.0 ) ;
+				ii.irClassifier -= log( 100.0 ) ;*/
 			ii.irClassifier = (double)1.0 / ( 1.0 + exp( ii.irClassifier + log( 1 - avgIrPiRatio ) - log( avgIrPiRatio ) ) ) ;
 		}
 		else

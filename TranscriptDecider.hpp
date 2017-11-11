@@ -55,6 +55,7 @@ class TranscriptDecider
 private:
 	int sampleCnt ;
 	double FPKMFraction ;
+	double txptMinReadDepth ;
 
 	Constraints *constraints ;
 	//struct _subexon *subexons ;
@@ -197,10 +198,11 @@ private:
 
 	void OutputTranscript( FILE *fp, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
-	TranscriptDecider( double f, double c, int sampleCnt, Alignments &a ): alignments( a )  
+	TranscriptDecider( double f, double c, double d, int sampleCnt, Alignments &a ): alignments( a )  
 	{
 		FPKMFraction = f ;
 		canBeSoftBoundaryThreshold = c ;
+		txptMinReadDepth = d ;
 		usedGeneId = 0 ;
 		defaultGeneId[0] = -1 ;
 		defaultGeneId[1] = -1 ;
