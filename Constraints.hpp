@@ -267,18 +267,65 @@ public:
 	std::vector<struct _constraint> constraints ;
 	std::vector<struct _matePairConstraint> matePairs ; 
 	
+	Constraints() 
+	{
+	} 
+
 	Constraints( Alignments *a ): pAlignments( a ) 
 	{
 	}
 	
 	~Constraints() 
 	{
+		std::vector<struct _constraint>().swap( constraints ) ;
+		std::vector<struct _matePairConstraint>().swap( matePairs ) ;
 	}
 
 	void Clear() 
 	{
 		//TODO: do I need to release the memory from BitTable?
 		constraints.clear() ;
+	}
+
+	void SetAlignments( Alignments *a )
+	{
+		pAlignments = a ;
+	}
+
+	void Assign( Constraints &c )
+	{
+		int i ;
+		int size = constraints.size() ;
+		if ( size > 0 )
+		{
+			for ( i = 0 ; i < size ; ++i )
+				constraints[i].vector.Release() ;
+			std::vector<struct _constraint>().swap( constraints ) ;
+		}
+		std::vector<struct _matePairConstraint>().swap( matePairs ) ;
+		
+		//constraints.resize( c.constraints.size() ) ;
+		constraints = c.constraints ;
+		size = c.constraints.size() ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			/*struct _constraint nc ;
+			nc.weight = c.constraints[i].weight ;
+			nc.normAbund = c.constraints[i].normAbund ;
+			nc.abundance = c.constraints[i].abundance ;
+			nc.support = c.constraints[i].support ;
+			nc.uniqSupport = c.constraints[i].uniqSupport ;
+			nc.maxReadLen = c.constraints[i].maxReadLen ;
+			nc.info = c.constraints[i].info ;
+			nc.first = c.constraints[i].first ;
+			nc.last = c.constraints[i].last ;
+			nc.vector.Duplicate( c.constraints[i].vector ) ;
+			constraints[i] = ( nc ) ; */
+			constraints[i].vector.Nullify() ; // so that it won't affect the BitTable in "c"
+			constraints[i].vector.Duplicate( c.constraints[i].vector ) ;
+		}
+		matePairs = c.matePairs ;
+		pAlignments = c.pAlignments ;
 	}
 
 	int BuildConstraints( struct _subexon *subexons, int seCnt, int start, int end ) ;

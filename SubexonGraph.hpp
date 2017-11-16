@@ -7,6 +7,7 @@
 struct _subexon
 {
 	char chrId ;
+	int geneId ;
 	int start, end ;
 	int leftType, rightType ;
 	double avgDepth ;
@@ -35,7 +36,13 @@ private:
 	int *visit ;
 	double classifierThreshold ;
 
+	int usedGeneId ;
+	int baseGeneId ;
+
+	// The function to assign gene ids to subexons.
+	void SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id ) ;
 	void GetGeneBoundary( int tag, int &boundary, int timeStamp ) ;
+	void UpdateGeneId( struct _subexon *subexons, int seCnt ) ;
 public:
 	std::vector<struct _subexon> subexons ;
 	std::vector<struct _geneInterval> geneIntervals ;
@@ -231,6 +238,8 @@ public:
 		}
 
 		this->classifierThreshold = classifierThreshold ;
+
+		usedGeneId = baseGeneId = 0 ;
 	} 
 	
 	static bool IsSameStrand( int a, int b )

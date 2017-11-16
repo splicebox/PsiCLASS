@@ -3,7 +3,8 @@
 #define USE_DP 200000
 #define HASH_MAX 1000003 
 
-void TranscriptDecider::OutputTranscript( FILE *fp, struct _subexon *subexons, struct _transcript &transcript )
+
+void TranscriptDecider::OutputTranscript( int sampleId, struct _subexon *subexons, struct _transcript &transcript )
 {
 	int i, j ;
 	// determine the strand
@@ -57,7 +58,7 @@ void TranscriptDecider::OutputTranscript( FILE *fp, struct _subexon *subexons, s
 		{
 			catSubexons[j - 1].end = subexons[ subexonInd[i] ].end ;
 		}
-		else
+		else		
 		{
 			catSubexons[j] = subexons[ subexonInd[i] ] ;
 			++j ;
@@ -66,71 +67,46 @@ void TranscriptDecider::OutputTranscript( FILE *fp, struct _subexon *subexons, s
 	size = j ;
 	
 	int gid = GetTranscriptGeneId( subexonInd, subexons ) ;
-	fprintf( fp, "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
-			chrom, catSubexons[0].start + 1, catSubexons[size - 1].end + 1, strand,
-			prefix, chrom, gid,
-			prefix, chrom, gid, transcriptId[ gid - baseGeneId ], transcript.FPKM ) ;
-	for ( i = 0 ; i < size ; ++i )
+	if ( numThreads <= 1 )
 	{
-		fprintf( fp, "%s\tCLASSES\texon\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; "
-				"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; Abundance \"%.6lf\"\n",
-				chrom, catSubexons[i].start + 1, catSubexons[i].end + 1, strand,
+		fprintf( outputFPs[sampleId], "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
+				chrom, catSubexons[0].start + 1, catSubexons[size - 1].end + 1, strand,
 				prefix, chrom, gid,
-				prefix, chrom, gid, transcriptId[ gid - baseGeneId ],
-				i + 1, transcript.FPKM ) ;
+				prefix, chrom, gid, transcriptId[ gid - baseGeneId ], transcript.FPKM ) ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			fprintf( outputFPs[ sampleId ], "%s\tCLASSES\texon\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; "
+					"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; Abundance \"%.6lf\"\n",
+					chrom, catSubexons[i].start + 1, catSubexons[i].end + 1, strand,
+					prefix, chrom, gid,
+					prefix, chrom, gid, transcriptId[ gid - baseGeneId ],
+					i + 1, transcript.FPKM ) ;
+		}
+	}
+	else
+	{
+		struct _outputTranscript t ;	
+		t.chrId = subexons[0].chrId ;
+		t.geneId = gid ;
+		t.transcriptId = transcriptId[ gid - baseGeneId ] ;
+		t.FPKM = transcript.FPKM ;
+		t.sampleId = sampleId ;
+		t.exons = new struct _pair32[size] ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			t.exons[i].a = catSubexons[i].start + 1 ;
+			t.exons[i].b = catSubexons[i].end + 1 ;
+		}
+		t.ecnt = size ;
+		t.strand = strand[0] ;
+
+		outputHandler->Add( t ) ;
 	}
 	++transcriptId[ gid - baseGeneId ] ;
 
 	delete[] catSubexons ;
 }
 
-void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id )
-{
-	if ( geneId[tag] != -1 && geneId[tag] != -2 )
-	{
-		if ( geneId[tag] != id ) // a subexon may belong to more than one gene.
-			geneId[tag] = -2 ; 
-		else
-			return ;
-		// There is no need to terminate at the ambiguous exon, the strand will prevent
-		//    us from overwriting previous gene ids.
-		//return ; 
-	}
-	else if ( geneId[tag] == -2 )
-		return ;
-	//printf( "%d: %d %d %d %d\n", id, tag, subexons[tag].start, strand ) ;
-	int i ;
-	if ( geneId[tag] != -2 )
-		geneId[ tag ] = id ;
-	int cnt = subexons[tag].nextCnt ;
-	// Set through the introns.
-	if ( SubexonGraph::IsSameStrand( strand, subexons[tag].rightStrand ) )
-	{
-		for ( i = 0 ; i < cnt ; ++i )
-			if ( subexons[ subexons[tag].next[i] ].start > subexons[tag].end + 1 )
-				SetGeneId( subexons[tag].next[i], strand, subexons, seCnt, id ) ;
-	}
-
-	cnt = subexons[tag].prevCnt ;
-	if ( SubexonGraph::IsSameStrand( strand, subexons[tag].leftStrand ) )
-	{
-		for ( i = 0 ; i < cnt ; ++i )
-			if ( subexons[ subexons[tag].prev[i] ].end < subexons[tag].start - 1 )
-				SetGeneId( subexons[tag].prev[i], strand, subexons, seCnt, id ) ;
-	}
-
-	// Set through the adjacent subexons.
-	if ( tag < seCnt - 1 && subexons[tag + 1].start == subexons[tag].end + 1 )
-	{
-		SetGeneId( tag + 1, strand, subexons, seCnt, id ) ;
-	}
-
-	if ( tag > 0 && subexons[tag].start - 1 == subexons[tag - 1].end )
-	{
-		SetGeneId( tag - 1, strand, subexons, seCnt, id ) ;
-	}
-	
-}
 
 int TranscriptDecider::GetTranscriptGeneId( std::vector<int> &subexonInd, struct _subexon *subexons )
 {
@@ -982,6 +958,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	bestDp.seVector.Release() ;
 }
 
+
 // Pick the transcripts from given transcripts.
 void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltranscripts, Constraints &constraints, 
 		SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) 
@@ -1412,12 +1389,15 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, std::vector
 	return transcripts.size() ;
 }
 
+
 int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation )
 {
 	int i, j, k ;
 	int cnt = 0 ;
 	int *f = new int[seCnt] ; // this is a general buffer for a type of usage.	
 	bool useDP = false ;
+
+	UpdateGeneId( subexons, seCnt ) ;
 
 	compatibleTestVectorT.Init( seCnt ) ; // this is the bittable used in compatible test function.	
 	compatibleTestVectorC.Init( seCnt ) ;
@@ -1516,44 +1496,6 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	{
 		printf( "%d %d: %d %d\n", subexons[i].start, subexons[i].end, subexons[i].canBeStart, subexons[i].canBeEnd ) ;
 	}*/
-	geneId = new int[ seCnt ] ;
-	memset( geneId, -1, sizeof( int ) * seCnt ) ;
-	baseGeneId = usedGeneId ;
-	defaultGeneId[0] = -1 ;
-	defaultGeneId[1] = -1 ;
-	int lastMinusStrandGeneId = -1 ;
-	for ( int strand = -1 ; strand <= 1 ; strand +=2 )
-	{
-		for ( i = 0 ; i < seCnt ; ++i )
-		{
-			if ( ( geneId[i] == -1 && subexons[i].rightStrand == strand ) 
-				|| ( strand == 1 && baseGeneId <= geneId[i] && geneId[i] <= lastMinusStrandGeneId && subexons[i].rightStrand == strand ) )
-			{
-				SetGeneId( i, strand, subexons, seCnt, usedGeneId ) ;
-
-				if ( strand == -1 && defaultGeneId[0] == -1 )
-					defaultGeneId[0] = usedGeneId ;
-				else if ( strand == 1 && defaultGeneId[1] == -1 )
-					defaultGeneId[1] = usedGeneId ;
-
-				if ( strand == -1 )
-					lastMinusStrandGeneId = usedGeneId ;
-				++usedGeneId ;
-			}
-		}
-	}
-
-	for ( i = 0 ; i < seCnt ; ++i )
-		if ( subexons[i].leftType == 0 && subexons[i].rightType == 0 )
-		{
-			geneId[i] = usedGeneId ;
-			++usedGeneId ;
-		}
-
-	/*for ( i = 0 ; i < seCnt ; ++i ) 
-	{
-		printf( "geneId %d: %d-%d %d\n", i, subexons[i].start, subexons[i].end, geneId[i] ) ;
-	}*/
 
 	cnt = 0 ;
 	memset( f, -1, sizeof( int ) * seCnt ) ;
@@ -1616,7 +1558,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	else // Use dynamic programming to pick a set of candidate transcript.
 	{
 		std::vector<struct _transcript> sampleTranscripts ;
-		
+
 		// pre allocate the memory.
 		struct _dpAttribute attr ;
 		attr.f1 = new struct _dp[seCnt] ;
@@ -1639,7 +1581,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			attr.hash[i].seVector.Nullify() ;
 			attr.hash[i].seVector.Init( seCnt ) ;
 		}
-		
+
 		// select candidate transcripts from each sample.
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
@@ -1649,7 +1591,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			for ( j = 0 ; j < size ; ++j )
 				alltranscripts.push_back( sampleTranscripts[j] ) ;
 		}
-		
+
 		// release the memory.
 		for ( i = 0 ; i < seCnt ; ++i )	
 		{
@@ -1669,6 +1611,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		// we can further pick a smaller subsets of transcripts here if the number is still to big. 
 		CoalesceSameTranscripts( alltranscripts ) ;
 	}
+
 	transcriptId = new int[usedGeneId - baseGeneId] ;
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
@@ -1687,7 +1630,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		size = RefineTranscripts( subexons, predTranscripts, constraints[i] ) ;
 		for ( j = 0 ; j < size ; ++j )
 		{
-			OutputTranscript( outputFPs[i], subexons, predTranscripts[j] ) ;
+			OutputTranscript( i, subexons, predTranscripts[j] ) ;
 		}
 		for ( j = 0 ; j < size ; ++j )
 			predTranscripts[j].seVector.Release() ;
@@ -1700,6 +1643,34 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	compatibleTestVectorT.Release() ;
 	compatibleTestVectorC.Release() ;
 	delete[] f ;
-	delete[] geneId ;
 	return 0 ;	
+}
+
+void *TranscriptDeciderSolve_Wrapper( void *a ) 
+{
+	int i ;
+
+	struct _transcriptDeciderThreadArg &arg = *( (struct _transcriptDeciderThreadArg *)a ) ;
+	TranscriptDecider transcriptDecider( arg.FPKMFraction, arg.classifierThreshold, arg.txptMinReadDepth, arg.sampleCnt, *( arg.alignments ) ) ;
+	transcriptDecider.SetNumThreads( arg.numThreads + 1 ) ;
+	transcriptDecider.SetMultiThreadOutputHandler( arg.outputHandler ) ;
+	transcriptDecider.Solve( arg.subexons, arg.seCnt, arg.constraints, arg.subexonCorrelation ) ;
+	
+	// Release memory
+	for ( i = 0 ; i < arg.seCnt ; ++i )
+	{
+		delete[] arg.subexons[i].prev ;
+		delete[] arg.subexons[i].next ;
+	}
+	delete[] arg.subexons ;
+
+	// Put the work id back to the free threads queue.
+	pthread_mutex_lock( arg.ftLock ) ;
+	arg.freeThreads[ *( arg.ftCnt ) ] = arg.tid ;
+	++*( arg.ftCnt ) ;
+	if ( *( arg.ftCnt ) == 1 )
+		pthread_cond_signal( arg.fullWorkCond ) ;
+	pthread_mutex_unlock( arg.ftLock) ;
+
+	pthread_exit( NULL ) ;
 }

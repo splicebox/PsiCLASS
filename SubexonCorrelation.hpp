@@ -13,6 +13,7 @@ private:
 	std::vector<FILE *> fileList ;
 	int offset ;
 	int prevSeCnt ;
+	int seCnt ;
 
 	double **correlation ;
 		
@@ -78,6 +79,7 @@ public:
 		if ( sampleCnt <= 1 )
 			return ;
 		int i, j, k ;
+		seCnt = cnt ;
 
 		// Obtain the depth matrix.
 		double **depth ;
@@ -239,6 +241,29 @@ public:
 			return correlation[i][j] ;
 		else
 			return 0 ;
+	}
+
+	void Assign( const SubexonCorrelation &c )
+	{
+		int i ;
+		fileList = c.fileList ;
+		if ( fileList.size() <= 1 )
+			return ;
+
+		if ( correlation != NULL )
+		{
+			for ( i = 0 ; i < seCnt ; ++i )
+				delete[] correlation[i] ;
+			delete[] correlation ;
+		}
+		
+		seCnt = c.seCnt ;
+		correlation = new double*[seCnt] ;
+		for ( i = 0 ; i < seCnt ; ++i )
+		{
+			correlation[i] = new double[seCnt] ;
+			memcpy( correlation[i], c.correlation[i], sizeof( double ) * seCnt ) ;
+		}
 	}
 } ;
 

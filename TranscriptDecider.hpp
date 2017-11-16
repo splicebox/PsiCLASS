@@ -1,6 +1,8 @@
 #ifndef _MOURISL_CLASSES_TRANSCRIPTDECIDER_HEADER
 #define _MOURISL_CLASSES_TRANSCRIPTDECIDER_HEADER
 
+#include <pthread.h>
+
 #include "alignments.hpp"
 #include "SubexonGraph.hpp"
 #include "SubexonCorrelation.hpp"
@@ -16,6 +18,17 @@ struct _transcript
 
 	int first, last ; // indicate the index of the first and last subexons.
 	bool partial ; // wehther this is a partial transcript.
+} ;
+
+struct _outputTranscript
+{
+	int chrId ;
+	int geneId, transcriptId ;
+	struct _pair32 *exons ;
+	int ecnt ;
+	double FPKM ;
+	char strand ;
+	int sampleId ;
 } ;
 
 struct _dp
@@ -50,10 +63,122 @@ struct _dpAttribute
 	int timeStamp ;
 } ;
 
+class MultiThreadOutputTranscript ;
+
+struct _transcriptDeciderThreadArg
+{
+	int tid ;
+	struct _subexon *subexons ;
+	int seCnt ;
+	int sampleCnt ;
+	int numThreads ;
+
+	double FPKMFraction, classifierThreshold, txptMinReadDepth ;
+	Alignments *alignments ;
+	std::vector<Constraints> constraints ;
+	SubexonCorrelation subexonCorrelation ;
+	MultiThreadOutputTranscript *outputHandler ;
+
+	int *freeThreads ; // the stack for free threads
+	int *ftCnt ;
+	pthread_mutex_t *ftLock ;
+	pthread_cond_t *fullWorkCond ;
+} ;
+
+class MultiThreadOutputTranscript
+{
+private:
+	std::vector<struct _outputTranscript> outputQueue ;
+	pthread_t *threads ;
+	pthread_mutex_t outputLock ;
+	int sampleCnt ;
+	int numThreads ;
+	std::vector<FILE *> outputFPs ;
+	Alignments &alignments ;
+
+	static bool CompOutputTranscript( const struct _outputTranscript &a, const struct _outputTranscript &b )
+	{
+		if ( a.chrId != b.chrId )
+			return a.chrId < b.chrId ;
+		if ( a.geneId != b.geneId )
+			return a.geneId < b.geneId ;
+		return a.transcriptId < b.transcriptId ;
+	}
+public:
+	MultiThreadOutputTranscript( int cnt, Alignments &a ): alignments( a )
+	{
+		sampleCnt = cnt ;
+		pthread_mutex_init( &outputLock, NULL ) ;
+	}
+	~MultiThreadOutputTranscript()
+	{
+		pthread_mutex_destroy( &outputLock ) ;
+		int i ;
+		for ( i = 0 ; i < sampleCnt ; ++i )
+			fclose( outputFPs[i] ) ;
+	}
+
+	void SetThreadsPointer( pthread_t *t, int n )
+	{
+		threads = t ;
+		numThreads = n ;
+	}
+
+	void SetOutputFPs( char *outputPrefix ) 
+	{
+		int i ;
+		char buffer[1024] ;
+		for ( i = 0 ; i < sampleCnt ; ++i )
+		{
+			if ( outputPrefix[0] )
+				sprintf( buffer, "%s_sample_%d.gtf", outputPrefix, i ) ;
+			else
+				sprintf( buffer, "sample_%d.gtf", i ) ;
+			FILE *fp = fopen( buffer, "w" ) ;
+			outputFPs.push_back( fp ) ;
+		}
+	}
+
+	void Add( struct _outputTranscript &t ) 
+	{
+		pthread_mutex_lock( &outputLock ) ;
+		outputQueue.push_back( t ) ;
+		pthread_mutex_unlock( &outputLock ) ;
+	}
+
+	void Flush()
+	{
+		std::sort( outputQueue.begin(), outputQueue.end(), CompOutputTranscript ) ;	
+		int i, j ;
+		int qsize = outputQueue.size() ;
+		char prefix[10] = "" ;
+		for ( i = 0 ; i < qsize ; ++i )
+		{
+			struct _outputTranscript &t = outputQueue[i] ;
+			char *chrom = alignments.GetChromName( t.chrId ) ;
+			fprintf( outputFPs[t.sampleId], "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
+					chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
+					prefix, chrom, t.geneId,
+					prefix, chrom, t.geneId, t.transcriptId, t.FPKM ) ;
+			for ( j = 0 ; j < t.ecnt ; ++j )
+			{
+				fprintf( outputFPs[ t.sampleId ], "%s\tCLASSES\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
+						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; Abundance \"%.6lf\"\n",
+						chrom, t.exons[j].a, t.exons[j].b, t.strand,
+						prefix, chrom, t.geneId,
+						prefix, chrom, t.geneId, t.transcriptId,
+						j + 1, t.FPKM ) ;
+			}
+			delete []t.exons ;
+		}
+	}
+} ;
+
 class TranscriptDecider
 {
 private:
 	int sampleCnt ;
+	int numThreads ;
 	double FPKMFraction ;
 	double txptMinReadDepth ;
 
@@ -61,9 +186,8 @@ private:
 	//struct _subexon *subexons ;
 	//int seCnt ;
 
-	int *geneId ; // assign the gene id to each subexon in this region.
 	int usedGeneId ;
-	int baseGeneId, defaultGeneId[2] ;
+	int baseGeneId ;
 
 	int *transcriptId ; // the next transcript id for each gene id (we shift the gene id to 0 in this array.)
 	Alignments &alignments ; // for obtain the chromosome names.
@@ -71,6 +195,9 @@ private:
 	std::vector<FILE *> outputFPs ;
 
 	BitTable compatibleTestVectorT, compatibleTestVectorC ;
+	double canBeSoftBoundaryThreshold ;
+
+	MultiThreadOutputTranscript *outputHandler ;
 
 	// Test whether subexon tag is a start subexon in a mixture region that corresponds to the start of a gene on another strand.
 	bool IsStartOfMixtureStrandRegion( int tag, struct _subexon *subexons, int seCnt ) ;
@@ -104,7 +231,6 @@ private:
 		d.timeStamp = -1 ;
 	}
 
-	double canBeSoftBoundaryThreshold ;
 
 	// Test whether a constraints is compatible with the transcript.
 	// Return 0 - uncompatible or does not overlap at all. 1 - fully compatible. 2 - Head of the constraints compatible with the tail of the transcript
@@ -118,7 +244,7 @@ private:
 	void EnumerateTranscript( int tag, int strand, int visit[], int vcnt, struct _subexon *subexons, SubexonCorrelation &correlation, double correlationScore, std::vector<struct _transcript> &alltranscripts, int &atcnt ) ;
 	// For the simpler case, we can pick sample by sample.
 	void PickTranscripts( std::vector<struct _transcript> &alltranscripts, Constraints &constraints, SubexonCorrelation &seCorrelation, std::vector<struct _transcript> &transcripts ) ; 
-
+	
 	static bool CompSortTranscripts( const struct _transcript &a, const struct _transcript &b )
 	{
 		if ( a.first < b.first )
@@ -167,8 +293,6 @@ private:
 
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;
 
-	// The function to assign gene ids to subexons.
-	void SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id ) ;
 
 	// Initialize the structure to store transcript id 
 	void InitTranscriptId() ; 
@@ -196,7 +320,7 @@ private:
 
 	int RefineTranscripts( struct _subexon *subexons, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
 
-	void OutputTranscript( FILE *fp, struct _subexon *subexons, struct _transcript &transcript ) ;
+	void OutputTranscript( int sampleId, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
 	TranscriptDecider( double f, double c, double d, int sampleCnt, Alignments &a ): alignments( a )  
 	{
@@ -206,18 +330,22 @@ public:
 		usedGeneId = 0 ;
 		defaultGeneId[0] = -1 ;
 		defaultGeneId[1] = -1 ;
+		numThreads = 1 ;
 		this->sampleCnt = sampleCnt ;
 	}
 	~TranscriptDecider() 
 	{
 		int i ;
-		int size = outputFPs.size() ;
-		for ( i = 0 ; i < size ; ++i )
+		if ( numThreads == 1 )
 		{
-			fclose( outputFPs[i] ) ;
+			int size = outputFPs.size() ;
+			for ( i = 0 ; i < size ; ++i )
+			{
+				fclose( outputFPs[i] ) ;
+			}
 		}
 	}
-	
+
 	// @return: the number of assembled transcript 
 	int Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation ) ;
 
@@ -235,6 +363,18 @@ public:
 			outputFPs.push_back( fp ) ;
 		}
 	}
+
+	void SetMultiThreadOutputHandler( MultiThreadOutputTranscript *h ) 
+	{
+		outputHandler = h ;
+	}
+
+	void SetNumThreads( int t )
+	{
+		numThreads = t ;
+	}
 } ;
+
+void *TranscriptDeciderSolve_Wrapper( void *arg ) ;
 
 #endif

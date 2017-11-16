@@ -168,7 +168,7 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 		{
 			effectiveLength = ( subexons[ constraints[i].first ].end - readLen + 1 )- subexons[ constraints[i].first ].start + 1 ;
 			if ( effectiveLength <= 0 ) // this happens in the 3',5'-end subexon, where we trimmed the length
-				effectiveLength = ( subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 ) / 2 ;  
+				effectiveLength = ( subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 ) / 2 + 1 ;  
 		}
 		else
 		{
@@ -191,7 +191,7 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 
 			effectiveLength = end - start + 1 ;
 		}
-		
+		//printf( "%d: effectiveLength=%d\n", i, effectiveLength ) ;	
 		constraints[i].normAbund = (double)constraints[i].support / (double)effectiveLength ;
 		if ( ( subexons[ constraints[i].first ].leftType == 0 && subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 >= 8 * pAlignments->readLen ) 
 			|| ( subexons[ constraints[i].last ].rightType == 0 && subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 >= 8 * pAlignments->readLen ) ) // some random elongation of the sequence might lower the 	

@@ -116,6 +116,7 @@ int SubexonGraph::ExtractSubexons( int startIdx, int endIdx, struct _subexon *re
 	for ( i = 0 ; i < cnt ; ++i )
 	{
 		retList[i] = subexons[i + startIdx] ;
+		retList[i].geneId = -1 ;
 		retList[i].prev = new int[ retList[i].prevCnt ]	;
 		retList[i].next = new int[ retList[i].nextCnt ] ;
 		
@@ -140,5 +141,87 @@ int SubexonGraph::ExtractSubexons( int startIdx, int endIdx, struct _subexon *re
 			}
 		retList[i].nextCnt = k ;
 	}
+	UpdateGeneId( retList, cnt ) ;
 	return cnt ;	
+}
+
+void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id )
+{
+	if ( subexons[tag].geneId != -1 && subexons[tag].geneId != -2 )
+	{
+		if ( subexons[tag].geneId != id ) // a subexon may belong to more than one gene.
+			subexons[tag].geneId = -2 ; 
+		else
+			return ;
+		// There is no need to terminate at the ambiguous exon, the strand will prevent
+		//    us from overwriting previous gene ids.
+		//return ; 
+	}
+	else if ( subexons[tag].geneId == -2 )
+		return ;
+	//printf( "%d: %d %d %d %d\n", id, tag, subexons[tag].start, strand ) ;
+	int i ;
+	if ( subexons[tag].geneId != -2 )
+		subexons[ tag ].geneId = id ;
+	int cnt = subexons[tag].nextCnt ;
+	// Set through the introns.
+	if ( IsSameStrand( strand, subexons[tag].rightStrand ) )
+	{
+		for ( i = 0 ; i < cnt ; ++i )
+			if ( subexons[ subexons[tag].next[i] ].start > subexons[tag].end + 1 )
+				SetGeneId( subexons[tag].next[i], strand, subexons, seCnt, id ) ;
+	}
+
+	cnt = subexons[tag].prevCnt ;
+	if ( IsSameStrand( strand, subexons[tag].leftStrand ) )
+	{
+		for ( i = 0 ; i < cnt ; ++i )
+			if ( subexons[ subexons[tag].prev[i] ].end < subexons[tag].start - 1 )
+				SetGeneId( subexons[tag].prev[i], strand, subexons, seCnt, id ) ;
+	}
+
+	// Set through the adjacent subexons.
+	if ( tag < seCnt - 1 && subexons[tag + 1].start == subexons[tag].end + 1 )
+	{
+		SetGeneId( tag + 1, strand, subexons, seCnt, id ) ;
+	}
+
+	if ( tag > 0 && subexons[tag].start - 1 == subexons[tag - 1].end )
+	{
+		SetGeneId( tag - 1, strand, subexons, seCnt, id ) ;
+	}
+	
+}
+
+void SubexonGraph::UpdateGeneId( struct _subexon *subexons, int seCnt )
+{
+	int i ;
+	baseGeneId = usedGeneId ;
+	int lastMinusStrandGeneId = -1 ;
+	for ( int strand = -1 ; strand <= 1 ; strand +=2 )
+	{
+		for ( i = 0 ; i < seCnt ; ++i )
+		{
+			if ( ( subexons[i].geneId == -1 && subexons[i].rightStrand == strand ) 
+					|| ( strand == 1 && baseGeneId <= subexons[i].geneId && subexons[i].geneId <= lastMinusStrandGeneId && subexons[i].rightStrand == strand ) )
+			{
+				SetGeneId( i, strand, subexons, seCnt, usedGeneId ) ;
+				if ( strand == -1 )
+					lastMinusStrandGeneId = usedGeneId ;
+				++usedGeneId ;
+			}
+		}
+	}
+
+	for ( i = 0 ; i < seCnt ; ++i )
+		if ( subexons[i].leftType == 0 && subexons[i].rightType == 0 )
+		{
+			subexons[i].geneId = usedGeneId ;
+			++usedGeneId ;
+		}
+
+	/*for ( i = 0 ; i < seCnt ; ++i ) 
+	  {
+	  printf( "geneId %d: %d-%d %d\n", i, subexons[i].start, subexons[i].end, geneId[i] ) ;
+	  }*/
 }
