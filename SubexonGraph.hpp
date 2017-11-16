@@ -47,7 +47,18 @@ public:
 	std::vector<struct _subexon> subexons ;
 	std::vector<struct _geneInterval> geneIntervals ;
 
-	~SubexonGraph() {} 
+	~SubexonGraph() 
+	{
+		int i ;
+		int size = subexons.size() ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			if ( subexons[i].next )
+				delete[] subexons[i].next ;
+			if ( subexons[i].prev )
+				delete[] subexons[i].prev ;
+		}
+	} 
 
 	SubexonGraph( double classifierThreshold, Alignments &bam, FILE *fpSubexon ) 
 	{ 
@@ -149,8 +160,6 @@ public:
 		}
 		rewind( fpSubexon ) ;
 		
-		visit = new int[ seCnt ] ;
-
 		// Adjust the classifier for hard boundary, if there is a overhang attached to that region.
 		for ( i = 0 ; i < seCnt ; ++i )
 		{

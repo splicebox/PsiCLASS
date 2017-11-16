@@ -99,7 +99,6 @@ void TranscriptDecider::OutputTranscript( int sampleId, struct _subexon *subexon
 		}
 		t.ecnt = size ;
 		t.strand = strand[0] ;
-
 		outputHandler->Add( t ) ;
 	}
 	++transcriptId[ gid - baseGeneId ] ;
@@ -571,7 +570,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 		int a = visit[0] ;
 		int b = visit[1] ;
 		
-		if ( attr.f2[a][b].cover != -2 && attr.f2[a][b].strand == strand && ( attr.f2[a][b].timeStamp == attr.timeStamp || 
+		if ( attr.f2[a][b].cover != -1 && attr.f2[a][b].strand == strand && ( attr.f2[a][b].timeStamp == attr.timeStamp || 
 			( attr.f2[a][b].minAbundance < attr.minAbundance && attr.f2[a][b].cover == -2 ) ) )
 		{
 			return attr.f2[a][b] ;
@@ -1272,6 +1271,7 @@ void TranscriptDecider::PickTranscripts( std::vector<struct _transcript> &alltra
 
 	delete[] transcriptSeCnt ;
 	delete[] transcriptAbundance ;
+	delete[] avgTranscriptAbundance ;
 	delete[] coveredPortion ;
 }
 

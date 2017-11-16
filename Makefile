@@ -26,9 +26,9 @@ combine-subexons.o: CombineSubexons.cpp alignments.hpp blocks.hpp support.hpp de
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 stats.o: stats.cpp stats.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
-subexon-graph.o: SubexonGraph.cpp SubexonGraph.hpp
+subexon-graph.o: SubexonGraph.cpp SubexonGraph.hpp 
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
-constraints.o: Constraints.cpp Constraints.hpp alignments.hpp
+constraints.o: Constraints.cpp Constraints.hpp SubexonGraph.hpp alignments.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 transcript-decider.o: TranscriptDecider.cpp TranscriptDecider.hpp Constraints.hpp BitTable.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)

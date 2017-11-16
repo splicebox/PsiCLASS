@@ -277,6 +277,10 @@ public:
 	
 	~Constraints() 
 	{
+		int i ;
+		int size = constraints.size() ;
+		for ( i = 0 ; i < size ; ++i )
+			constraints[i].vector.Release() ;
 		std::vector<struct _constraint>().swap( constraints ) ;
 		std::vector<struct _matePairConstraint>().swap( matePairs ) ;
 	}

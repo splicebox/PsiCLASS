@@ -74,7 +74,11 @@ public:
 		readLen = 0 ;
 		matePaired = false ;
 	}
-	~Alignments() {}
+	~Alignments() 
+	{
+		if ( b )
+			bam_destroy1( b ) ;
+	}
 
 	void Open( char *file )
 	{
