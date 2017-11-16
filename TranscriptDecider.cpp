@@ -114,8 +114,8 @@ int TranscriptDecider::GetTranscriptGeneId( std::vector<int> &subexonInd, struct
 	int size = subexonInd.size() ;
 
 	for ( i = 0 ; i < size ; ++i )
-		if ( geneId[ subexonInd[i] ] != -2  )
-			return  geneId[ subexonInd[i] ] ;
+		if ( subexons[ subexonInd[i] ].geneId != -2  )
+			return  subexons[ subexonInd[i] ].geneId ;
 	
 	// Some extreme case, where all the regions are mixture regions.
 	for ( i = 0 ; i < size - 1 ; ++i )
@@ -128,10 +128,10 @@ int TranscriptDecider::GetTranscriptGeneId( std::vector<int> &subexonInd, struct
 
 int TranscriptDecider::GetTranscriptGeneId( struct _transcript &t, struct _subexon *subexons )
 {
-	if ( geneId[ t.first ] != -2 )
-		return geneId[ t.first ] ;
-	if ( geneId[ t.last ] != -2 )
-		return geneId[ t.last ] ;
+	if ( subexons[ t.first ].geneId != -2 )
+		return subexons[ t.first ].geneId ;
+	if ( subexons[ t.last ].geneId != -2 )
+		return subexons[ t.last ].geneId ;
 	std::vector<int> subexonInd ;
 	t.seVector.GetOnesIndices( subexonInd ) ;
 	return GetTranscriptGeneId( subexonInd, subexons ) ;
@@ -1397,8 +1397,6 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	int *f = new int[seCnt] ; // this is a general buffer for a type of usage.	
 	bool useDP = false ;
 
-	UpdateGeneId( subexons, seCnt ) ;
-
 	compatibleTestVectorT.Init( seCnt ) ; // this is the bittable used in compatible test function.	
 	compatibleTestVectorC.Init( seCnt ) ;
 
@@ -1497,6 +1495,27 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		printf( "%d %d: %d %d\n", subexons[i].start, subexons[i].end, subexons[i].canBeStart, subexons[i].canBeEnd ) ;
 	}*/
 
+	// Find the gene ids.
+	usedGeneId = baseGeneId = -1 ;
+	defaultGeneId[0] = defaultGeneId[1] = -1 ;
+	for ( i = 0 ; i < seCnt ; ++i )
+	{
+		if ( subexons[i].geneId < 0 )
+			continue ;
+		if ( baseGeneId == -1 || subexons[i].geneId < baseGeneId )	
+			baseGeneId = subexons[i].geneId ;
+		if ( subexons[i].geneId > usedGeneId )
+			usedGeneId = subexons[i].geneId ;
+		if ( ( subexons[i].rightStrand == -1 || subexons[i].leftStrand == -1 ) &&
+			( defaultGeneId[0] == -1 || subexons[i].geneId < defaultGeneId[0] ) )
+			defaultGeneId[0] = subexons[i].geneId ;
+		if ( ( subexons[i].rightStrand == 1 || subexons[i].leftStrand == 1 ) &&
+			( defaultGeneId[1] == -1 || subexons[i].geneId < defaultGeneId[1] ) )
+			defaultGeneId[1] = subexons[i].geneId ;
+			defaultGeneId[0] = subexons[i].geneId ;
+	}
+	++usedGeneId ;
+	//printf( "%d %d\n", baseGeneId, usedGeneId ) ;
 	cnt = 0 ;
 	memset( f, -1, sizeof( int ) * seCnt ) ;
 	for ( i = 0 ; i < seCnt ; ++i )

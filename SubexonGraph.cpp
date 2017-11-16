@@ -145,7 +145,7 @@ int SubexonGraph::ExtractSubexons( int startIdx, int endIdx, struct _subexon *re
 	return cnt ;	
 }
 
-void TranscriptDecider::SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id )
+void SubexonGraph::SetGeneId( int tag, int strand, struct _subexon *subexons, int seCnt, int id )
 {
 	if ( subexons[tag].geneId != -1 && subexons[tag].geneId != -2 )
 	{

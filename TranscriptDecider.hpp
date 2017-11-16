@@ -187,7 +187,7 @@ private:
 	//int seCnt ;
 
 	int usedGeneId ;
-	int baseGeneId ;
+	int baseGeneId, defaultGeneId[2] ;
 
 	int *transcriptId ; // the next transcript id for each gene id (we shift the gene id to 0 in this array.)
 	Alignments &alignments ; // for obtain the chromosome names.
