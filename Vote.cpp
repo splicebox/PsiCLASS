@@ -15,7 +15,7 @@ char usage[] = "./transcript-vote [OPTIONS] > output.gtf:\n"
 	"\t--lg: path to the list of GTF files.\n"
 	"Optional:\n" 
 	"\t-f FLOAT: the fraction of samples the transcript showed up. (default: 0.1)\n"
-	"\t-n INT: the number of samples a transcript showed up. (default: 2)\n"
+	"\t-n INT: the number of samples a transcript showed up. (default: 3)\n"
 	;
 
 
@@ -76,7 +76,7 @@ int main( int argc, char *argv[] )
 {
 	int i, j ;
 	int fraction = 0.1 ;
-	int minSampleCnt = 2 ;
+	int minSampleCnt = 3 ;
 	std::map<std::string, int> chrNameToId ;
 	std::map<int, std::string> chrIdToName ;
 
@@ -87,6 +87,16 @@ int main( int argc, char *argv[] )
 		if ( !strcmp( argv[i], "--lg" ) )
 		{
 			fpGTFlist = fopen( argv[i + 1], "r" ) ;
+			++i ;
+		}
+		else if ( !strcmp( argv[i], "-f" ) )
+		{
+			fraction = atof( argv[i + 1] ) ;
+			++i ;
+		}
+		else if ( !strcmp( argv[i], "-c" ) )
+		{
+			minSampleCnt = atoi( argv[i + 1] ) ;
 			++i ;
 		}
 		else 
@@ -107,7 +117,7 @@ int main( int argc, char *argv[] )
 	char buffer[4096] ;
 	char line[10000] ;
 	char chrom[50], tool[20], type[40], strand[3] ;
-	char tid[50] ;
+	//char tid[50] ;
 	int start, end ;
 	std::vector<struct _pair32> tmpExons ;
 	int sampleCnt = 0 ;
@@ -199,16 +209,34 @@ int main( int argc, char *argv[] )
 			}
 			else
 				prefix[0] = '\0' ;
+
+			struct _pair32 ne ;
+			ne.a = start ;
+			ne.b = end ;
+			tmpExons.push_back( ne ) ;
+		}
+		if ( tmpExons.size() > 0 )
+		{
+			struct _outputTranscript nt ;
+			nt.sampleId = sampleCnt ; 
+			nt.chrId = chrId ;
+			nt.geneId = gid ;
+			nt.strand = cStrand ;
+			nt.ecnt = tmpExons.size() ;
+			nt.exons = new struct _pair32[nt.ecnt] ;
+			for ( i = 0 ; i < nt.ecnt ; ++i )
+				nt.exons[i] = tmpExons[i] ;
+			tmpExons.clear() ;
+			transcripts.push_back( nt ) ;
 		}
 
 		++sampleCnt ;
 		fclose( fp ) ;
 	}
 	fclose( fpGTFlist ) ;
-
 	std::sort( transcripts.begin(), transcripts.end(), CompSortTranscripts ) ;
 	int size = transcripts.size() ;
-	for ( i = 0 ; i < size ; ++i )
+	for ( i = 0 ; i < size ; )
 	{
 		for ( j = i + 1 ; j < size ; ++j )
 		{
@@ -216,13 +244,15 @@ int main( int argc, char *argv[] )
 				break ;
 		}
 		// [i,j) are the same transcripts.
-		if ( j - i + 1 >= fraction * sampleCnt && j - i + 1 >= minSampleCnt )
+		if ( j - i >= fraction * sampleCnt && j - i >= minSampleCnt )
 		{
 			outputTranscripts.push_back( transcripts[i] ) ;
 		}
+		i = j ;
 	}
 	
 	size = outputTranscripts.size() ;
+	printf( "%d\n", size ) ;
 	int transcriptId = 0 ;
 	int prevGid = -1 ;
 	for ( i = 0 ; i < size ; ++i )
@@ -247,6 +277,7 @@ int main( int argc, char *argv[] )
 					prefix, chrom, t.geneId, transcriptId,
 					j + 1 ) ;
 		}
+		prevGid = t.geneId ;
 	}
 	return 0 ;
 }

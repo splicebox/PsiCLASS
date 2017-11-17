@@ -1,5 +1,5 @@
-#ifndef _LSONG_RSCAF_DEFS_HEADER
-#define _LSONG_RSCAF_DEFS_HEADER
+#ifndef _LSONG_CLASSES_DEFS_HEADER
+#define _LSONG_CLASSES_DEFS_HEADER
 
 #include <stdint.h>
 
