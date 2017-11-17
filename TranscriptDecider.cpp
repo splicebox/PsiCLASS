@@ -1512,8 +1512,11 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		if ( ( subexons[i].rightStrand == 1 || subexons[i].leftStrand == 1 ) &&
 			( defaultGeneId[1] == -1 || subexons[i].geneId < defaultGeneId[1] ) )
 			defaultGeneId[1] = subexons[i].geneId ;
-			defaultGeneId[0] = subexons[i].geneId ;
 	}
+	if ( defaultGeneId[0] == -1 )
+		defaultGeneId[0] = baseGeneId ;
+	if ( defaultGeneId[1] == -1 )
+		defaultGeneId[1] = baseGeneId ;
 	++usedGeneId ;
 	//printf( "%d %d\n", baseGeneId, usedGeneId ) ;
 	cnt = 0 ;
