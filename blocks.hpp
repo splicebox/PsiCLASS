@@ -843,9 +843,15 @@ class Blocks
 				{
 					exonBlocks[k].end = rawExonBlocks[i].end ;
 					exonBlocks[k].rightType = rawExonBlocks[i].rightType ;
+					exonBlocks[k].rightStrand = rawExonBlocks[i].rightStrand ;
 					exonBlocks[k].depthSum += rawExonBlocks[i].depthSum ;
 					if ( rawExonBlocks[i].rightSplice != -1 )
 						exonBlocks[k].rightSplice = rawExonBlocks[i].rightSplice ;
+
+					if ( exonBlocks[k].nextCnt > 0 )	
+						delete[] exonBlocks[k].next ;
+					exonBlocks[k].nextCnt = rawExonBlocks[i].nextCnt ;
+					exonBlocks[k].next = rawExonBlocks[i].next ;
 				}
 				else
 				{
@@ -869,7 +875,7 @@ class Blocks
 			delete[] newIdx ;
 		}
 
-		void AddIntronInformation( std::vector<struct _splitSite> &sites )
+		void AddIntronInformation( std::vector<struct _splitSite> &sites, Alignments &alignments )
 		{
 			// Add the connection information, support information and the strand information.
 			int i, j, k, tag ;
@@ -886,7 +892,7 @@ class Blocks
 				exonBlocks[i].leftSplice = exonBlocks[i].rightSplice = 0 ;
 			}
 			
-			// Now, we add the region id
+			// Now, we add the region id and compute the length of each region.
 			int regionId = 0 ;
 			for ( i = 0 ; i < exonBlockCnt ; )
 			{
@@ -897,6 +903,12 @@ class Blocks
 					exonBlocks[k].contigId = regionId ;
 				++regionId ;
 				i = j ;
+			}
+			int *regionLength = new int[regionId] ;
+			memset( regionLength, 0, sizeof( int ) * regionId ) ;
+			for ( i = 0 ; i < exonBlockCnt ; ++i )
+			{
+				regionLength[ exonBlocks[i].contigId ] += exonBlocks[i].end - exonBlocks[i].start + 1 ;
 			}
 
 			for ( i = 0 ; i < scnt ; )	
@@ -979,11 +991,46 @@ class Blocks
 								exonBlocks[tag].prev[ exonBlocks[tag].prevCnt] = k ; // Note that the prev are sorted in decreasing order
 								++exonBlocks[k].nextCnt ;
 								++exonBlocks[tag].prevCnt ;
-								
+								double factor = 1.0 ;
+								if ( regionLength[ exonBlocks[k].contigId ] < alignments.readLen )
+								{
+									int left ;
+									for ( left = k ; left >= 0 ; --left )
+										if ( exonBlocks[left].contigId != exonBlocks[k].contigId )
+											break ;
+									++left ;
+
+									int prevCnt = 0 ;
+									// only consider the portion upto k.
+									for ( int m = left ; m <= k ; ++m )
+										prevCnt += exonBlocks[m].prevCnt ;
+
+									if ( prevCnt == 0 )
+										factor = (double)alignments.readLen / regionLength[ exonBlocks[k].contigId ] ;
+								}
+								if ( regionLength[ exonBlocks[tag].contigId ] < alignments.readLen )
+								{
+									int right ;
+									for ( right = tag ; right < exonBlockCnt ; ++right )
+										if ( exonBlocks[right].contigId != exonBlocks[tag].contigId )
+											break ;
+									--right ;
+
+									int nextCnt = 0 ;
+									for ( int m = tag ; m <= right ; ++m )
+										nextCnt += exonBlocks[m].prevCnt ;
+
+									if ( nextCnt == 0 )
+										factor = (double)alignments.readLen / regionLength[ exonBlocks[tag].contigId ] ;
+								}
+								if ( factor > 10 )
+									factor = 10 ;
 								if ( exonBlocks[k].contigId != exonBlocks[tag].contigId ) // the support of introns between regions.
 								{
-									exonBlocks[tag].leftSplice += sites[l].support ;
-									exonBlocks[k].rightSplice += sites[l].support ;
+									// TODO: Adjust the support if one of the anchor exon is too short.
+									// This avoid the creation of alternative 3'/5' end due to low coverage from too short anchor.
+									exonBlocks[tag].leftSplice += sites[l].support * factor ;
+									exonBlocks[k].rightSplice += sites[l].support * factor ;
 								}
 								break ;
 							}
@@ -1027,6 +1074,8 @@ class Blocks
 				}
 			}
 			MergeNearBlocks() ;
+
+			delete[] regionLength ;
 		}
 
 		double PickLeftAndRightRatio( double l, double r )
@@ -1075,6 +1124,7 @@ class Blocks
 
 				if ( exonBlocks[i].leftType == 0 && exonBlocks[i].rightType == 1 ) 
 				{
+					// (..[ , overhang subexon.
 					double avgDepth = GetAvgDepth( exonBlocks[i] ) ;
 					double anchorAvg = GetAvgDepth( exonBlocks[i + 1] ) ;
 					if ( avgDepth > 1 && anchorAvg > 1 )

@@ -5,7 +5,7 @@ LINKFLAGS = -lbam -lz -lm -lpthread
 DEBUG=
 OBJECTS = stats.o subexon-graph.o 
 
-all: subexon-info combine-subexons classes vote-transcripts grader
+all: subexon-info combine-subexons classes vote-transcripts junc grader
 
 subexon-info: subexon-info.o $(OBJECTS)
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) subexon-info.o $(LINKFLAGS)
@@ -19,8 +19,11 @@ classes: classes.o constraints.o transcript-decider.o $(OBJECTS)
 vote-transcripts: vote-transcripts.o 
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) vote-transcripts.o $(LINKFLAGS)
 
+junc: junc.o
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) junc.o $(LINKFLAGS)
+
 grader: grader.o
-	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) grader.o $(LINKFLAGS)
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) grader.o $(LINKFLAGS)
 	
 
 subexon-info.o: SubexonInfo.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.hpp
@@ -38,6 +41,8 @@ transcript-decider.o: TranscriptDecider.cpp TranscriptDecider.hpp Constraints.hp
 classes.o: classes.cpp SubexonGraph.hpp SubexonCorrelation.hpp BitTable.hpp Constraints.hpp alignments.hpp TranscriptDecider.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 vote-transcripts.o: Vote.cpp TranscriptDecider.hpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
+junc.o: FindJunction.cpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 grader.o: grader.cpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)

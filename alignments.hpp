@@ -349,7 +349,7 @@ public:
 		allowSupplementary = in ;
 	}
 
-	void GetGeneralInfo()
+	void GetGeneralInfo( bool stopEarly = false )
 	{
 		int i, k ;
 
@@ -395,6 +395,8 @@ public:
 				++mateDiffCnt ;
 			}
 			++totalReadCnt ; 
+			if ( totalReadCnt >= sampleMax && stopEarly )
+				break ;
 		}
 
 		// Get the read length info and fragment length info
@@ -423,7 +425,7 @@ public:
 			fragLen = readLen ;
 			fragStdev = 0 ;
 		}
-		printf( "readLen = %d\nfragLen = %d, fragStdev = %d\n", readLen, fragLen, fragStdev ) ;		
+		//printf( "readLen = %d\nfragLen = %d, fragStdev = %d\n", readLen, fragLen, fragStdev ) ;		
 		delete[] lens ;
 		delete[] mateDiff ;
 	}

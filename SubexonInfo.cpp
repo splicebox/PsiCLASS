@@ -633,9 +633,11 @@ int main( int argc, char *argv[] )
 	//printf( "ss:%d\n", splitSites.size() ) ;
 	
 	//printf( "ss:%d\n", splitSites.size() ) ;
-
+	
+	alignments.GetGeneralInfo( true ) ;
 	// Build the blocks
 	Blocks regions ;
+	alignments.Rewind() ;
 	regions.BuildExonBlocks( alignments ) ;
 	//printf( "%d\n", regions.exonBlocks.size() ) ;
 	
@@ -665,7 +667,7 @@ int main( int argc, char *argv[] )
 	//printf( "After merge: %d\n", regions.exonBlocks.size() ) ;
 	
 	// Put the intron informations
-	regions.AddIntronInformation( allSplitSites ) ;
+	regions.AddIntronInformation( allSplitSites, alignments ) ;
 	//printf( "After add information.\n" ) ;
 
 	// Compute the average ratio against the left and right connected subexons.
