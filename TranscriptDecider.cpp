@@ -1135,7 +1135,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				coveredPortion[i] = (double)0.5 / ( seIdxCnt ) ;
 
 			// For short subexon (readLength-subexon_length-1>30), we further require a constraint cover three conseuctive subexon
-			memset( usedConstraints, false, sizeof( bool ) * constraints.constraints.size() ) ;
+			/*memset( usedConstraints, false, sizeof( bool ) * constraints.constraints.size() ) ;
 			for ( j = 1 ; j < seIdxCnt - 1 ; ++j )
 			{
 				int k = subexonIdx[j] ;	
@@ -1179,7 +1179,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 						value = 1 / (double)residual ;
 					}
 				}
-			}
+			}*/
 
 			if ( tag == -1 ) 
 				value = 0 ;
