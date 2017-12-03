@@ -167,8 +167,7 @@ void KeepUniqSplitSites( std::vector< struct _splitSite> &sites )
 		}*/
 		i = j ;
 	}
-	for ( i = size - 1 ; i >= k ; --i )
-		sites.pop_back() ;
+	sites.resize( k ) ;
 
 	// For the sites that corresponds to the start of an exon, we remove the adjust to it and 
 	/*for ( i = 1 ; i < size ; ++i )
@@ -179,6 +178,48 @@ void KeepUniqSplitSites( std::vector< struct _splitSite> &sites )
 				++sites[i].pos ;
 		}
 	}*/
+}
+
+// Filter split sites that are extremely close to each other.
+void FilterNearSplitSites( std::vector< struct _splitSite> &sites )
+{
+	int i, j ;
+	int size = sites.size() ;
+	int k = 0 ; 
+	for ( i = 0 ; i < size - 1 ; ++i )
+	{
+		if ( sites[i].support < 0 || sites[i].type != sites[i + 1].type )	
+			continue ;
+		if ( sites[i + 1].pos - sites[i].pos <= 7 && sites[i + 1].strand != sites[i].strand ) 	
+		{
+			int tag = i ;
+			if ( sites[i + 1].support < sites[i].support )
+				tag = i + 1 ;
+			sites[tag].support = -1 ;
+			int direction ;
+			if ( sites[tag].oppositePos < sites[tag].pos )
+				direction = -1 ;
+			else
+				direction = 1 ;
+
+			for ( j = tag ; j >= 0 && j < size ; j += direction )
+				if ( sites[j].pos == sites[tag].oppositePos && sites[j].oppositePos == sites[tag].pos )
+				{
+					sites[j].support = -1 ;
+					break ;
+				}
+		}
+	}
+
+	for ( i = 0 ; i < size ; ++i )
+	{
+		if ( sites[i].support > 0 )
+		{
+			sites[k] = sites[i] ;
+			++k ;
+		}
+	}
+	sites.resize( k ) ;
 }
 
 
@@ -641,7 +682,8 @@ int main( int argc, char *argv[] )
 	regions.BuildExonBlocks( alignments ) ;
 	//printf( "%d\n", regions.exonBlocks.size() ) ;
 	
-	FilterAndSortSplitSites( splitSites ) ;
+	FilterAndSortSplitSites( splitSites ) ; 
+	FilterNearSplitSites( splitSites ) ;
 	regions.FilterSplitSitesInRegions( splitSites ) ;
 	allSplitSites = splitSites ;
 	KeepUniqSplitSites( splitSites ) ;

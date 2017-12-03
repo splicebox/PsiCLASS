@@ -23,6 +23,7 @@ private:
 	bool opened ;	
 	std::map<std::string, int> chrNameToId ;
 	bool allowSupplementary ;
+	bool allowClip ;
 
 	bool atBegin ;
 	bool atEnd ;
@@ -67,6 +68,7 @@ public:
 		atBegin = true ;
 		atEnd = false ;
 		allowSupplementary = false ;
+		allowClip = true ;
 
 		totalReadCnt = 0 ;
 		fragLen = 0 ;
@@ -147,6 +149,7 @@ public:
 				continue ;
 
 			len = 0 ;
+			bool hasClip = false ;
 			for ( i = 0 ; i < b->core.n_cigar ; ++i )
 			{
 				int op = rawCigar[i] & BAM_CIGAR_MASK ;
@@ -157,10 +160,11 @@ public:
 					case BAM_CMATCH:
 					case BAM_CDEL:
 						len += num ; break ;
-					case BAM_CINS:
 					case BAM_CSOFT_CLIP:
 					case BAM_CHARD_CLIP:
 					case BAM_CPAD:
+						hasClip = true ;
+					case BAM_CINS:
 						num = 0 ; break ;
 					case BAM_CREF_SKIP:
 						{
@@ -174,6 +178,8 @@ public:
 						len += num ; break ;
 				}
 			}
+			if ( hasClip && !allowClip )
+				continue ;
 
 			if ( len > 0 )
 			{
@@ -347,6 +353,11 @@ public:
 	void SetAllowSupplementary( bool in )
 	{ 
 		allowSupplementary = in ;
+	}
+
+	void SetAllowClip( bool in )
+	{
+		allowClip = in ;
 	}
 
 	void GetGeneralInfo( bool stopEarly = false )

@@ -552,6 +552,7 @@ class Blocks
 			int size = sites.size() ;
 			int bsize = exonBlocks.size() ;
 			int tag = 0 ;
+
 			for ( i = 0 ; i < bsize ; ++i )
 			{
 				while ( tag < size && ( sites[tag].chrId < exonBlocks[i].chrId || 
@@ -982,7 +983,7 @@ class Blocks
 						{
 							if ( exonBlocks[k].end < sites[l].oppositePos || exonBlocks[k].chrId != sites[l].chrId )
 								break ;
-							if ( exonBlocks[k].end == sites[l].oppositePos )
+							if ( exonBlocks[k].end == sites[l].oppositePos ) //&& exonBlocks[k].rightType == sites[l].type )
 							{
 								if ( sites[l].strand != strand || 
 									sites[l].strand != exonBlocks[k].rightStrand )
@@ -1000,13 +1001,14 @@ class Blocks
 											break ;
 									++left ;
 
-									int prevCnt = 0 ;
+									int prevType = 0 ;
 									// only consider the portion upto k.
 									for ( int m = left ; m <= k ; ++m )
-										prevCnt += exonBlocks[m].prevCnt ;
+										if ( exonBlocks[m].leftType == 1 )	
+											++prevType ;
 
-									if ( prevCnt == 0 )
-										factor = (double)alignments.readLen / regionLength[ exonBlocks[k].contigId ] ;
+									if ( prevType == 0 )
+										factor = 2 * (double)alignments.readLen / regionLength[ exonBlocks[k].contigId ] ;
 								}
 								if ( regionLength[ exonBlocks[tag].contigId ] < alignments.readLen )
 								{
@@ -1016,15 +1018,17 @@ class Blocks
 											break ;
 									--right ;
 
-									int nextCnt = 0 ;
+									int nextType = 0 ;
 									for ( int m = tag ; m <= right ; ++m )
-										nextCnt += exonBlocks[m].prevCnt ;
+										if ( exonBlocks[m].rightType == 2 )
+											++nextType ;
 
-									if ( nextCnt == 0 )
-										factor = (double)alignments.readLen / regionLength[ exonBlocks[tag].contigId ] ;
+									if ( nextType == 0 )
+										factor = 2 * (double)alignments.readLen / regionLength[ exonBlocks[tag].contigId ] ;
 								}
 								if ( factor > 10 )
 									factor = 10 ;
+								
 								if ( exonBlocks[k].contigId != exonBlocks[tag].contigId ) // the support of introns between regions.
 								{
 									// TODO: Adjust the support if one of the anchor exon is too short.
