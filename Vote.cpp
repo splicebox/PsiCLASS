@@ -94,7 +94,7 @@ int main( int argc, char *argv[] )
 			fraction = atof( argv[i + 1] ) ;
 			++i ;
 		}
-		else if ( !strcmp( argv[i], "-c" ) )
+		else if ( !strcmp( argv[i], "-n" ) )
 		{
 			minSampleCnt = atoi( argv[i + 1] ) ;
 			++i ;
@@ -252,7 +252,7 @@ int main( int argc, char *argv[] )
 	}
 	
 	size = outputTranscripts.size() ;
-	printf( "%d\n", size ) ;
+	//printf( "%d\n", size ) ;
 	int transcriptId = 0 ;
 	int prevGid = -1 ;
 	for ( i = 0 ; i < size ; ++i )

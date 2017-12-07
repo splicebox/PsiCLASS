@@ -1189,8 +1189,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			if ( tag != -1 )
 				avgTranscriptAbundance[i] /= compatibleCnt ;
 
-			printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
-			alltranscripts[i].seVector.Print() ;
+			//printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
+			//alltranscripts[i].seVector.Print() ;
 		}
 		if ( maxAbundance == 0 )
 		{
@@ -1264,7 +1264,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 					maxtag = i ;
 				}
 			}
-			printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
+			//printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
 		}
 		if ( maxcnt == 0 || maxtag == -1 )
 			break ;
@@ -1301,7 +1301,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			}
 		}
 		adjustScore[maxtag] += 1 / (double)tcCnt ;
-		printf( "maxtag=%d %lf %lf\n", maxtag, update, nt.abundance ) ;
+		//printf( "maxtag=%d %lf %lf\n", maxtag, update, nt.abundance ) ;
 
 		transcripts.push_back( nt ) ;
 		if ( transcripts.size() >= transcripts.capacity() && (int)transcripts.size() >= coalesceThreshold )

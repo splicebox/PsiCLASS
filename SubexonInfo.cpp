@@ -491,8 +491,12 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	while ( 1 )
 	{
 		MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio, t, meanBound ) ;
+		//printf( "%lf %lf %lf %lf %lf\n", piRatio, kRatio[0], kRatio[1], thetaRatio[0], thetaRatio[1] ) ;
 		if ( piRatio > 0.999 || piRatio < 0.001 || IsParametersTheSame( kRatio, thetaRatio ) )
 		{
+			++t ;
+			if ( t > maxTries )
+				break ;
 			piRatio = 0.6 ;
 			kRatio[0] += ( ( rand() * 0.5 - RAND_MAX ) / (double)RAND_MAX * 0.1 ) ;
 			if ( kRatio[0] <= 0 )
@@ -519,25 +523,23 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 			}
 			//printf( "%lf %lf %lf %lf %lf\n", piRatio, kRatio[0], kRatio[1], thetaRatio[0], thetaRatio[1] ) ;
 
-			++t ;
-			if ( t > maxTries )
-				break ;
 			continue ;
 		}
 		
 		break ;
 	}
 	//delete[] filteredCovRatio ;
-	if ( t > maxTries )
+	if ( t > maxTries && piRatio > 0.999 )
 	{
-		piRatio = 0.6 ; // mixture coefficient for model 0 and 1
+		/*piRatio = 0.6 ; // mixture coefficient for model 0 and 1
 		kRatio[0] = 0.9 ;
 		kRatio[1] = 0.45 ;
 		thetaRatio[0] = 0.05 ;
-		thetaRatio[1] = 1 ;
+		thetaRatio[1] = 1 ;*/
+		piRatio = 0.999 ;
 	}
 	if ( IsParametersTheSame( kRatio, thetaRatio ) || piRatio <= 1e-3 )
-		piRatio = 0 ;	
+		piRatio = 1e-3 ;	
 	
 	piCov = piRatio ; // mixture coefficient for model 0 and 1
 	kCov[0] = 0.9 ;
