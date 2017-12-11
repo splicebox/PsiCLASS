@@ -14,8 +14,8 @@ char usage[] = "./transcript-vote [OPTIONS] > output.gtf:\n"
 	"Required:\n"
 	"\t--lg: path to the list of GTF files.\n"
 	"Optional:\n" 
-	"\t-f FLOAT: the fraction of samples the transcript showed up. (default: 0.1)\n"
-	"\t-n INT: the number of samples a transcript showed up. (default: 3)\n"
+	"\t-f FLOAT: the fraction of samples the transcript showed up. (default: 0.4)\n"
+	"\t-n INT: the number of samples a transcript showed up. (default: 5)\n"
 	;
 
 
@@ -40,6 +40,18 @@ int GetTailNumber( char *s )
 		ret += factor * ( s[i] - '0' ) ;
 	}
 	return ret ;
+}
+
+int CompDouble( const void *p1, const void *p2 )
+{
+	double a = *(double *)p1 ;
+	double b = *(double *)p2 ;
+	if ( a > b )
+		return 1 ;
+	else if ( a < b )
+		return -1 ;
+	else
+		return 0 ;
 }
 
 int CompTranscripts( const struct _outputTranscript &a, const struct _outputTranscript &b )
@@ -74,9 +86,9 @@ bool CompSortTranscripts( const struct _outputTranscript &a, const struct _outpu
 
 int main( int argc, char *argv[] )
 {
-	int i, j ;
-	int fraction = 0.1 ;
-	int minSampleCnt = 3 ;
+	int i, j, k ;
+	double fraction = 0.4 ;
+	int minSampleCnt = 5 ;
 	std::map<std::string, int> chrNameToId ;
 	std::map<int, std::string> chrIdToName ;
 
@@ -151,6 +163,7 @@ int main( int argc, char *argv[] )
 					nt.strand = cStrand ;
 					nt.ecnt = tmpExons.size() ;
 					nt.exons = new struct _pair32[nt.ecnt] ;
+					nt.FPKM = 1 ;
 					for ( i = 0 ; i < nt.ecnt ; ++i )
 						nt.exons[i] = tmpExons[i] ;
 					tmpExons.clear() ;
@@ -234,6 +247,8 @@ int main( int argc, char *argv[] )
 		fclose( fp ) ;
 	}
 	fclose( fpGTFlist ) ;
+
+	// Coalesce same transcripts
 	std::sort( transcripts.begin(), transcripts.end(), CompSortTranscripts ) ;
 	int size = transcripts.size() ;
 	for ( i = 0 ; i < size ; )
@@ -244,13 +259,55 @@ int main( int argc, char *argv[] )
 				break ;
 		}
 		// [i,j) are the same transcripts.
-		if ( j - i >= fraction * sampleCnt && j - i >= minSampleCnt )
+		/*if ( j - i >= fraction * sampleCnt && j - i >= minSampleCnt )
 		{
 			outputTranscripts.push_back( transcripts[i] ) ;
+		}*/
+
+		transcripts[k] = transcripts[i] ;
+		for ( int l = i + 1 ; l < j ; ++l )
+			delete[] transcripts[l].exons ;
+		transcripts[k].FPKM = j - i ;
+		++k ;
+		i = j ;
+	}
+	transcripts.resize( k ) ;	
+	
+	size = k ;
+	for ( i = 0 ; i < size ; )
+	{
+		for ( j = i + 1 ; j < size ; ++j )
+			if ( transcripts[i].geneId != transcripts[j].geneId )
+				break ;
+		int l ;
+		int cnt = j - i ;
+		/*double *freq = new double[cnt] ;
+		for ( l = 0 ; l < cnt ; ++l )
+			freq[l] = transcripts[l].FPKM / sampleCnt ;
+		qsort( freq, cnt, sizeof( double ), CompDouble ) ;
+
+		for ( l = 0 ; l < cnt ; ++l )
+			printf( "%lf\n", freq[l] ) ;
+		printf( "===========\n" ) ;
+		delete[] freq ;*/
+		if ( 0 ) //cnt == 1 )
+			//outputTranscripts.push_back( transcripts[i] ) ;
+			;
+		else
+		{
+			for ( l = i ; l < j ; ++l )
+			{
+				if ( transcripts[l].FPKM >= fraction * sampleCnt && transcripts[l].FPKM >= minSampleCnt )
+				{
+					outputTranscripts.push_back( transcripts[l] ) ;
+				}
+			}
 		}
+		
 		i = j ;
 	}
 	
+	// Output
 	size = outputTranscripts.size() ;
 	//printf( "%d\n", size ) ;
 	int transcriptId = 0 ;

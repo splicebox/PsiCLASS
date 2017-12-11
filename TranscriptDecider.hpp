@@ -2,6 +2,7 @@
 #define _MOURISL_CLASSES_TRANSCRIPTDECIDER_HEADER
 
 #include <pthread.h>
+#include <map>
 
 #include "alignments.hpp"
 #include "SubexonGraph.hpp"

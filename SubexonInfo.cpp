@@ -54,7 +54,14 @@ bool CompBlocksByRatio( struct _block a, struct _block b )
 
 int CompDouble( const void *p1, const void *p2 )
 {
-	return *(double *)p1 - *(double *)p2 ;
+	double a = *(double *)p1 ;
+	double b = *(double *)p2 ;
+	if ( a > b )
+		return 1 ;
+	else if ( a < b )
+		return -1 ;
+	else
+		return 0 ;
 }
 
 // Clean up the split sites;
