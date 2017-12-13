@@ -140,6 +140,14 @@ public:
 				//if ( ( b->core.flag & 0x900 ) == 0 )
 					break ;
 			}
+			
+			// to many repeat.
+			if ( bam_aux_get( b, "NH" ) )
+			{
+				if ( bam_aux2i( bam_aux_get( b, "NH" ) ) >= 5 )
+					continue ;
+			}
+
 			// Compute the exons segments from the reads
 			segCnt = 0 ;
 			start = b->core.pos ; //+ 1 ;
@@ -307,6 +315,14 @@ public:
 			return false ;
 		return true ;
 	}
+
+	bool IsPrimary()
+	{
+		if ( ( b->core.flag & 0x900 ) == 0 )
+			return true ;
+		else
+			return false ;
+	}
 	
 	// -1:minus, 0: unknown, 1:plus
 	int GetStrand()
@@ -340,6 +356,15 @@ public:
 			return bam_aux2Z( bam_aux_get( b, f ) ) ;
 		}
 		return NULL ;
+	}
+	
+	int GetNumberOfHits()
+	{
+		if ( bam_aux_get( b, "NH" ) )
+		{
+			return bam_aux2i( bam_aux_get( b, "NH" ) ) ;
+		}	
+		return 1 ;
 	}
 	
 	bool IsSupplementary()

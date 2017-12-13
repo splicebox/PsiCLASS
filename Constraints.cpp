@@ -89,6 +89,7 @@ void Constraints::CoalesceSameConstraints()
 		{
 			if ( constraints[k].vector.IsEqual( constraints[i].vector ) )
 			{
+				constraints[k].weight += constraints[i].weight ;
 				constraints[k].support += constraints[i].support ;
 				constraints[k].uniqSupport += constraints[i].uniqSupport ;
 				constraints[k].maxReadLen = ( constraints[k].maxReadLen > constraints[i].maxReadLen ) ?
@@ -192,7 +193,8 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 			effectiveLength = end - start + 1 ;
 		}
 		//printf( "%d: effectiveLength=%d\n", i, effectiveLength ) ;	
-		constraints[i].normAbund = (double)constraints[i].support / (double)effectiveLength ;
+		constraints[i].normAbund = (double)constraints[i].weight / (double)effectiveLength ;
+
 		if ( ( subexons[ constraints[i].first ].leftType == 0 && subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 >= 8 * pAlignments->readLen ) 
 			|| ( subexons[ constraints[i].last ].rightType == 0 && subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 >= 8 * pAlignments->readLen ) ) // some random elongation of the sequence might lower the 	
 		{
@@ -272,19 +274,18 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		
 		if ( tag >= seCnt )
 			break ;
-		
 		if ( alignments.segments[ alignments.segCnt - 1 ].b < subexons[tag].start )
 			continue ;
 		struct _constraint ct ;
 		ct.vector.Init( seCnt ) ;
 		//printf( "%s %d: %lld-%lld | %d-%d\n", __func__, alignments.segCnt, alignments.segments[0].a, alignments.segments[0].b, subexons[tag].start, subexons[tag].end ) ;
-		ct.weight = 1 ;
+		ct.weight = 1.0 / alignments.GetNumberOfHits() ;
 		ct.normAbund = 0 ;
 		ct.support = 1 ;
 		ct.uniqSupport = alignments.IsUnique() ? 1 : 0 ;
 		ct.maxReadLen = alignments.GetReadLength() ;
 		
-		if ( ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
+		if ( alignments.IsPrimary() && ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
 				subexons, seCnt, tag, ct ) )
 		{
 

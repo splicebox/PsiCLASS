@@ -95,10 +95,29 @@ void FilterAndSortSplitSites( std::vector<struct _splitSite> &sites )
 		else if ( strandCnt[1] > strandCnt[0] )
 			strand = '+' ;
 
+		bool allOneExceptMax = false ;
+		if ( maxSupport >= 20 )
+		{
+			allOneExceptMax = true ;
+			for ( k = i ; k < j ; ++k )	
+			{
+				if ( sites[k].support == maxSupport )	
+					continue ;
+				if ( sites[k].support > 1 )
+				{
+					allOneExceptMax = false ;
+					break ;
+				}
+			}
+		}
+
 		for ( k = i ; k < j ; ++k )
 		{
 			if ( ( sites[k].support < 0.01 * maxSupport && sites[k].support <= 3 ) 
-				|| sites[k].support < 0.001 * maxSupport || sites[k].strand != strand )
+				|| sites[k].support < 0.001 * maxSupport || sites[k].strand != strand 
+				|| ( allOneExceptMax && sites[k].support == 1 ) 
+				|| ( sites[k].support == 1 && sites[k].mismatchSum >= 2 )
+				|| ( maxSupport >= 2 && sites[k].support == 1 && ( ABS( sites[k].oppositePos - sites[k].pos - 1 ) >= 10000 || sites[k].mismatchSum != 0 ) ) ) 
 			{
 				for ( l = i - 1 ; l >= 0 && sites[l].chrId == sites[i].chrId && sites[l].pos >= sites[k].oppositePos ; --l )
 				{
@@ -195,7 +214,7 @@ void FilterNearSplitSites( std::vector< struct _splitSite> &sites )
 	int k = 0 ; 
 	for ( i = 0 ; i < size - 1 ; ++i )
 	{
-		if ( sites[i].support < 0 || sites[i].type != sites[i + 1].type )	
+		if ( sites[i].support < 0 || sites[i].type != sites[i + 1].type || sites[i].chrId != sites[i + 1].chrId )	
 			continue ;
 		if ( sites[i + 1].pos - sites[i].pos <= 7 && sites[i + 1].strand != sites[i].strand ) 	
 		{
@@ -227,6 +246,65 @@ void FilterNearSplitSites( std::vector< struct _splitSite> &sites )
 		}
 	}
 	sites.resize( k ) ;
+}
+
+void FilterRepeatSplitSites( std::vector<struct _splitSite> &sites )
+{
+	int i, j ;
+	int size = sites.size() ;
+	int k = 0 ;
+	for ( i = 0 ; i < size ; )
+	{
+		for ( j = i + 1 ; j < size ; ++j )
+		{
+			if ( sites[j].pos != sites[i].pos || sites[j].type != sites[i].type || sites[i].chrId != sites[j].chrId )
+				break ;	
+		}
+		int max = -1 ;
+		int maxtag = 0 ; 
+		for ( k = i ; k < j ; ++k )
+			if ( sites[k].uniqSupport > max )
+			{
+				max = sites[k].uniqSupport ;
+				maxtag = k ;
+			}
+		if ( max > -1 )
+		{
+			if ( sites[maxtag].uniqSupport > sites[maxtag].support * 0.1 )
+			{
+				for ( k = i ; k < j ; ++k )
+					if ( sites[k].uniqSupport < 0.05 * sites[k].support )
+					{
+						int direction ;
+						if ( sites[k].oppositePos < sites[k].pos )
+							direction = -1 ;
+						else
+							direction = 1 ;
+						int l ;
+						for ( l = k ; l >= 0 && l < size ; l += direction )
+							if ( sites[l].pos == sites[k].oppositePos && sites[l].oppositePos == sites[k].pos )
+							{
+								sites[l].support = -1 ;
+								break ;
+							}
+					}
+			}
+		}
+
+		i = j ;
+	}
+
+	k = 0 ;
+	for ( i = 0 ; i < size ; ++i )
+	{
+		if ( sites[i].support > 0 )
+		{
+			sites[k] = sites[i] ;
+			++k ;
+		}
+	}
+	sites.resize( k ) ;
+
 }
 
 
@@ -478,7 +556,7 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	thetaRatio[0] = 0.05 ;
 	thetaRatio[1] = 1 ;
 	double meanBound[2] = {-1, 1} ; // [0] is for the lower bound of the noise model, [1] is for the upper bound of the true model
-
+	
 	/*double *filteredCovRatio = new double[n] ;// ignore the ratio that is greater than 5.
 	int m = 0 ;
 	for ( i = 0 ; i < n ; ++i )
@@ -669,6 +747,7 @@ int main( int argc, char *argv[] )
 		ss.strand = strand[0] ;
 		ss.support = support ;
 		ss.uniqSupport = uniqSupport ;
+		ss.mismatchSum = uniqEditDistance + secondaryEditDistance ;
 		splitSites.push_back( ss ) ;
 
 		ss.pos = end ; 
@@ -677,6 +756,7 @@ int main( int argc, char *argv[] )
 		ss.strand = strand[0] ;
 		ss.support = support ;
 		ss.uniqSupport = uniqSupport ;
+		ss.mismatchSum = uniqEditDistance + secondaryEditDistance ;
 		splitSites.push_back( ss ) ;
 	}
 	fclose( fp ) ;
@@ -693,6 +773,7 @@ int main( int argc, char *argv[] )
 	
 	FilterAndSortSplitSites( splitSites ) ; 
 	FilterNearSplitSites( splitSites ) ;
+	FilterRepeatSplitSites( splitSites ) ;
 	regions.FilterSplitSitesInRegions( splitSites ) ;
 	allSplitSites = splitSites ;
 	KeepUniqSplitSites( splitSites ) ;

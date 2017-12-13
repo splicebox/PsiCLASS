@@ -30,6 +30,8 @@ struct _splitSite // means the next position belongs to another block
 	int support ;
 	int uniqSupport ;
 
+	int mismatchSum ;
+
 	int64_t oppositePos ; // the position of the other sites to form the intron.
 } ;
 
@@ -893,13 +895,18 @@ class Blocks
 				exonBlocks[i].leftSplice = exonBlocks[i].rightSplice = 0 ;
 			}
 			
-			// Now, we add the region id and compute the length of each region.
+			// Now, we add the region id and compute the length of each region, here the region does not contain possible IR event.
 			int regionId = 0 ;
 			for ( i = 0 ; i < exonBlockCnt ; )
 			{
-				for ( j = i + 1 ; j < exonBlockCnt ; ++j )
-					if ( exonBlocks[j].start > exonBlocks[j - 1].end + 1 )
-						break ;
+				if ( exonBlocks[i].leftType == 2 && exonBlocks[i].rightType == 1 )
+				{
+					j = i + 1 ;
+				}
+				else
+					for ( j = i + 1 ; j < exonBlockCnt ; ++j )
+						if ( exonBlocks[j].start > exonBlocks[j - 1].end + 1 || ( exonBlocks[j].leftType == 2 && exonBlocks[j].rightType == 1 ) )
+							break ;
 				for ( k = i ; k < j ; ++k )
 					exonBlocks[k].contigId = regionId ;
 				++regionId ;

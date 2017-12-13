@@ -1,9 +1,5 @@
 #include "TranscriptDecider.hpp"
 
-#define USE_DP 200000
-#define HASH_MAX 10003 
-
-
 void TranscriptDecider::OutputTranscript( int sampleId, struct _subexon *subexons, struct _transcript &transcript )
 {
 	int i, j ;
@@ -1728,7 +1724,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	int atCnt = cnt ;
 	printf( "atCnt=%d %d %d %d\n", atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	std::vector<struct _transcript> alltranscripts ;
-	//useDP = false ;	
+	useDP = false ;	
 	if ( !useDP )
 	{
 		alltranscripts.resize( atCnt ) ;
@@ -1758,7 +1754,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		attr.f2 = new struct _dp*[seCnt] ;
 		for ( i = 0 ; i < seCnt ; ++i )
 			attr.f2[i] = new struct _dp[seCnt] ;
-		attr.hash = new struct _dp[HASH_MAX] ;
+		attr.hash = dpHash ; //new struct _dp[HASH_MAX] ;
 		for ( i = 0 ; i < seCnt ; ++i )
 		{
 			attr.f1[i].seVector.Nullify() ;
@@ -1799,7 +1795,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		for ( i = 0 ; i < seCnt ; ++i )
 			delete[] attr.f2[i] ;
 		delete[] attr.f2 ;
-		delete[] attr.hash ;
+		//delete[] attr.hash ;
 
 		// we can further pick a smaller subsets of transcripts here if the number is still to big. 
 		CoalesceSameTranscripts( alltranscripts ) ;

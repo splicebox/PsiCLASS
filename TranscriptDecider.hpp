@@ -10,6 +10,9 @@
 #include "BitTable.hpp"
 #include "Constraints.hpp"
 
+#define HASH_MAX 100003 
+#define USE_DP 200000
+
 struct _transcript
 {
 	BitTable seVector ;
@@ -204,6 +207,7 @@ private:
 	bool IsStartOfMixtureStrandRegion( int tag, struct _subexon *subexons, int seCnt ) ;
 
 	// The functions to pick transcripts through dynamic programming
+	struct _dp *dpHash ;
 	void SearchSubTranscript( int tag, int strand, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
 	struct _dp SolveSubTranscript( int visit[], int vcnt, int strand, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
 	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, struct _dpAttribute &attr, std::vector<struct _transcript> &allTranscripts ) ;
@@ -269,7 +273,10 @@ private:
 
 	double ComputeScore( double cnt, double seCnt, double a, double A, double correlation )
 	{
-		return ( cnt / seCnt ) * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
+		if ( a > A * 0.1 )
+			return ( cnt / seCnt ) * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
+		else
+			return ( cnt / seCnt ) * ( 1 + a / A ) + correlation ;
 		//return ( cnt ) * ( exp( 1 + a / A ) ) + correlation ; 
 	}
 
@@ -333,6 +340,7 @@ public:
 		defaultGeneId[1] = -1 ;
 		numThreads = 1 ;
 		this->sampleCnt = sampleCnt ;
+		dpHash = new struct _dp[ HASH_MAX ] ;
 	}
 	~TranscriptDecider() 
 	{
@@ -345,6 +353,7 @@ public:
 				fclose( outputFPs[i] ) ;
 			}
 		}
+		delete[] dpHash ;
 	}
 
 	// @return: the number of assembled transcript 
