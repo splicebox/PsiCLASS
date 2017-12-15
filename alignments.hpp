@@ -24,6 +24,7 @@ private:
 	std::map<std::string, int> chrNameToId ;
 	bool allowSupplementary ;
 	bool allowClip ;
+	bool hasClipHead, hasClipTail ;
 
 	bool atBegin ;
 	bool atEnd ;
@@ -115,6 +116,20 @@ public:
 		return atEnd ;
 	}
 
+	bool HasClip()
+	{
+		return hasClipHead || hasClipTail ;
+	}
+
+	bool HasClipHead()
+	{
+		return hasClipHead ;
+	}
+	bool HasClipTail()
+	{
+		return hasClipTail ;
+	}
+
 	int Next()
 	{
 		int i ;
@@ -156,8 +171,10 @@ public:
 			if ( bam_cigar2qlen( &b->core, rawCigar ) != b->core.l_qseq ) 
 				continue ;
 
+			bool clipMiddle = false ;
+			int clipSum = 0 ;
+			hasClipHead = hasClipTail = false ;
 			len = 0 ;
-			bool hasClip = false ;
 			for ( i = 0 ; i < b->core.n_cigar ; ++i )
 			{
 				int op = rawCigar[i] & BAM_CIGAR_MASK ;
@@ -171,7 +188,16 @@ public:
 					case BAM_CSOFT_CLIP:
 					case BAM_CHARD_CLIP:
 					case BAM_CPAD:
-						hasClip = true ;
+					{
+						if ( i == 0 )
+							hasClipHead = true ;
+						else if ( i == b->core.n_cigar - 1 )
+							hasClipTail = true ;
+						else 
+							clipMiddle = true ;
+					
+						clipSum += num ;
+					}
 					case BAM_CINS:
 						num = 0 ; break ;
 					case BAM_CREF_SKIP:
@@ -186,7 +212,10 @@ public:
 						len += num ; break ;
 				}
 			}
-			if ( hasClip && !allowClip )
+			if ( clipMiddle ) // should never happend
+				continue ;
+
+			if ( clipSum >= 2 && !allowClip )
 				continue ;
 
 			if ( len > 0 )

@@ -288,36 +288,60 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		if ( alignments.IsPrimary() && ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
 				subexons, seCnt, tag, ct ) )
 		{
-
+		
 			//printf( "%s\n", alignments.GetReadId() ) ;
-			constraints.push_back( ct ) ; // if we just coalesced but the list size does not decrease, this will force capacity increase.
-			//printf( "ct.vector: %d %d\n", ct.vector.Test(0), ct.vector.Test(1) ) ;
-			// Add the mate-pair information.
-			int mateChrId ;
-			int64_t matePos ;
-			alignments.GetMatePosition( mateChrId, matePos ) ;
-			if ( alignments.GetChromId() == mateChrId )
+
+			// If the alignment has clipped end or tail. We only keep those clipped in the 3'/5'-end
+			bool validClip = true ;
+			if ( alignments.HasClipHead() )
 			{
-				if ( matePos < alignments.segments[0].a )
+				if ( ( ct.first < seCnt - 1 && subexons[ct.first].end + 1 == subexons[ct.first + 1].start )
+					|| subexons[ct.first].prevCnt > 0 
+					|| alignments.segments[0].b - alignments.segments[0].a + 1 <= alignments.GetReadLength() / 3.0  )	
+					validClip = false ;
+			}
+			if ( alignments.HasClipTail() )
+			{
+				int tmp = alignments.segCnt - 1 ;
+				if ( ( ct.last > 0 && subexons[ct.last].start - 1 == subexons[ct.last - 1].end ) 
+					|| subexons[ct.last].nextCnt > 0 
+					|| alignments.segments[tmp].b - alignments.segments[tmp].a + 1 <= alignments.GetReadLength() / 3.0 )
+					validClip = false ;
+			}
+
+			if ( validClip )
+			{
+				constraints.push_back( ct ) ; // if we just coalesced but the list size does not decrease, this will force capacity increase.
+				//printf( "ct.vector: %d %d\n", ct.vector.Test(0), ct.vector.Test(1) ) ;
+				// Add the mate-pair information.
+				int mateChrId ;
+				int64_t matePos ;
+				alignments.GetMatePosition( mateChrId, matePos ) ;
+				if ( alignments.GetChromId() == mateChrId )
 				{
-					int mateIdx = mateReadIds.Query( alignments.GetReadId(), alignments.segments[0].a ) ;
-					if ( mateIdx != -1 )
+					if ( matePos < alignments.segments[0].a )
 					{
-						struct _matePairConstraint nm ;
-						nm.i = mateIdx ;
-						nm.j = constraints.size() - 1 ;
-						nm.abundance = 0 ;
-						nm.support = 1 ;
-						nm.uniqSupport = alignments.IsUnique() ? 1 : 0 ;				
-						nm.effectiveCount = 2 ;
-						matePairs.push_back( nm ) ;
+						int mateIdx = mateReadIds.Query( alignments.GetReadId(), alignments.segments[0].a ) ;
+						if ( mateIdx != -1 )
+						{
+							struct _matePairConstraint nm ;
+							nm.i = mateIdx ;
+							nm.j = constraints.size() - 1 ;
+							nm.abundance = 0 ;
+							nm.support = 1 ;
+							nm.uniqSupport = alignments.IsUnique() ? 1 : 0 ;				
+							nm.effectiveCount = 2 ;
+							matePairs.push_back( nm ) ;
+						}
+					}
+					else if ( matePos > alignments.segments[0].a )
+					{
+						mateReadIds.Insert( alignments.GetReadId(), alignments.segments[0].a, constraints.size() - 1, matePos ) ;					
 					}
 				}
-				else if ( matePos > alignments.segments[0].a )
-				{
-					mateReadIds.Insert( alignments.GetReadId(), alignments.segments[0].a, constraints.size() - 1, matePos ) ;					
-				}
 			}
+			else
+				ct.vector.Release() ;
 
 			// Coalesce if necessary.
 			size = constraints.size() ;			

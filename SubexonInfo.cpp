@@ -114,9 +114,10 @@ void FilterAndSortSplitSites( std::vector<struct _splitSite> &sites )
 		for ( k = i ; k < j ; ++k )
 		{
 			if ( ( sites[k].support < 0.01 * maxSupport && sites[k].support <= 3 ) 
-				|| sites[k].support < 0.001 * maxSupport || sites[k].strand != strand 
+				|| sites[k].support < 0.001 * maxSupport || sites[k].strand != strand
+				|| ( sites[k].support < 0.02 * maxSupport && sites[k].mismatchSum >= 2 * sites[k].support )
 				|| ( allOneExceptMax && sites[k].support == 1 ) 
-				|| ( sites[k].support == 1 && sites[k].mismatchSum >= 2 )
+				|| ( sites[k].support <= 2 && sites[k].mismatchSum >= 2 * sites[k].support )
 				|| ( maxSupport >= 2 && sites[k].support == 1 && ( ABS( sites[k].oppositePos - sites[k].pos - 1 ) >= 10000 || sites[k].mismatchSum != 0 ) ) ) 
 			{
 				for ( l = i - 1 ; l >= 0 && sites[l].chrId == sites[i].chrId && sites[l].pos >= sites[k].oppositePos ; --l )
@@ -734,7 +735,8 @@ int main( int argc, char *argv[] )
 			continue ;
 		//if ( !( uniqSupport >= 1 
 		//	|| secondarySupport > 10 ) )
-		if ( uniqSupport <= 0.01 * ( uniqSupport + secondarySupport ) )
+		//if ( uniqSupport <= 0.01 * ( uniqSupport + secondarySupport ) || ( uniqSupport == 0 && secondarySupport < 20 ) )
+		if ( uniqSupport == 0 && secondarySupport <= 10 )
 			continue ;
 		int chrId = alignments.GetChromIdFromName( chrom ) ; 
 		struct _splitSite ss ;

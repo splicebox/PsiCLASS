@@ -1225,8 +1225,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			if ( tag != -1 )
 				avgTranscriptAbundance[i] /= compatibleCnt ;
 
-			//printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
-			//alltranscripts[i].seVector.Print() ;
+			printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
+			alltranscripts[i].seVector.Print() ;
 		}
 		if ( maxAbundance == 0 )
 		{
@@ -1313,7 +1313,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 					maxtag = i ;
 				}
 			}
-			//printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
+			printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
 		}
 		if ( maxcnt == 0 || maxtag == -1 )
 			break ;
@@ -1362,7 +1362,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			}
 		}
 		adjustScore[maxtag] += 1 / (double)tcCnt ;
-		//printf( "maxtag=%d %lf %lf\n", maxtag, update, nt.abundance ) ;
+		printf( "maxtag=%d %lf %lf\n", maxtag, update, nt.abundance ) ;
 
 		transcripts.push_back( nt ) ;
 		if ( transcripts.size() >= transcripts.capacity() && (int)transcripts.size() >= coalesceThreshold )
@@ -1429,11 +1429,13 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 		//printf( "%d: %lf %lf\n", txptGid[i], transcripts[i].abundance, geneMaxFPKM[ txptGid[i] - baseGeneId ] ) ;
 		if ( transcripts[i].FPKM < FPKMFraction * geneMaxFPKM[ txptGid[i] - baseGeneId ] )
 			transcripts[i].abundance = -1 ;
+		//if ( transcripts[i].FPKM >= 0.8 * geneMaxFPKM[ txptGid[i] - baseGeneId ] && geneMaxCov[ txptGid[i] - baseGeneId ] >= txptMinReadDepth )
+		//	continue ;
 		if ( transcripts[i].abundance != -1 )
 		{
 			int len = GetTranscriptLengthFromAbundanceAndFPKM( transcripts[i].abundance, transcripts[i].FPKM ) ;
 			double cov = ( transcripts[i].abundance * alignments.readLen ) / len ;
-			//printf( "%d: %d %d %lf %lf\n", i, len, transcripts[i].seVector.Count(), cov, geneMaxCov[ txptGid[i] - baseGeneId ]  ) ;
+			printf( "%d: %d %d %lf %lf\n", i, len, transcripts[i].seVector.Count(), cov, geneMaxCov[ txptGid[i] - baseGeneId ]  ) ;
 			if ( ( tcnt > 1 || len <= 1000 || transcripts[i].seVector.Count() <= 3 ) && cov < txptMinReadDepth )
 			{
 				if ( usedGeneId == baseGeneId + 1 && transcripts[i].seVector.Count() > 3 
@@ -1502,7 +1504,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	tcnt = RemoveNegativeAbundTranscripts( transcripts )  ;
 
 	/*==================================================================
-	Remove shadow transcripts, the 2-exon txpt whose intron is very close to the true one.
+	Remove shadow transcripts, the 2-exon txpt whose intron is very close to the true one or one of the anchor exon is shorter than 25bp.
 	====================================================================*/
 	int minusCnt = 0, plusCnt = 0 ;
 	int mainStrand ;
@@ -1524,7 +1526,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 		int size = subexonIdx.size() ;
 		int intronCnt = 0 ;
 		int anchorIdx ; // the subexon adjacent to the only intron.
-
+		
 		for ( j = 0 ; j < size - 1 ; ++j )
 		{
 			if ( subexons[ subexonIdx[j] ].end + 1 < subexons[ subexonIdx[j + 1] ].start )	
@@ -1535,6 +1537,15 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 		}
 		if ( intronCnt != 1 || subexons[ subexonIdx[anchorIdx] ].rightStrand == mainStrand )
 			continue ;
+		
+		int anchorExonLength[2] = {0, 0};
+		int tag = 0 ;
+		for ( j = 0 ; j < size ; ++j )
+		{
+			anchorExonLength[tag] += subexons[ subexonIdx[j] ].end - subexons[ subexonIdx[j] ].start + 1 ;
+			if ( tag == 0 && subexons[ subexonIdx[j] ].end + 1 < subexons[ subexonIdx[j + 1] ].start )	
+				++tag ;
+		}
 		
 		int flag = 0 ;
 		j = subexonIdx[ anchorIdx ] ;
@@ -1547,6 +1558,10 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 			( subexons[j].start == subexons[j - 1].end + 1 && subexons[j - 1].end - subexons[j - 1].start + 1 <= 20 
 				&& subexons[j - 1].leftStrand == mainStrand ) )
 			++flag ;
+
+		if ( anchorExonLength[0] <= 25 || anchorExonLength[1] <= 25 )
+			flag = 2 ;
+
 		if ( flag == 2 )
 			transcripts[i].abundance = -1 ;		
 	
@@ -1685,7 +1700,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	if ( defaultGeneId[1] == -1 )
 		defaultGeneId[1] = baseGeneId ;
 	++usedGeneId ;
-	//printf( "%d %d\n", baseGeneId, usedGeneId ) ;
+	//printf( "%d %d %d\n", defaultGeneId[0], baseGeneId, usedGeneId ) ;
 	cnt = 0 ;
 	memset( f, -1, sizeof( int ) * seCnt ) ;
 	for ( i = 0 ; i < seCnt ; ++i )

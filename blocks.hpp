@@ -731,9 +731,11 @@ class Blocks
 					{
 						exonBlocks.pop_back() ;
 					}*/
-					if ( start > end )
+					if ( start > end 
 						//|| ( tmpB.start == rawExonBlocks[i].start && tmpB.end != rawExonBlocks[i].end && tmpB.end - tmpB.start + 1 <= 7 ) 
 						//|| ( tmpB.end == rawExonBlocks[i].end && tmpB.start != rawExonBlocks[i].start && tmpB.end - tmpB.start + 1 <= 7  )) // the case of too short overhang
+						|| ( tmpB.leftType == 0 && tmpB.rightType == 2 && tmpB.end - tmpB.start + 1 <= 9 )
+						|| ( tmpB.leftType == 1 && tmpB.rightType == 0 && tmpB.end - tmpB.start + 1 <= 9 ) )
 					{
 						exonBlocks.pop_back() ;
 					}
