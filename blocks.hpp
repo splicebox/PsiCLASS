@@ -54,7 +54,6 @@ struct _block
 	char leftStrand, rightStrand ;
 
 	int *depth ;
-
 	int prevCnt, nextCnt ; // Some connection information for the subexons.
 	int *prev ;
 	int *next ;
@@ -844,7 +843,7 @@ class Blocks
 			{
 				if ( rawExonBlocks[i].chrId == exonBlocks[k].chrId 
 					&& rawExonBlocks[i].leftType == 0 && exonBlocks[k].rightType == 0 
-					&& rawExonBlocks[i].start - exonBlocks[k].end - 1 <= 15 )
+					&& rawExonBlocks[i].start - exonBlocks[k].end - 1 <= 50 )
 				{
 					exonBlocks[k].end = rawExonBlocks[i].end ;
 					exonBlocks[k].rightType = rawExonBlocks[i].rightType ;
@@ -1040,7 +1039,7 @@ class Blocks
 								
 								if ( exonBlocks[k].contigId != exonBlocks[tag].contigId ) // the support of introns between regions.
 								{
-									// TODO: Adjust the support if one of the anchor exon is too short.
+									// Adjust the support if one of the anchor exon is too short.
 									// This avoid the creation of alternative 3'/5' end due to low coverage from too short anchor.
 									exonBlocks[tag].leftSplice += sites[l].support * factor ;
 									exonBlocks[k].rightSplice += sites[l].support * factor ;

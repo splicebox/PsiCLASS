@@ -207,7 +207,7 @@ void KeepUniqSplitSites( std::vector< struct _splitSite> &sites )
 	}*/
 }
 
-// Filter split sites that are extremely close to each other.
+// Filter split sites that are extremely close to each other but on different strand.
 void FilterNearSplitSites( std::vector< struct _splitSite> &sites )
 {
 	int i, j ;
@@ -264,11 +264,18 @@ void FilterRepeatSplitSites( std::vector<struct _splitSite> &sites )
 		int max = -1 ;
 		int maxtag = 0 ; 
 		for ( k = i ; k < j ; ++k )
+		{
 			if ( sites[k].uniqSupport > max )
 			{
 				max = sites[k].uniqSupport ;
 				maxtag = k ;
 			}
+			else if ( sites[k].uniqSupport == max && sites[k].support > sites[maxtag].support )
+			{
+				maxtag = k ;
+			}
+		}
+
 		if ( max > -1 )
 		{
 			if ( sites[maxtag].uniqSupport > sites[maxtag].support * 0.1 )
@@ -276,6 +283,8 @@ void FilterRepeatSplitSites( std::vector<struct _splitSite> &sites )
 				for ( k = i ; k < j ; ++k )
 					if ( sites[k].uniqSupport < 0.05 * sites[k].support )
 					{
+						sites[k].support = -1 ;
+
 						int direction ;
 						if ( sites[k].oppositePos < sites[k].pos )
 							direction = -1 ;
@@ -289,6 +298,29 @@ void FilterRepeatSplitSites( std::vector<struct _splitSite> &sites )
 								break ;
 							}
 					}
+			}
+			else 
+			{
+				for ( k = i ; k < j ; ++k )
+				{
+					if ( sites[k].support <= 10 )
+					{
+						sites[k].support = -1 ;
+
+						int direction ;
+						if ( sites[k].oppositePos < sites[k].pos )
+							direction = -1 ;
+						else
+							direction = 1 ;
+						int l ;
+						for ( l = k ; l >= 0 && l < size ; l += direction )
+							if ( sites[l].pos == sites[k].oppositePos && sites[l].oppositePos == sites[k].pos )
+							{
+								sites[l].support = -1 ;
+								break ;
+							}
+					}
+				}
 			}
 		}
 
@@ -442,14 +474,24 @@ double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, i
 	int t = 0 ;
 	double history[5] = {-1, -1, -1, -1, -1} ;
 	double maxX = -1 ;
+	double sumX = 0 ;
 	if ( n <= 0 )	
 		return 0 ;
 
 	for ( i = 0 ; i < n ; ++i )
+	{
+		sumX += x[i] ;
 		if ( x[i] > maxX )
 			maxX = x[i] ;
+	}
 	if ( maxX > meanBound[1] && meanBound[1] >= 0 )
 		maxX = meanBound[1] ;
+
+	/*if ( meanBound[1] == -1 )
+	{
+		// The EM for coverage
+		maxX = 10.0 ;
+	}*/
 		
 	while ( 1 )
 	{
@@ -635,10 +677,10 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	
 	// only do one iteration of EM, so that pi does not change?
 	// But it seems it still better to run full EM.
-	meanBound[0] = 0.01 ;
+	meanBound[0] = 1.01 ;
 	meanBound[1] = -1 ;
 
-	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 0, meanBound, 1 ) ;	
+	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 0, meanBound ) ;	
 	piCov = piRatio ;
 
 	delete []buffer ;
@@ -669,16 +711,16 @@ double MixtureGammaAssignmentAdjust( double x, double pi, double* k, double *the
 // Transform the cov number for better fitting 
 double TransformCov( double c )
 {
+	double ret ;
 	// original it is c-1.
 	// Use -2 instead of -1 is that many region covered to 1 reads will be filtered when
 	// build the subexons.
-	double ret = sqrt( c ) - 1 ;
-	/*if ( c <= 2 )
+	//
+	//ret = sqrt( c ) - 1 ;
+	if ( c <= 2 + 1e-6 )
 		ret = 1e-6 ;
 	else
-	{
-		ret = sqrt( c ) - sqrt( 2 ) ;
-	}*/
+		ret = c - 2 ;
 	return ret ;
 	//return log( c ) / log( 2.0 ) ;
 }
@@ -736,8 +778,8 @@ int main( int argc, char *argv[] )
 		//if ( !( uniqSupport >= 1 
 		//	|| secondarySupport > 10 ) )
 		//if ( uniqSupport <= 0.01 * ( uniqSupport + secondarySupport ) || ( uniqSupport == 0 && secondarySupport < 20 ) )
-		if ( uniqSupport == 0 && secondarySupport <= 10 )
-			continue ;
+		//if ( uniqSupport == 0 && secondarySupport <= 10 )
+		//	continue ;
 		int chrId = alignments.GetChromIdFromName( chrom ) ; 
 		struct _splitSite ss ;
 		--start ;
@@ -975,6 +1017,7 @@ int main( int argc, char *argv[] )
 	int overhangBlockCnt = overhangBlocks.size() ;
 	delete []cov ;
 	delete []covRatio ;
+	
 	cov = new double[ overhangBlockCnt ] ;
 	covRatio = new double[overhangBlockCnt] ;
 	double overhangPiRatio, overhangKRatio[2], overhangThetaRatio[2] ;
@@ -1091,8 +1134,8 @@ int main( int argc, char *argv[] )
 			e.leftStrand, e.rightStrand, avgDepth, 
 			e.leftRatio, e.rightRatio, leftClassifier[i], rightClassifier[i] ) ;
 		int prevCnt = e.prevCnt ;
-		if ( i > 0 && e.start == regions.exonBlocks[i - 1].end + 1 &&
-			e.leftType == regions.exonBlocks[i - 1].rightType )
+		if ( i > 0 && e.start == regions.exonBlocks[i - 1].end + 1 )
+			//&& e.leftType == regions.exonBlocks[i - 1].rightType )
 		{
 			printf( "%d ", prevCnt + 1 ) ;
 			for ( j = 0 ; j < prevCnt ; ++j )
@@ -1107,8 +1150,8 @@ int main( int argc, char *argv[] )
 		}
 
 		int nextCnt = e.nextCnt ;
-		if ( i < blockCnt - 1 && e.end == regions.exonBlocks[i + 1].start - 1 &&
-			e.rightType == regions.exonBlocks[i + 1].leftType )
+		if ( i < blockCnt - 1 && e.end == regions.exonBlocks[i + 1].start - 1 ) 
+			//&& e.rightType == regions.exonBlocks[i + 1].leftType )
 		{
 			printf( "%d %" PRId64 " ", nextCnt + 1, regions.exonBlocks[i + 1].start + 1 ) ;
 		}

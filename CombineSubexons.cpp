@@ -125,7 +125,15 @@ bool CompIrFromSamples( struct _seInterval a, struct _seInterval b )
 // Keep this the same as in SubexonInfo.cpp.
 double TransformCov( double c )
 {
-	return sqrt( c ) - 1 ;
+	double ret ;
+	//return sqrt( c ) - 1 ;
+
+	if ( c <= 2 + 1e-6 )
+		ret = 1e-6 ;
+	else
+		ret = c - 2 ;
+	
+	return ret ;
 }
 
 double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio, double kRatio[2], double thetaRatio[2],

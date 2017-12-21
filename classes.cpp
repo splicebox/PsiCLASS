@@ -19,7 +19,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t-t INT: number of threads. (default: 0)\n"
 	"\t-o STRING: the prefix of the output file. (default: not used)\n"
 	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" 
-	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.01)\n"
+	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)\n"
 	"\t-d FLOAT: filter the transcript whose average read depth is less than the given number. (default: 2.5)\n"
 	"\t--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)\n"
 	;
@@ -48,7 +48,7 @@ int main( int argc, char *argv[] )
 	int c, option_index ; // For getopt
 	option_index = 0 ;
 	FILE *fpSubexon = NULL ;
-	double FPKMFraction = 0.01 ; 
+	double FPKMFraction = 0.05 ; 
 	double classifierThreshold ;
 	double txptMinReadDepth = 2.5 ;
 	char outputPrefix[1024] = "" ;
