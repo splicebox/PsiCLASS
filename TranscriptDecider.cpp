@@ -1233,8 +1233,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			if ( tag != -1 )
 				avgTranscriptAbundance[i] /= compatibleCnt ;
 
-			//printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
-			//alltranscripts[i].seVector.Print() ;
+			printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
+			alltranscripts[i].seVector.Print() ;
 		}
 		if ( maxAbundance == 0 )
 		{
@@ -1292,7 +1292,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 						cnt += tc[j].effectiveCount ;
 					}
 				}
-				//coverCnt[i] = cnt ;
+				coverCnt[i] = cnt ;
 			}
 			else
 			{
@@ -1384,7 +1384,161 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 
 	// Clean up the transcripts.
 	CoalesceSameTranscripts( transcripts ) ;
+	
+	// Redistribute the weight.
+	int tcnt = transcripts.size() ;
+	tcnt = 0 ;
+	for ( j = 0 ; j < tcCnt ; ++j )
+		tc[j].abundance = tc[j].normAbund ;
 
+	/*for ( i = 0 ; i < tcnt ; ++i )
+	{
+		for ( j = 0 ; j < atcnt ; ++j )
+			if ( transcripts[i].seVector.IsEqual( alltranscripts[j].seVector ) )
+			{
+				transcripts[i].abundance = transcriptAbundance[j] ;
+				break ;
+			}
+
+	}*/
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+
+		btable[i].Reset() ;
+		std::vector<int> subexonIdx ;
+		transcripts[i].seVector.GetOnesIndices( subexonIdx ) ;
+		int seIdxCnt = subexonIdx.size() ;
+		int len = 0 ;
+		for ( j = 0 ; j < seIdxCnt ; ++j )
+			len += subexons[ subexonIdx[j] ].end - subexons[ subexonIdx[j] ].start + 1 ;
+		transcriptAbundance[i] = pow( transcripts[i].abundance, 0.5 ) / len ;
+						
+		//transcriptAbundance[i] =  transcripts[i].abundance ;
+		transcripts[i].abundance = 0 ;
+
+		printf( "%d: %lf ", i, transcriptAbundance[i] ) ;
+		transcripts[i].seVector.Print() ;
+		
+		for ( j = 0 ; j < tcCnt ; ++j )
+		{
+			int a = tc[j].i ;
+			int b = tc[j].j ;
+
+			if ( IsConstraintInTranscript( transcripts[i], constraints.constraints[a] ) == 1 
+					&& IsConstraintInTranscript( transcripts[i], constraints.constraints[b] ) == 1 )
+			{
+				btable[i].Set( j ) ;
+				btableSet = true ;
+			}
+		}
+		transcriptSeCnt[i] = transcripts[i].seVector.Count() ;
+		coverCnt[i] = -1 ;
+	}
+	maxAbundance = -1 ;
+	for ( i = 0 ; i < tcnt ; ++i )
+		if ( transcriptAbundance[i] > maxAbundance )
+			maxAbundance = transcriptAbundance[i] ;
+
+	int *compatibleList = new int[tcnt] ;
+	int clCnt ;
+	while ( 1 )
+	{
+		double max = -1 ;
+		int maxtag = -1 ;
+		double maxcnt = -1 ;
+		++iterCnt ;
+
+		// Find the optimal candidate.
+		for ( i = 0 ; i < tcnt ; ++i )
+		{
+			double value = inf ;
+			double cnt = 0 ;
+
+			if ( coverCnt[i] == -1 )
+			{
+				for ( j = 0 ; j < tcCnt ; ++j )
+				{
+					if ( tc[j].abundance > 0 && btable[i].Test( j ) )
+					{
+						cnt += tc[j].effectiveCount ;
+					}
+				}
+				//coverCnt[i] = cnt ;
+			}
+			else
+			{
+				cnt = coverCnt[i] ;
+			}
+
+			value = transcriptAbundance[i] ;
+			if ( cnt == 0 ) // This transcript does not satisfy any undepleted constraints.
+				continue ;
+
+			double score = ComputeScore( cnt, 1.0 , value, maxAbundance, transcripts[i].correlationScore ) ;
+			if ( cnt > maxcnt )
+				maxcnt = cnt ;
+			
+			if ( score > max )
+			{
+				max = score ;
+				maxtag = i ;
+			}
+		}
+		if ( maxcnt == 0 || maxtag == -1 )
+			break ;
+		// Update the abundance for each constraint.	
+		double update = inf ;
+		int updateTag = 0 ;
+		for ( j = 0 ; j < tcCnt ; ++j )
+		{
+			if ( btable[ maxtag ].Test( j ) && tc[j].abundance > 0 && 
+					tc[j].abundance <= update )
+			{
+				update = tc[j].abundance ;	
+				updateTag = j ;
+			}
+		}
+		
+		clCnt = 0 ;
+		double sum = 0 ;
+		for ( i = 0 ; i < tcnt ; ++i )
+		{
+			if ( btable[i].Test( updateTag ) )	
+			{
+				compatibleList[clCnt] = i ;
+				++clCnt ;
+				sum += transcriptAbundance[i] ;
+			}
+		}
+
+		for ( i = 0 ; i < clCnt ; ++i )
+		{
+			if ( compatibleList[i] == maxtag )
+				continue ;
+			double tmp = transcriptAbundance[ compatibleList[i] ] / sum * update ;
+			double factor = tc[j].effectiveCount ;
+			transcripts[ compatibleList[i] ].abundance += ( tc[ updateTag ].support * tmp / tc[ updateTag ].normAbund * factor ) ;
+		}
+		update *= transcriptAbundance[maxtag] / sum ;
+
+		for ( j = 0 ; j < tcCnt ; ++j )
+		{
+			if ( btable[maxtag].Test( j ) && tc[j].abundance > 0 )
+			{
+				tc[j].abundance -= 1 * update ;
+				double factor = tc[j].effectiveCount ;
+				transcripts[maxtag].abundance += ( tc[j].support * update / tc[j].normAbund * factor ) ;
+			}
+
+			if ( tc[j].abundance < 0 )
+			{
+				tc[j].abundance = 0 ;
+
+			}
+		}
+		tc[updateTag].abundance = 0 ;
+	}
+	delete[] compatibleList ;
 
 	// Release the memory of btable.
 	for ( i = 0 ; i < atcnt ; ++i )
