@@ -913,6 +913,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		nt.seVector.Duplicate( bestDp.seVector ) ; 
 		nt.first = bestDp.first ;
 		nt.last = bestDp.last ;
+		nt.partial = false ;
 		nt.abundance = 0 ;
 		for ( i = 0 ; i < coveredTcCnt ; ++i )
 		{
@@ -1019,6 +1020,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 	double inf = -1 ; // infinity
 	int coalesceThreshold = 1024 ;
 	int *transcriptSeCnt = new int[ atcnt ] ;
+	int *transcriptLength = new int[atcnt] ;
 	double *transcriptAbundance = new double[atcnt] ; // the roughly estimated abundance based on constraints.
 	double *avgTranscriptAbundance = new double[atcnt] ; // the average normAbund from the compatible constraints.
 
@@ -1110,9 +1112,17 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			double value = inf ;
 			int tag = -1 ;
 
+			alltranscripts[i].abundance = 0 ;
+			alltranscripts[i].constraintsSupport = new double[tcCnt] ;
+
 			std::vector<int> subexonIdx ;
 			alltranscripts[i].seVector.GetOnesIndices( subexonIdx ) ;
 			int seIdxCnt = subexonIdx.size() ;
+			transcriptLength[i] = 0 ;
+			
+			for ( j = 0 ; j < seIdxCnt ; ++j )
+				transcriptLength[i] += subexons[ subexonIdx[j] ].end - subexons[ subexonIdx[j] ].start + 1 ;
+			
 			for ( j = 0 ; j < seIdxCnt - 1 ; ++j )
 			{
 				chain[j].a = subexonIdx[j] ;
@@ -1123,6 +1133,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			int compatibleCnt = 0 ;
 			for ( j = 0 ; j < tcCnt ; ++j )
 			{
+				alltranscripts[i].constraintsSupport[j] = 0 ;
 				if ( btable[i].Test(j) && tc[j].abundance > 0 )
 				{	
 					++compatibleCnt ;
@@ -1269,6 +1280,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 	double *coverCnt = new double[atcnt] ;
 	for ( i = 0 ; i < atcnt ; ++i )
 		coverCnt[i] = -1 ;
+	int *list = new int[atcnt] ;
+	int listCnt ;
 
 	while ( 1 )
 	{
@@ -1304,7 +1317,11 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				continue ;
 			cnt *= coveredPortion[i] ;
 			
-			double score = ComputeScore( cnt, 1.0 /*sqrt( 3 + (double)( transcriptSeCnt[i] ) / seCnt )*/, value, maxAbundance, alltranscripts[i].correlationScore ) ;
+			double seCntAdjust = 1 ;
+			//if ( maxAbundance >= 1 && value / maxAbundance >= 0.2 )
+			//	seCntAdjust = sqrt( (double)( transcriptSeCnt[i] ) / seCnt ) ;//< 0.5 ? 0.5 : (double)( transcriptSeCnt[i] ) / seCnt ;
+			
+			double score = ComputeScore( cnt, seCntAdjust, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;
 			//if ( adjustScore[i] > 0 )
@@ -1338,29 +1355,89 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				updateTag = j ;
 			}
 		}
-
-		struct _transcript nt ;
-		nt.seVector.Duplicate( alltranscripts[ maxtag ].seVector ) ;
-		nt.first = alltranscripts[maxtag].first ;
-		nt.last = alltranscripts[maxtag].last ;
-		nt.abundance = 0 ; 
-		nt.partial = false ;
+		
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
-			if ( btable[maxtag].Test( j ) && tc[j].abundance > 0 )
+			if ( btable[maxtag].Test( j ) )
 			{
-				tc[j].abundance -= 1 * update ;
-				double factor = tc[j].effectiveCount ;
-				nt.abundance += ( tc[j].support * update / tc[j].normAbund * factor ) ;
-				
-				if ( tc[j].abundance <= 0 )
+				if ( tc[j].abundance > 0 )
 				{
-					int l ;
-					for ( l = 0 ; l < atcnt ; ++l )
+					tc[j].abundance -= 1 * update ;
+					double factor = tc[j].effectiveCount ;
+					double tmp = ( tc[j].support * update / tc[j].normAbund * factor ) ;
+					alltranscripts[maxtag].constraintsSupport[j] += tmp ;
+					alltranscripts[maxtag].abundance += tmp ;
+
+					if ( tc[j].abundance <= 0 )
 					{
-						if ( btable[l].Test(j) )
-							coverCnt[l] = -1 ;
+						int l ;
+						for ( l = 0 ; l < atcnt ; ++l )
+						{
+							if ( btable[l].Test(j) )
+								coverCnt[l] = -1 ;
+						}
 					}
+				}
+				else if ( alltranscripts[maxtag].constraintsSupport[j] == 0 ) 
+				{
+					double sum = 0 ;
+					double takeOut = 0 ;
+					double factor = tc[j].effectiveCount ;
+					listCnt = 0 ;
+					for ( i = 0 ; i < atcnt ; ++i )
+					{
+						if ( i == maxtag )
+							continue ;
+
+						if ( alltranscripts[i].abundance > 0 && btable[i].Test(j) )
+						{
+							list[ listCnt ] = i ;
+							++listCnt ;
+							sum += alltranscripts[i].constraintsSupport[j] ;
+
+							takeOut += alltranscripts[i].constraintsSupport[j] * transcriptAbundance[maxtag] / ( transcriptAbundance[maxtag] + transcriptAbundance[i] ) ;
+						}
+					}
+					
+					double ratio = 1 ;
+					if ( takeOut > ( tc[j].support * update / tc[j].normAbund * factor ) * 0.5 )
+						ratio = ( tc[j].support * update / tc[j].normAbund * factor * 0.5 ) / takeOut ;	
+					
+					if ( 1 ) //update < tc[j].normAbund )
+					{
+						for ( i = 0 ; i < listCnt ; ++i )
+						{
+							//double tmp = ( tc[j].support * update / tc[j].normAbund * factor ) * 
+							//	( alltranscripts[ list[i] ].constraintsSupport[j] / sum  ) ;
+							//if ( alltranscripts[ list[i] ].constraintsSupport[j] < tmp )
+							//	printf( "WARNING! %lf %lf, %lf\n", alltranscripts[ list[i] ].constraintsSupport[j], sum, tmp ) ;
+							
+							double tmp = alltranscripts[ list[i] ].constraintsSupport[j] * transcriptAbundance[maxtag] / ( transcriptAbundance[maxtag] + transcriptAbundance[ list[i] ] ) * ratio ; 
+							
+
+							alltranscripts[ list[i] ].constraintsSupport[j] -= tmp ;
+							alltranscripts[ list[i] ].abundance -= tmp ;
+						}
+						//double tmp = ( tc[j].support * update / tc[j].normAbund * factor ) ;
+						//printf( "%lf %lf. %lf %lf\n", takeOut, ratio, update, tc[j].normAbund ) ;
+						double tmp = takeOut * ratio ;
+						alltranscripts[maxtag].constraintsSupport[j] += tmp ;
+						alltranscripts[maxtag].abundance += tmp ;
+					}
+					/*else
+					{
+						double tmp = ( tc[j].support / (double)( listCnt + 1 ) ) * factor ;
+						for ( i = 0 ; i < listCnt ; ++i )	
+						{
+							alltranscripts[ list[i] ].abundance -= alltranscripts[ list[i] ].constraintsSupport[j] ;
+
+							alltranscripts[ list[i] ].constraintsSupport[j] = tmp ;
+							alltranscripts[ list[i] ].abundance += tmp ;
+						}
+						alltranscripts[maxtag].constraintsSupport[j] += tmp ;
+						alltranscripts[maxtag].abundance += tmp ;
+					}*/
+
 				}
 			}
 
@@ -1370,182 +1447,34 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				
 			}
 		}
+		tc[ updateTag ].abundance = 0 ;
 		adjustScore[maxtag] += 1 / (double)tcCnt ;
-		//printf( "maxtag=%d %lf %lf\n", maxtag, update, nt.abundance ) ;
+		printf( "maxtag=%d %lf\n", maxtag, update ) ;
 
-		transcripts.push_back( nt ) ;
-		if ( transcripts.size() >= transcripts.capacity() && (int)transcripts.size() >= coalesceThreshold )
+	}
+	for ( i = 0 ; i < atcnt ; ++i )
+	{
+		if ( alltranscripts[i].abundance > 0 )
 		{
-			CoalesceSameTranscripts( transcripts ) ;
-			if ( transcripts.size() >= transcripts.capacity() / 2 )
-				coalesceThreshold *= 2 ;
+			struct _transcript nt = alltranscripts[i] ;
+			nt.seVector.Nullify() ;
+			nt.seVector.Duplicate( alltranscripts[i].seVector ) ;
+			nt.constraintsSupport = new double[ seCnt ] ;
+			memcpy( nt.constraintsSupport, alltranscripts[i].constraintsSupport, sizeof( double ) * seCnt ) ;
+			transcripts.push_back( nt ) ;
 		}
 	}
-
-	// Clean up the transcripts.
-	CoalesceSameTranscripts( transcripts ) ;
 	
-	// Redistribute the weight.
-	int tcnt = transcripts.size() ;
-	tcnt = 0 ;
-	for ( j = 0 ; j < tcCnt ; ++j )
-		tc[j].abundance = tc[j].normAbund ;
-
-	/*for ( i = 0 ; i < tcnt ; ++i )
-	{
-		for ( j = 0 ; j < atcnt ; ++j )
-			if ( transcripts[i].seVector.IsEqual( alltranscripts[j].seVector ) )
-			{
-				transcripts[i].abundance = transcriptAbundance[j] ;
-				break ;
-			}
-
-	}*/
-	for ( i = 0 ; i < tcnt ; ++i )
-	{
-
-		btable[i].Reset() ;
-		std::vector<int> subexonIdx ;
-		transcripts[i].seVector.GetOnesIndices( subexonIdx ) ;
-		int seIdxCnt = subexonIdx.size() ;
-		int len = 0 ;
-		for ( j = 0 ; j < seIdxCnt ; ++j )
-			len += subexons[ subexonIdx[j] ].end - subexons[ subexonIdx[j] ].start + 1 ;
-		transcriptAbundance[i] = pow( transcripts[i].abundance, 0.5 ) / len ;
-						
-		//transcriptAbundance[i] =  transcripts[i].abundance ;
-		transcripts[i].abundance = 0 ;
-
-		printf( "%d: %lf ", i, transcriptAbundance[i] ) ;
-		transcripts[i].seVector.Print() ;
-		
-		for ( j = 0 ; j < tcCnt ; ++j )
-		{
-			int a = tc[j].i ;
-			int b = tc[j].j ;
-
-			if ( IsConstraintInTranscript( transcripts[i], constraints.constraints[a] ) == 1 
-					&& IsConstraintInTranscript( transcripts[i], constraints.constraints[b] ) == 1 )
-			{
-				btable[i].Set( j ) ;
-				btableSet = true ;
-			}
-		}
-		transcriptSeCnt[i] = transcripts[i].seVector.Count() ;
-		coverCnt[i] = -1 ;
-	}
-	maxAbundance = -1 ;
-	for ( i = 0 ; i < tcnt ; ++i )
-		if ( transcriptAbundance[i] > maxAbundance )
-			maxAbundance = transcriptAbundance[i] ;
-
-	int *compatibleList = new int[tcnt] ;
-	int clCnt ;
-	while ( 1 )
-	{
-		double max = -1 ;
-		int maxtag = -1 ;
-		double maxcnt = -1 ;
-		++iterCnt ;
-
-		// Find the optimal candidate.
-		for ( i = 0 ; i < tcnt ; ++i )
-		{
-			double value = inf ;
-			double cnt = 0 ;
-
-			if ( coverCnt[i] == -1 )
-			{
-				for ( j = 0 ; j < tcCnt ; ++j )
-				{
-					if ( tc[j].abundance > 0 && btable[i].Test( j ) )
-					{
-						cnt += tc[j].effectiveCount ;
-					}
-				}
-				//coverCnt[i] = cnt ;
-			}
-			else
-			{
-				cnt = coverCnt[i] ;
-			}
-
-			value = transcriptAbundance[i] ;
-			if ( cnt == 0 ) // This transcript does not satisfy any undepleted constraints.
-				continue ;
-
-			double score = ComputeScore( cnt, 1.0 , value, maxAbundance, transcripts[i].correlationScore ) ;
-			if ( cnt > maxcnt )
-				maxcnt = cnt ;
-			
-			if ( score > max )
-			{
-				max = score ;
-				maxtag = i ;
-			}
-		}
-		if ( maxcnt == 0 || maxtag == -1 )
-			break ;
-		// Update the abundance for each constraint.	
-		double update = inf ;
-		int updateTag = 0 ;
-		for ( j = 0 ; j < tcCnt ; ++j )
-		{
-			if ( btable[ maxtag ].Test( j ) && tc[j].abundance > 0 && 
-					tc[j].abundance <= update )
-			{
-				update = tc[j].abundance ;	
-				updateTag = j ;
-			}
-		}
-		
-		clCnt = 0 ;
-		double sum = 0 ;
-		for ( i = 0 ; i < tcnt ; ++i )
-		{
-			if ( btable[i].Test( updateTag ) )	
-			{
-				compatibleList[clCnt] = i ;
-				++clCnt ;
-				sum += transcriptAbundance[i] ;
-			}
-		}
-
-		for ( i = 0 ; i < clCnt ; ++i )
-		{
-			if ( compatibleList[i] == maxtag )
-				continue ;
-			double tmp = transcriptAbundance[ compatibleList[i] ] / sum * update ;
-			double factor = tc[j].effectiveCount ;
-			transcripts[ compatibleList[i] ].abundance += ( tc[ updateTag ].support * tmp / tc[ updateTag ].normAbund * factor ) ;
-		}
-		update *= transcriptAbundance[maxtag] / sum ;
-
-		for ( j = 0 ; j < tcCnt ; ++j )
-		{
-			if ( btable[maxtag].Test( j ) && tc[j].abundance > 0 )
-			{
-				tc[j].abundance -= 1 * update ;
-				double factor = tc[j].effectiveCount ;
-				transcripts[maxtag].abundance += ( tc[j].support * update / tc[j].normAbund * factor ) ;
-			}
-
-			if ( tc[j].abundance < 0 )
-			{
-				tc[j].abundance = 0 ;
-
-			}
-		}
-		tc[updateTag].abundance = 0 ;
-	}
-	delete[] compatibleList ;
-
 	// Release the memory of btable.
 	for ( i = 0 ; i < atcnt ; ++i )
+	{
+		delete[] alltranscripts[i].constraintsSupport ;
 		btable[i].Release() ;
+	}
 	delete[] btable ;
 
 	delete[] transcriptSeCnt ;
+	delete[] transcriptLength ;
 	delete[] transcriptAbundance ;
 	delete[] avgTranscriptAbundance ;
 	delete[] coveredPortion ;
@@ -1605,6 +1534,17 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 				if ( usedGeneId == baseGeneId + 1 && transcripts[i].seVector.Count() > 3 
 					&& len > 1000 && geneMaxCov[ txptGid[i] - baseGeneId ] == cov )
 					continue ;
+
+				// Test whether it has some very abundant constraints.
+				/*int cnt = 0 ;
+				for ( j = 0 ; j < seCnt ; ++j )
+				{
+					if ( transcripts[i].constraintsSupport[j] >= 4 * txptMinReadDepth )	
+						++cnt ;
+				}
+				if ( cnt > 1 )
+					continue ;*/
+
 				// Test whether this transcript is fully covered. If so ,we can filter it.
 				bufferTable.Reset() ;
 				for ( j = 0 ; j < sccCnt ; ++j )	
@@ -2026,7 +1966,10 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			OutputTranscript( i, subexons, predTranscripts[j] ) ;
 		}
 		for ( j = 0 ; j < size ; ++j )
+		{
+			delete[] predTranscripts[j].constraintsSupport ;
 			predTranscripts[j].seVector.Release() ;
+		}
 	}
 	delete []transcriptId ;
 

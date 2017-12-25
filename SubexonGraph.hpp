@@ -6,7 +6,7 @@
 
 struct _subexon
 {
-	char chrId ;
+	int chrId ;
 	int geneId ;
 	int start, end ;
 	int leftType, rightType ;

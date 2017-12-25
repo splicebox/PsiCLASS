@@ -19,6 +19,7 @@ struct _transcript
 	double abundance ;
 	double correlationScore ; 
 	double FPKM ;
+	double *constraintsSupport ; // record the assign ment of constraints.
 
 	int first, last ; // indicate the index of the first and last subexons.
 	bool partial ; // wehther this is a partial transcript.
