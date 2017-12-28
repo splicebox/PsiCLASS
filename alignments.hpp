@@ -25,6 +25,7 @@ private:
 	bool allowSupplementary ;
 	bool allowClip ;
 	bool hasClipHead, hasClipTail ;
+	int segmentsSum ; // the sum of segments.
 
 	bool atBegin ;
 	bool atEnd ;
@@ -175,6 +176,7 @@ public:
 			int clipSum = 0 ;
 			hasClipHead = hasClipTail = false ;
 			len = 0 ;
+			segmentsSum = 0 ;
 			for ( i = 0 ; i < b->core.n_cigar ; ++i )
 			{
 				int op = rawCigar[i] & BAM_CIGAR_MASK ;
@@ -205,6 +207,7 @@ public:
 							segments[ segCnt ].a = start ;
 							segments[ segCnt ].b = start + len - 1 ;
 							++segCnt ;
+							segmentsSum += len ;
 							start = start + len + num ;
 							len = 0 ;
 						} break ;
@@ -223,6 +226,7 @@ public:
 				segments[ segCnt ].a = start ;
 				segments[ segCnt ].b = start + len - 1 ;
 				++segCnt ;
+				segmentsSum += len ;
 			}
 			/*if ( !strcmp( bam1_qname( b ), "chr1:109656301-109749401W:ENST00000490758.2:381:1480:1090:1290:X" ) )
 			{
@@ -312,6 +316,11 @@ public:
 	int GetReadLength()
 	{
 		return b->core.l_qseq ;
+	}
+
+	int GetRefCoverLength()
+	{
+		return segmentsSum ;
 	}
 
 	bool IsReverse()

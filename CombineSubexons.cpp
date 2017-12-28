@@ -106,7 +106,7 @@ bool CompInterval( struct _interval a, struct _interval b )
 		return a.end < b.end ;
 	return false ;
 }
-bool CompIrFromSamples( struct _seInterval a, struct _seInterval b )
+bool CompSeInterval( struct _seInterval a, struct _seInterval b )
 {
 	if ( a.chrId < b.chrId )
 		return true ;
@@ -406,7 +406,7 @@ int main( int argc, char *argv[] )
 
 	// Collect the split sites of subexons.
 	std::vector<struct _subexonSplit> subexonSplits ;
-	std::vector<struct _seInterval> irFromSamples ;
+	std::vector<struct _interval> intervalIrOverhang ; // intervals contains ir and overhang.
 	std::vector<struct _interval> introns ;
 	std::vector<struct _interval> exons ;
 
@@ -423,16 +423,17 @@ int main( int argc, char *argv[] )
 				continue ;
 
 			SubexonGraph::InputSubexon( buffer, alignments, se, true ) ;
-
-			// Record all the intron rentention from the samples
-			if ( se.leftType == 2 && se.rightType == 1 )
+			// Record all the intron rentention, overhang from the samples
+			if ( ( se.leftType == 2 && se.rightType == 1 )
+				|| ( se.leftType == 2 && se.rightType == 0 )
+				|| ( se.leftType == 0 && se.rightType == 1 ) )  
 			{
-				struct _seInterval si ;
+				struct _interval si ;
 				si.chrId = se.chrId ;
 				si.start = se.start ;
 				si.end = se.end ;
 
-				irFromSamples.push_back( si ) ;
+				intervalIrOverhang.push_back( si ) ;
 			}
 
 			// Ignore overhang subexons and ir subexons for now.
@@ -516,7 +517,6 @@ int main( int argc, char *argv[] )
 	// Pair up the split sites to get subexons
 	std::sort( intronSplits.begin(), intronSplits.end(), CompSubexonSplit ) ;
 	std::sort( subexonSplits.begin(), subexonSplits.end(), CompSubexonSplit ) ;
-
 	// Convert the hard boundary to soft boundary if the split sites is filtered from the introns
 	int splitCnt = subexonSplits.size() ;
 	int intronSplitCnt = intronSplits.size() ;
@@ -637,9 +637,9 @@ int main( int argc, char *argv[] )
 		se.leftClassifier = se.rightClassifier = 0 ;
 		se.lcCnt = se.rcCnt = 0 ;
 		
-		/*if ( se.start == 6536524 )	
+		/*if ( se.end == 42673573 )	
 		{
-			printf( "%d-%d: %d\n", se.start, se.end, se.leftType ) ;
+			printf( "%d: %d-%d: %d\n", se.chrId, se.start, se.end, se.rightType ) ;
 		}*/
 
 		se.next = se.prev = NULL ;
@@ -760,13 +760,13 @@ int main( int argc, char *argv[] )
 		subexons.push_back( rawSubexons[i] ) ;
 	}
 	
-	// Remove the single-exon island if it shows up in the intron that is intron retentioned in some sample.
+	// Remove the single-exon island if it overlaps with intron retentioned or overhang.
 	rawSubexons = subexons ;
 	seCnt = subexons.size() ;
 	subexons.clear() ;
 	k = 0 ;
-	std::sort( irFromSamples.begin(), irFromSamples.end(), CompIrFromSamples ) ;
-	int irFromSampleCnt = irFromSamples.size() ;
+	std::sort( intervalIrOverhang.begin(), intervalIrOverhang.end(), CompInterval ) ;
+	int irOverhangCnt = intervalIrOverhang.size() ;
 
 	for ( i = 0 ; i < seCnt ; ++i )
 	{
@@ -776,33 +776,34 @@ int main( int argc, char *argv[] )
 			continue ;
 		}
 		
-		while ( k < irFromSampleCnt )
+		while ( k < irOverhangCnt )
 		{
-			// Locate the ir that ends after the island.
-			if ( irFromSamples[k].chrId < rawSubexons[i].chrId 
-				|| ( irFromSamples[k].chrId == rawSubexons[i].chrId && irFromSamples[k].end < rawSubexons[i].end ) )
+			// Locate the interval that before the island
+			if ( intervalIrOverhang[k].chrId < rawSubexons[i].chrId 
+				|| ( intervalIrOverhang[k].chrId == rawSubexons[i].chrId && intervalIrOverhang[k].end < rawSubexons[i].start ) )
 			{
 				++k ;
 				continue ;
 			}
 			break ;
 		}
-		bool contained = false ;
-		for ( j = k ; j < irFromSampleCnt ; ++j )
+		bool overlap = false ;
+		for ( j = k ; j < irOverhangCnt ; ++j )
 		{
-			if ( irFromSamples[j].chrId > rawSubexons[i].chrId || irFromSamples[j].start > rawSubexons[i].start )
+			if ( intervalIrOverhang[j].chrId > rawSubexons[i].chrId || intervalIrOverhang[j].start > rawSubexons[i].end )
 				break ;
-			if ( irFromSamples[j].start <= rawSubexons[i].start || irFromSamples[j].end >= rawSubexons[i].end )
+			if ( ( intervalIrOverhang[j].start <= rawSubexons[i].start && intervalIrOverhang[j].end >= rawSubexons[i].start ) 
+				|| ( intervalIrOverhang[j].start <= rawSubexons[i].end && intervalIrOverhang[j].end >= rawSubexons[i].end ) )
 			{
-				contained = true ;
+				overlap = true ;
 				break ;
 			}
 		}
 
-		if ( !contained )
+		if ( !overlap )
 			subexons.push_back( rawSubexons[i] ) ;
 	}
-	std::vector<struct _seInterval>().swap( irFromSamples ) ;
+	std::vector<struct _interval>().swap( intervalIrOverhang ) ;
 	
 	// Create the dummy intervals.
 	seCnt = subexons.size() ;
@@ -821,6 +822,10 @@ int main( int argc, char *argv[] )
 		ni.chrId = subexons[i].chrId ;
 		seIntervals.push_back( ni ) ;
 
+		/*if ( subexons[i].start == 42671717 )	
+		{
+			printf( "%d: %d-%d: %d\n", subexons[i].chrId, subexons[i].start, subexons[i].end, subexons[i].rightType ) ;
+		}*/
 		subexonInfo[i].prevSupport = subexonInfo[i].nextSupport = NULL ;
 		
 		/*int nexti ;
@@ -858,6 +863,10 @@ int main( int argc, char *argv[] )
 			nii.rightOverhang.length = 0 ;
 			nii.rightOverhang.classifier = 0 ;
 			intronicInfos.push_back( nii ) ;
+			/*if ( nii.end == 23667 )
+			{
+				printf( "%d %d. %d (%d %d %d)\n", nii.start, nii.end, subexons[i].rightType, subexons[i+1].start, subexons[i + 1].end, subexons[i + 1].leftType ) ;
+			}*/
 		}
 	}
 	
@@ -1055,7 +1064,8 @@ int main( int argc, char *argv[] )
 				{
 					idx = seIntervals[j].idx ;
 					// Overlap on the left part of intron
-					if ( se.start <= intronicInfos[idx].start && se.end < intronicInfos[idx].end )
+					if ( se.start <= intronicInfos[idx].start && se.end < intronicInfos[idx].end 
+						&& subexons[ intronicInfos[idx].leftSubexonIdx ].rightType != 0 )
 					{
 						int len = se.end - intronicInfos[idx].start + 1 ;
 						intronicInfos[idx].leftOverhang.length += len ;
@@ -1090,7 +1100,8 @@ int main( int argc, char *argv[] )
 						// ignore the contribution of single-exon island here?
 					}
 					// Overlap on the right part of intron
-					else if ( se.start > intronicInfos[idx].start && se.end >= intronicInfos[idx].end )
+					else if ( se.start > intronicInfos[idx].start && se.end >= intronicInfos[idx].end 
+							&& subexons[ intronicInfos[idx].rightSubexonIdx ].leftType != 0 )
 					{
 						int len = intronicInfos[idx].end - se.start + 1 ;
 						intronicInfos[idx].rightOverhang.length += len ;

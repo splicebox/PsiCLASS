@@ -908,7 +908,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		//printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
 		//		bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
 		//bestDp.seVector.Print() ;
-		
+
 		struct _transcript nt ;
 		nt.seVector.Duplicate( bestDp.seVector ) ; 
 		nt.first = bestDp.first ;
@@ -1244,8 +1244,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			if ( tag != -1 )
 				avgTranscriptAbundance[i] /= compatibleCnt ;
 
-			printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
-			alltranscripts[i].seVector.Print() ;
+			//printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
+			//alltranscripts[i].seVector.Print() ;
 		}
 		if ( maxAbundance == 0 )
 		{
@@ -1449,7 +1449,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 		}
 		tc[ updateTag ].abundance = 0 ;
 		adjustScore[maxtag] += 1 / (double)tcCnt ;
-		printf( "maxtag=%d %lf\n", maxtag, update ) ;
+		//printf( "maxtag=%d %lf\n", maxtag, update ) ;
 
 	}
 	for ( i = 0 ; i < atcnt ; ++i )
@@ -1472,7 +1472,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 		btable[i].Release() ;
 	}
 	delete[] btable ;
-
+	
+	delete[] list ;
 	delete[] transcriptSeCnt ;
 	delete[] transcriptLength ;
 	delete[] transcriptAbundance ;
@@ -1494,6 +1495,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	std::vector<struct _constraint> &scc = constraints.constraints ; //single-end constraints.constraints
 	
 	// Remove transcripts whose FPKM are too small.
+	//printf( "%d %d\n", usedGeneId, baseGeneId ) ;
 	double *geneMaxFPKM = new double[usedGeneId - baseGeneId ] ;
 	memset( geneMaxFPKM, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
 	double *geneMaxCov = new double[ usedGeneId - baseGeneId ] ;
@@ -1503,6 +1505,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	{
 		int gid = GetTranscriptGeneId( transcripts[i], subexons ) ;
 		int len = GetTranscriptLengthFromAbundanceAndFPKM( transcripts[i].abundance, transcripts[i].FPKM ) ;
+		//printf( "gid=%d\n", gid ) ;
 		//printf( "%lf %lf %d\n", transcripts[i].abundance, transcripts[i].FPKM, len ) ;
 		if ( transcripts[i].FPKM > geneMaxFPKM[gid - baseGeneId ] )
 			geneMaxFPKM[ gid - baseGeneId ] = transcripts[i].FPKM ;
@@ -1948,6 +1951,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	transcriptId = new int[usedGeneId - baseGeneId] ;
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
+		printf( "Pick transcripts for sample %d\n", i ) ;
 		std::vector<struct _transcript> predTranscripts ;
 		int size = alltranscripts.size() ;
 		for ( j = 0 ; j < size ; ++j )

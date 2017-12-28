@@ -156,11 +156,10 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 			std::vector<int> subexonInd ;
 			constraints[i].vector.GetOnesIndices( subexonInd ) ;
 			int size = subexonInd.size() ;
-			
 			for ( j = 1 ; j < size - 1 ; ++j )
 			{
 				int a = subexonInd[j] ;
-				readLen -= subexons[a].end - subexons[a].start + 1 ;
+				readLen -= ( subexons[a].end - subexons[a].start + 1 ) ;
 			}
 		}
 
@@ -192,7 +191,7 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 
 			effectiveLength = end - start + 1 ;
 		}
-		//printf( "%d: effectiveLength=%d\n", i, effectiveLength ) ;	
+		//printf( "%d: effectiveLength=%d support=%d\n", i, effectiveLength, constraints[i].support ) ;	
 		constraints[i].normAbund = (double)constraints[i].weight / (double)effectiveLength ;
 
 		if ( ( subexons[ constraints[i].first ].leftType == 0 && subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 >= 8 * pAlignments->readLen ) 
@@ -283,7 +282,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		ct.normAbund = 0 ;
 		ct.support = 1 ;
 		ct.uniqSupport = alignments.IsUnique() ? 1 : 0 ;
-		ct.maxReadLen = alignments.GetReadLength() ;
+		ct.maxReadLen = alignments.GetRefCoverLength() ;
 		
 		if ( alignments.IsPrimary() && ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
 				subexons, seCnt, tag, ct ) )
@@ -297,7 +296,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			{
 				if ( ( ct.first < seCnt - 1 && subexons[ct.first].end + 1 == subexons[ct.first + 1].start )
 					|| subexons[ct.first].prevCnt > 0 
-					|| alignments.segments[0].b - alignments.segments[0].a + 1 <= alignments.GetReadLength() / 3.0  )	
+					|| alignments.segments[0].b - alignments.segments[0].a + 1 <= alignments.GetRefCoverLength() / 3.0  )	
 					validClip = false ;
 			}
 			if ( alignments.HasClipTail() )
@@ -305,7 +304,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 				int tmp = alignments.segCnt - 1 ;
 				if ( ( ct.last > 0 && subexons[ct.last].start - 1 == subexons[ct.last - 1].end ) 
 					|| subexons[ct.last].nextCnt > 0 
-					|| alignments.segments[tmp].b - alignments.segments[tmp].a + 1 <= alignments.GetReadLength() / 3.0 )
+					|| alignments.segments[tmp].b - alignments.segments[tmp].a + 1 <= alignments.GetRefCoverLength() / 3.0 )
 					validClip = false ;
 			}
 

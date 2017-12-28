@@ -318,6 +318,7 @@ private:
 			if ( transcripts[i].abundance == -1 )
 			{
 				transcripts[i].seVector.Release() ; // Don't forget release the memory.
+				delete[] transcripts[i].constraintsSupport ;
 				continue ;
 			}
 			transcripts[j] = transcripts[i] ;
