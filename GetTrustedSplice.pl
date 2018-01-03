@@ -6,6 +6,7 @@ use warnings ;
 die "usage: a.pl path_to_list_of_splice_file > trusted.splice\n" if ( @ARGV == 0 ) ;
 
 my %spliceSupport ;
+my %spliceSampleSupport ;
 my %spliceUniqSupport ;
 my %spliceSecSupport ;
 my %uniqSpliceSites ;
@@ -31,12 +32,14 @@ while ( <FP1> )
 		if ( ! defined $spliceSupport{$key} )
 		{
 			$spliceSupport{ $key } = $cols[3] ;
+			$spliceSampleSupport{ $key } = 1 ;
 			$spliceUniqSupport{ $key } = $cols[5] ;
 			$spliceSecSupport{ $key } = $cols[6] ;
 		}
 		else
 		{
 			$spliceSupport{ $key } += $cols[3] ;
+			$spliceSampleSupport{ $key } += 1 ;
 			$spliceUniqSupport{ $key } += $cols[5] ;
 			$spliceSecSupport{ $key } += $cols[6] ;
 		}
@@ -70,9 +73,12 @@ foreach my $key (keys %spliceSupport)
 	}
 	if ( $cols[2] - $cols[1] + 1 > 100000 )
 	{
-		$flag = 1 if ( $spliceUniqSupport{$key} / ( $spliceSecSupport{$key} + $spliceUniqSupport{$key} ) < 0.1 ) ;
+		$flag = 1 if ( $spliceUniqSupport{$key} / ( $spliceSecSupport{$key} + $spliceUniqSupport{$key} ) < 0.1 
+				|| ( $spliceUniqSupport{ $key } / $sampleCnt < 1 ) 
+				|| $spliceSampleSupport{ $key } <= 1 ) ;
 	}
-	if ( $flag == 1 && ( $uniqSpliceSites{ $cols[0]." ".$cols[1] } == -1 || $uniqSpliceSites{ $cols[0]." ".$cols[2] } == -1 ) )
+	if ( $flag == 1 && ( ( $uniqSpliceSites{ $cols[0]." ".$cols[1] } == -1 || $uniqSpliceSites{ $cols[0]." ".$cols[2] } == -1 ) 
+		|| $spliceSampleSupport{ $key } <= 1 ) )
 	{
 		next ;
 	}

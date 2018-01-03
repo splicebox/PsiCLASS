@@ -101,11 +101,12 @@ bool CompInterval( struct _interval a, struct _interval b )
 	else if ( a.chrId > b.chrId )
 		return false ;
 	else if ( a.start != b.start )
-		return a.start < b.end ;
+		return a.start < b.start ;
 	else if ( a.end != b.end )
 		return a.end < b.end ;
 	return false ;
 }
+
 bool CompSeInterval( struct _seInterval a, struct _seInterval b )
 {
 	if ( a.chrId < b.chrId )
@@ -305,6 +306,57 @@ void CoalesceIntervals( std::vector<struct _interval> &intervals )
 	intervals.resize( k + 1 ) ;
 }
 
+void CleanIntervalIrOverhang( std::vector<struct _interval> &irOverhang )
+{
+	int i, j, k ;
+	std::sort( irOverhang.begin(), irOverhang.end(), CompInterval ) ;
+
+	int cnt = irOverhang.size() ;
+	for ( i = 0 ; i < cnt ; ++i )
+	{
+		if ( irOverhang[i].start == -1 )
+			continue ;
+
+
+		// locate the longest interval start at the same coordinate.
+		int tag = i ;
+	
+		for ( j = i + 1 ; j < cnt ; ++j )	
+		{
+			if ( irOverhang[j].chrId != irOverhang[i].chrId || irOverhang[j].start != irOverhang[i].start )
+				break ;
+			if ( irOverhang[j].start == -1 )
+				continue ;
+			tag = j ;
+		}
+		
+		for ( k = i ; k < tag ; ++k )
+		{
+			irOverhang[k].start = -1 ;
+		}
+		
+		for ( k = tag + 1 ; k < cnt ; ++k )
+		{
+			if ( irOverhang[k].chrId != irOverhang[tag].chrId || irOverhang[k].start > irOverhang[tag].end )
+				break ;
+			if ( irOverhang[k].end <= irOverhang[tag].end )
+			{
+				irOverhang[k].start = -1 ;
+			}
+		}
+	}
+	
+	k = 0 ;
+	for ( i = 0 ; i < cnt ; ++i )
+	{
+		if ( irOverhang[i].start == -1 )
+			continue ;
+		irOverhang[k] = irOverhang[i] ;
+		++k ;
+	}
+	irOverhang.resize( k ) ;
+}
+
 // Remove the connection that does not match the boundary
 //  of subexons.
 void CleanUpSubexonConnections( std::vector<struct _subexon> &subexons )
@@ -424,7 +476,7 @@ int main( int argc, char *argv[] )
 
 			SubexonGraph::InputSubexon( buffer, alignments, se, true ) ;
 			// Record all the intron rentention, overhang from the samples
-			if ( ( se.leftType == 2 && se.rightType == 1 )
+			if ( ( se.leftType == 2 && se.rightType == 1 ) 
 				|| ( se.leftType == 2 && se.rightType == 0 )
 				|| ( se.leftType == 0 && se.rightType == 1 ) )  
 			{
@@ -438,8 +490,11 @@ int main( int argc, char *argv[] )
 
 			// Ignore overhang subexons and ir subexons for now.
 			if ( ( se.leftType == 0 && se.rightType == 1 ) 
-					|| ( se.leftType == 2 && se.rightType == 0 ) 
-					|| ( se.leftType == 2 && se.rightType == 1 ) )
+				|| ( se.leftType == 2 && se.rightType == 0 ) 
+				||  ( se.leftType == 2 && se.rightType == 1 ) )
+				continue ;
+
+			if ( se.leftType == 0 && se.rightType == 0 && ( se.leftClassifier == -1 || se.leftClassifier == 1 ) ) // ignore noisy single-exon island
 				continue ;
 
 			if ( se.leftType == 1 && se.rightType == 2 ) // a full exon, we allow mixtured strand here.
@@ -452,6 +507,7 @@ int main( int argc, char *argv[] )
 				ni.sampleSupport = 1 ;
 				exons.push_back( ni ) ;
 			}
+
 
 			for ( i = 0 ; i < se.nextCnt ; ++i )
 			{
@@ -478,7 +534,7 @@ int main( int argc, char *argv[] )
 			sp.splitType = se.rightType ;				
 			sp.strand = se.rightStrand ;
 			subexonSplits.push_back( sp ) ;
-
+			
 			if ( se.prevCnt > 0 )
 				delete[] se.prev ;
 			if ( se.nextCnt > 0 )
@@ -486,6 +542,7 @@ int main( int argc, char *argv[] )
 		}
 		CoalesceIntervals( exons ) ;
 		CoalesceIntervals( introns ) ;
+		CleanIntervalIrOverhang( intervalIrOverhang ) ;
 		fclose( fp ) ;
 	}
 	// Obtain the split sites from the introns.
@@ -526,11 +583,11 @@ int main( int argc, char *argv[] )
 		if ( subexonSplits[i].type != subexonSplits[i].splitType )
 			continue ;
 			
-		while ( k < intronCnt && ( intronSplits[k].chrId < subexonSplits[i].chrId 
+		while ( k < intronSplitCnt && ( intronSplits[k].chrId < subexonSplits[i].chrId 
 			|| ( intronSplits[k].chrId == subexonSplits[i].chrId && intronSplits[k].pos < subexonSplits[i].pos ) ) )			
 			++k ;
 		j = k ;
-		while ( j < intronCnt && intronSplits[j].chrId == subexonSplits[i].chrId 
+		while ( j < intronSplitCnt && intronSplits[j].chrId == subexonSplits[i].chrId 
 			&& intronSplits[j].pos == subexonSplits[i].pos && intronSplits[j].splitType != subexonSplits[i].splitType )			
 			++j ;
 		
@@ -540,12 +597,13 @@ int main( int argc, char *argv[] )
 		{
 			//printf( "%d %d. %d %d\n", subexonSplits[i].pos, intronSplits[j].pos, intronSplits[j].chrId , subexonSplits[i].chrId ) ;
 			subexonSplits[i].splitType = 0 ;
+			
 			// Convert the adjacent subexon split.
 			for ( int l = i + 1 ; i < splitCnt && subexonSplits[l].chrId == subexonSplits[i].chrId 
 				&& subexonSplits[l].pos == subexonSplits[i].pos + 1 ; ++l )
 			{
 				if ( subexonSplits[l].type != subexonSplits[i].type 
-					&& subexonSplits[l].splitType == subexonSplits[l].splitType )
+					&& subexonSplits[l].splitType == subexonSplits[i].splitType )
 				{
 					subexonSplits[l].splitType = 0 ;	
 				}
@@ -556,7 +614,7 @@ int main( int argc, char *argv[] )
 				&& subexonSplits[l].pos == subexonSplits[i].pos - 1 ; --l )
 			{
 				if ( subexonSplits[l].type != subexonSplits[i].type 
-					&& subexonSplits[l].splitType == subexonSplits[l].splitType )
+					&& subexonSplits[l].splitType == subexonSplits[i].splitType )
 				{
 					subexonSplits[l].splitType = 0 ;	
 				}
@@ -637,7 +695,7 @@ int main( int argc, char *argv[] )
 		se.leftClassifier = se.rightClassifier = 0 ;
 		se.lcCnt = se.rcCnt = 0 ;
 		
-		/*if ( se.end == 42673573 )	
+		/*if ( se.chrId == 25 )	
 		{
 			printf( "%d: %d-%d: %d\n", se.chrId, se.start, se.end, se.rightType ) ;
 		}*/
@@ -1000,7 +1058,6 @@ int main( int argc, char *argv[] )
 							tmp = 1e-7 ;
 						subexons[idx].leftClassifier -= 2.0 * log( tmp ) ;		
 						++subexons[idx].lcCnt ;
-						
 						subexons[idx].prev = MergePositions( subexons[idx].prev, subexons[idx].prevCnt, 
 										se.prev, se.prevCnt, subexons[idx].prevCnt, &subexonInfo[idx].prevSupport ) ;
 
@@ -1020,6 +1077,8 @@ int main( int argc, char *argv[] )
 							}
 						}
 					}
+					//if ( se.chrId == 25 )	
+					//	printf( "(%d %d %d. %d) (%d %d %d. %d)\n", se.chrId, se.start, se.end, se.rightType, subexons[idx].chrId, subexons[idx].start, subexons[idx].end, subexons[idx].rightType ) ;
 					if ( subexons[idx].rightType == 2 && se.rightType == 2 && subexons[idx].end == se.end )
 					{
 						double tmp = se.rightClassifier ;
