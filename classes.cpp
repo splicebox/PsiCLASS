@@ -24,7 +24,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)\n"
 	;
 
-static const char *short_options = "s:b:f:o:d:t:h" ;
+static const char *short_options = "s:b:f:o:d:t:c:h" ;
 static struct option long_options[] =
 	{
 		{ "ls", required_argument, 0, 10000 },
@@ -74,6 +74,10 @@ int main( int argc, char *argv[] )
 			a.Open( optarg ) ;
 			a.SetAllowClip( false ) ;
 			alignmentFiles.push_back( a ) ;
+		}
+		else if ( c == 'c' )
+		{
+			classifierThreshold = atof( optarg ) ;
 		}
 		else if ( c == 'f' )
 		{
