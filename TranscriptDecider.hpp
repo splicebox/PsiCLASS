@@ -281,7 +281,8 @@ private:
 		//return ( cnt ) * ( exp( 1 + a / A ) ) + correlation ; 
 	}
 
-
+	int GetFather( int f, int *father ) ;
+	
 	void ConvertTranscriptAbundanceToFPKM( struct _subexon *subexons, struct _transcript &t )
 	{
 		int txptLen = 0 ;
@@ -327,6 +328,8 @@ private:
 		transcripts.resize( j ) ;
 		return j ;
 	}
+		
+	void AbundanceEstimation( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &transcripts ) ;
 
 	int RefineTranscripts( struct _subexon *subexons, int seCnt, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
 
