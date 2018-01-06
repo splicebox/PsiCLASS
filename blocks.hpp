@@ -59,6 +59,15 @@ struct _block
 	int *next ;
 } ;
 
+// adjacent graph
+struct _adj
+{
+	int ind ;
+	int info ;
+	int support ;
+	int next ;
+} ;
+
 class Blocks
 {
 	private:
@@ -106,6 +115,25 @@ class Blocks
 				if ( exonBlocks[i].chrId != exonBlocks[i - 1].chrId )
 					exonBlocksChrIdOffset[ exonBlocks[i].chrId ] = i ;
 			}
+		}
+		
+		bool CanReach( int from, int to, struct _adj *adj, bool *visited )
+		{
+			if ( visited[from] )
+				return false ;
+			visited[from] = true ;
+			int p ;
+			p = adj[from].next ;
+			while ( p != -1 )
+			{
+				if ( adj[p].ind == to )
+					return true ;
+				if ( adj[p].ind < to 
+					&& CanReach( adj[p].ind, to, adj, visited ) )
+					return true ;
+				p = adj[p].next ;
+			}
+			return false ;
 		}
 
 		void AdjustAndCreateExonBlocks( int tag, std::vector<struct _block> &newExonBlocks )
@@ -652,7 +680,186 @@ class Blocks
 				}
 			sites.resize( k ) ;
 		}
+		
+		// Filter the pair of split sites that is likely merge two genes.
+		// We filter the case like [..]------------------------[..]
+		// 			   [..]--[..]            [..]-[...]
+		void FilterGeneMergeSplitSites( std::vector<struct _splitSite> &sites )
+		{
+			int i, j, k ;
+			int bsize = exonBlocks.size() ;
+			int ssize = sites.size() ;
 
+			struct _pair32 *siteToBlock = new struct _pair32[ ssize ] ;
+			struct _adj *adj = new struct _adj[ ssize / 2 + bsize ] ; 
+			bool *visited = new bool[bsize] ;
+
+			int adjCnt = 0 ;
+			for ( i = 0 ; i < bsize ; ++i )
+			{
+				adj[i].info = 0 ; // in the header, info means the number of next block
+				adj[i].support = 0 ;
+				adj[i].next = -1 ;
+			}
+			adjCnt = i ;
+			memset( siteToBlock, -1, sizeof( struct _pair32 ) * ssize ) ;
+			memset( visited, false, sizeof( bool ) * bsize ) ;
+			
+			// Build the graph.
+			k = 0 ; 
+			for ( i = 0 ; i < bsize ; ++i )
+			{
+				for ( ; k < ssize ; ++k )
+				{
+					if ( sites[k].oppositePos < sites[k].pos )	
+						continue ;
+					if ( sites[k].chrId < exonBlocks[i].chrId 
+						|| ( sites[k].chrId == exonBlocks[i].chrId && sites[k].pos < exonBlocks[i].start ) )
+						continue ;
+					break ;
+				}
+
+				for ( ; k < ssize ; ++k )
+				{
+					if ( sites[k].chrId > exonBlocks[i].chrId 
+						|| sites[k].pos > exonBlocks[i].end )
+						break ;
+					
+					if ( sites[k].oppositePos <= exonBlocks[i].end ) // ignore self-loop
+						continue ;
+					
+					for ( j = i + 1 ; j < bsize ; ++j )
+						if ( sites[k].oppositePos >= exonBlocks[j].start && sites[k].oppositePos <= exonBlocks[j].end )
+							break ;
+					if ( sites[k].oppositePos >= exonBlocks[j].start && sites[k].oppositePos <= exonBlocks[j].end )
+					{
+						int p ;
+						p = adj[i].next ;
+						while ( p != -1 )
+						{
+							if ( adj[p].ind == j )
+							{
+								++adj[p].info ;
+								adj[p].support += sites[k].uniqSupport ;
+								break ;
+							}
+							p = adj[p].next ;
+						}
+						if ( p == -1 )
+						{
+							adj[ adjCnt ].ind = j ;
+							adj[ adjCnt ].info = 1 ;
+							adj[ adjCnt ].support = sites[k].uniqSupport ;
+							adj[ adjCnt ].next = adj[i].next ;
+							adj[i].next = adjCnt ;
+							++adj[i].info ;
+							++adjCnt ;
+						}
+
+						siteToBlock[k].a = i ;
+						siteToBlock[k].b = j ;
+					}
+				}
+			}
+			for ( k = 0 ; k < ssize ; ++k )
+			{
+				if ( sites[k].oppositePos - sites[k].pos + 1 < 20000 || sites[k].uniqSupport >= 30 )
+					continue ;
+
+				int from = siteToBlock[k].a ;
+				int to = siteToBlock[k].b ;
+				if ( to - from - 1 < 2 || adj[from].info <= 1 )
+					continue ;
+					
+				memset( &visited[from], false, sizeof( bool ) * ( to - from + 1 ) ) ;	
+				
+				int cnt = 0 ;
+				int p = adj[from].next ;
+				int max = -1 ;
+				int maxP = 0 ;
+				while ( p != -1 )
+				{
+					if ( adj[p].support >= 10 && adj[p].ind <= to )
+						++cnt ;
+					if ( adj[p].support > max || ( adj[p].support == max && adj[p].ind == to ) )
+					{
+						max = adj[p].support ;
+						maxP = p ;
+					}
+
+					if ( adj[p].ind == to && adj[p].info > 1 )
+					{
+						cnt = 0 ;
+						break ;
+					}
+					p = adj[p].next ;
+				}
+				if ( cnt <= 1 )
+					continue ;
+
+				if ( max != -1 && adj[maxP].ind == to )
+					continue ;
+
+				// No other path can reach "to"
+				p = adj[from].next ;
+				while ( p != -1 )
+				{
+					if ( adj[p].ind != to )
+					{
+						//if ( sites[k].pos ==43917158 )
+						//	printf( "hi %d %d. (%d %d)\n", from, adj[p].ind, exonBlocks[ adj[p].ind ].start, exonBlocks[ adj[p].ind ].end ) ;
+						if ( CanReach( adj[p].ind, to, adj, visited ) )
+							break ;
+					}
+					p = adj[p].next ;
+				}
+				if ( p != -1 )
+					continue ;
+
+				//if ( sites[k].pos == 34073267 )
+				//	printf( "hi %d %d. (%d %d)\n", from, to, exonBlocks[to].start, exonBlocks[to].end ) ;
+				
+				// There are some blocks between that can reach "to"
+				for ( i = from + 1 ; i < to ; ++i )
+				{
+					p = adj[i].next ;
+					while ( p != -1 )
+					{
+						if ( adj[p].ind == to && adj[p].support >= 10 )
+							break ;
+						p = adj[p].next ;
+					}
+					if ( p != -1 )
+						break ;
+				}
+				if ( i >= to )
+					continue ;
+			
+				// Filter the site
+				//printf( "filtered: %d %d\n", sites[k].pos, sites[k].oppositePos ) ;
+				sites[k].support = -1 ;
+				for ( j = k + 1 ; j < ssize ; ++j )
+				{
+					if ( sites[j].pos == sites[k].oppositePos && sites[j].oppositePos == sites[k].pos )
+						sites[j].support = -1 ;
+					if ( sites[j].pos > sites[k].oppositePos )
+						break ;
+				}
+			}
+			
+			k = 0 ;
+			for ( i = 0 ; i < ssize ; ++i )
+				if ( sites[i].support > 0 )
+				{
+					sites[k] = sites[i] ;
+					++k ;
+				}
+			sites.resize( k ) ;
+
+			delete[] visited ;
+			delete[] siteToBlock ;
+			delete[] adj ;
+		}
 
 		void SplitBlocks( Alignments &alignments, std::vector< struct _splitSite > &splitSites )	
 		{

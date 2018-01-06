@@ -819,6 +819,8 @@ int main( int argc, char *argv[] )
 	FilterNearSplitSites( splitSites ) ;
 	FilterRepeatSplitSites( splitSites ) ;
 	regions.FilterSplitSitesInRegions( splitSites ) ;
+	regions.FilterGeneMergeSplitSites( splitSites ) ;
+
 	allSplitSites = splitSites ;
 	KeepUniqSplitSites( splitSites ) ;
 	
@@ -1045,7 +1047,7 @@ int main( int argc, char *argv[] )
 		else
 			p2 = p1 ;*/
 
-		p = p1 > p2 ? p1 : p2 ;
+		p = p1 < p2 ? p1 : p2 ;
 		
 		int idx = overhangBlocks[i].contigId ;
 		if ( regions.exonBlocks[idx].rightType == 0 )

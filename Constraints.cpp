@@ -195,7 +195,7 @@ void Constraints::ComputeNormAbund( struct _subexon *subexons )
 		constraints[i].normAbund = (double)constraints[i].weight / (double)effectiveLength ;
 
 		if ( ( subexons[ constraints[i].first ].leftType == 0 && subexons[ constraints[i].first ].end - subexons[ constraints[i].first ].start + 1 >= 8 * pAlignments->readLen ) 
-			|| ( subexons[ constraints[i].last ].rightType == 0 && subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 >= 8 * pAlignments->readLen ) ) // some random elongation of the sequence might lower the 	
+			|| ( subexons[ constraints[i].last ].rightType == 0 && subexons[ constraints[i].last ].end - subexons[ constraints[i].last ].start + 1 >= 8 * pAlignments->readLen ) ) // some random elongation of the sequence might make unnecessary long effective length.	
 		{
 			constraints[i].normAbund *= 2 ;
 		}
@@ -390,16 +390,16 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	
 	ComputeNormAbund( subexons ) ;
 
-	/*for ( i = 0 ; i < constraints.size() ; ++i )
+	for ( i = 0 ; i < constraints.size() ; ++i )
 	{
-		printf( "constraints %d: %lf %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last ) ;
+		printf( "constraints %d: %lf %d %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last, constraints[i].support ) ;
 		constraints[i].vector.Print() ;
 	}
 
 	for ( i = 0 ; i < matePairs.size() ; ++i )
 	{
 		printf( "mates %d: %lf %d %d %d %d\n", i, matePairs[i].normAbund, matePairs[i].i, matePairs[i].j, matePairs[i].support, matePairs[i].uniqSupport ) ;
-	}*/
+	}
 
 	return 0 ;
 }
