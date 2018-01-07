@@ -846,6 +846,108 @@ class Blocks
 						break ;
 				}
 			}
+
+			k = 0 ;
+			for ( i = 0 ; i < ssize ; ++i )
+				if ( sites[i].support > 0 )
+				{
+					sites[k] = sites[i] ;
+					++k ;
+				}
+			sites.resize( k ) ;
+
+			// Filter the intron on the different strand of a gene.
+			ssize = k ;
+			k = 0 ;
+			for ( i = 0 ; i < bsize ;  )
+			{
+				int farthest = exonBlocks[i].end ;
+				
+				for ( j = i ; j < bsize ; ++j )
+				{
+					if ( exonBlocks[j].start > farthest || exonBlocks[i].chrId != exonBlocks[j].chrId )
+						break ;
+					int p = adj[i].next ;
+					while ( p != -1 )
+					{
+						if ( exonBlocks[ adj[p].ind ].end > farthest )
+							farthest = exonBlocks[ adj[p].ind ].end ;
+						p = adj[p].next ;
+					}
+				}
+
+				for ( ; k < ssize ; ++k )
+				{
+					if ( sites[k].chrId < exonBlocks[i].chrId || 
+						( sites[k].chrId == exonBlocks[i].chrId && sites[k].pos < exonBlocks[i].start ) )
+							continue ;
+					break ;
+				}
+				
+				if ( sites[k].chrId > exonBlocks[i].chrId || sites[k].pos > farthest )
+				{
+					i = j ;
+					continue ;
+				}
+				//printf( "%d %d. %d %d. %d %d\n", i, j, exonBlocks[i].start, farthest, k, sites[k].pos ) ;
+
+
+				int from = k ;
+				int to ;
+				for ( to = k ; to < ssize ; ++to )
+					if ( sites[to].chrId != exonBlocks[i].chrId || sites[to].pos > farthest )
+						break ;
+
+				int strandSupport[2] = {0, 0};
+				int strandCount[2] = {0, 0};
+				for ( k = from ; k < to ; ++k )
+				{
+					if ( sites[k].oppositePos <= sites[k].pos )
+						continue ;
+
+					int tag = ( sites[k].strand == '+' ? 1 : 0 ) ;
+					strandSupport[tag] += sites[k].support ;
+					++strandCount[tag] ;
+				}
+				
+				// Not mixtured.
+				if ( strandCount[0] * strandCount[1] == 0 )
+				{
+					i = j ;
+					k = to ;
+					continue ;
+				}
+				
+				char removeStrand = 0 ;
+				if ( strandCount[0] == 1 && strandCount[1] >= 3 
+					&& strandSupport[1] >= 20 * strandSupport[0] && strandSupport[0] <= 5 )
+				{
+					removeStrand = '-' ;
+				}
+				else if ( strandCount[1] == 1 && strandCount[0] >= 3 
+						&& strandSupport[0] >= 20 * strandSupport[1] && strandSupport[1] <= 5 )
+				{
+					removeStrand = '+' ;
+				}
+
+				if ( removeStrand == 0 )
+				{
+					i = j ; k = to ;
+					continue ;
+				}
+
+				for ( k = from ; k < to ; ++k )
+				{
+					if ( sites[k].strand == removeStrand && sites[k].oppositePos >= exonBlocks[i].start && sites[k].oppositePos <= farthest )
+					{
+						//printf( "filtered: %d %d\n", sites[k].pos, sites[k].oppositePos ) ;
+						sites[k].support = -1 ;
+					}
+				}
+
+				i = j ;
+				k = to ;	
+			}
 			
 			k = 0 ;
 			for ( i = 0 ; i < ssize ; ++i )
