@@ -331,7 +331,7 @@ private:
 		
 	void AbundanceEstimation( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &transcripts ) ;
 
-	int RefineTranscripts( struct _subexon *subexons, int seCnt, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
+	int RefineTranscripts( struct _subexon *subexons, int seCnt, bool aggressive, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
 
 	void OutputTranscript( int sampleId, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
