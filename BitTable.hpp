@@ -127,12 +127,12 @@ public:
 		tab[ind] ^= ( (UINT64)1 << offset ) ;
 	}
 
-        bool Test( int i ) const // Test the ith bit.
+        bool Test( unsigned int i ) const // Test the ith bit.
 	{
-		if ( i >= size )
+		if ( i >= (unsigned int)size )
 			return false ;
 
-		int ind, offset ;
+		unsigned int ind, offset ;
 		ind = i / UNIT_SIZE ;
 		offset = i & UNIT_MASK ; 
 
@@ -179,7 +179,7 @@ public:
 	}
 	
 	// Unset all the bits outside [s,e]
-	void MaskRegionOutside( int s, int e )
+	void MaskRegionOutside( unsigned int s, unsigned int e )
 	{
 		int i ;
 		// mask out [0, s-1].
@@ -197,7 +197,7 @@ public:
 		}
 		
 		// mask out [e+1, size-1]
-		if ( e < size - 1 )
+		if ( e < ( (unsigned int)size - 1 ) )
 		{
 			ind = ( e + 1 ) / UNIT_SIZE ;
 			offset = ( e + 1 ) & UNIT_MASK ;
@@ -211,6 +211,41 @@ public:
 		}
 	}
 
+        // Given further information about the position of first and last 1's
+	void MaskRegionOutsideInRange( int s, int e, int first, int last )
+	{
+		int i ;
+		int start, to ;
+		start = first / UNIT_SIZE ;
+		to = last / UNIT_SIZE ;
+		// mask out [0, s-1].
+		int ind, offset ;
+		if ( s > 0 )
+		{
+			ind = (s - 1) / UNIT_SIZE ;
+			offset = ( s - 1 ) & UNIT_MASK ;
+			for ( i = start ; i <= ind - 1 ; ++i )			
+				tab[i] = 0 ;
+			if ( offset + 1 >= 64 )
+				tab[i] = 0 ;
+			else
+				tab[i] = ( tab[i] >> (UINT64)( offset + 1 ) ) << (UINT64)( offset + 1 ) ; 
+		}
+
+		// mask out [e+1, size-1]
+		if ( e < size - 1 )
+		{
+			ind = ( e + 1 ) / UNIT_SIZE ;
+			offset = ( e + 1 ) & UNIT_MASK ;
+			for ( i = ind + 1 ; i <= to ; ++i )
+				tab[i] = 0 ;
+
+			if ( UNIT_SIZE - offset >= 64 )
+				tab[ind] = 0 ;
+			else
+				tab[ind] = ( tab[ind] << (UINT64)( UNIT_SIZE - offset ) ) >> (UINT64)( UNIT_SIZE - offset ) ;
+		}
+	}
 	void ShiftOneLeft()
 	{
 		int i ;

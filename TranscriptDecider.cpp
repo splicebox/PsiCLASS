@@ -173,7 +173,9 @@ bool TranscriptDecider::IsStartOfMixtureStrandRegion( int tag, struct _subexon *
 int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, struct _constraint &c ) 
 {
 	//printf( "%d %d, %d %d\n", c.first, c.last, transcript.first, transcript.last ) ;
-	if ( c.first < transcript.first || c.first > transcript.last ) // no overlap or starts too early.
+	if ( c.first < transcript.first || c.first > transcript.last 
+		|| !transcript.seVector.Test( c.first ) 
+		|| ( !transcript.partial && !transcript.seVector.Test( c.last ) ) ) // no overlap or starts too early or some chosen subexons does not compatible
 		return 0 ; 
 	
 	// Extract the subexons we should focus on.
@@ -196,11 +198,13 @@ int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, 
 	  c.vector.Test(0), c.vector.Test(1) ) ;*/
 
 	compatibleTestVectorT.Assign( transcript.seVector ) ;
+	//compatibleTestVectorT.MaskRegionOutsideInRange( s, e, transcript.first, transcript.last ) ;
 	compatibleTestVectorT.MaskRegionOutside( s, e ) ;
 
 	compatibleTestVectorC.Assign( c.vector ) ;
 	if ( c.last > transcript.last )
 	{
+		//compatibleTestVectorC.MaskRegionOutsideInRange( s, e, c.first, c.last ) ;
 		compatibleTestVectorC.MaskRegionOutside( s, e ) ;
 	}
 	/*printf( "after masking %d %d. %d %d %d %d:\n", s, e, transcript.first, transcript.last, c.first, c.last ) ;
@@ -814,7 +818,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				maxAbundance = tmp.cover ;
 		}
 	}
-	printf( "maxAbundance=%lf\n", maxAbundance ) ;
+	//printf( "maxAbundance=%lf\n", maxAbundance ) ;
 	
 	// Pick the transcripts. Quantative Set-Cover
 	// Notice that by the logic in SearchSubTxpt and SolveSubTxpt, we don't need to reinitialize the data structure.
@@ -1342,8 +1346,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			if ( tag != -1 )
 				avgTranscriptAbundance[i] /= compatibleCnt ;
 
-			printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
-			alltranscripts[i].seVector.Print() ;
+			//printf( "abundance %d: %lf %lf ", i, value, avgTranscriptAbundance[i] ) ;
+			//alltranscripts[i].seVector.Print() ;
 		}
 		if ( maxAbundance == 0 )
 		{
@@ -1437,7 +1441,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 					maxtag = i ;
 				}
 			}
-			printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
+			//printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
 		}
 		if ( maxcnt == 0 || maxtag == -1 )
 			break ;
@@ -1565,7 +1569,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 		}
 		tc[ updateTag ].abundance = 0 ;
 		//adjustScore[maxtag] += 1 / (double)tcCnt ;
-		printf( "maxtag=%d %lf %d\n", maxtag, update, updateTag ) ;
+		//printf( "maxtag=%d %lf %d\n", maxtag, update, updateTag ) ;
 	}
 
 	for ( i = 0 ; i < atcnt ; ++i )
@@ -1696,7 +1700,7 @@ void TranscriptDecider::AbundanceEstimation( struct _subexon *subexons, int seCn
 			double tmp = ( newAbund / transcriptLength[i] - rho[i] ) ;
 			diff += tmp < 0 ? -tmp : tmp ;
 			rho[i] = newAbund / transcriptLength[i] ;
-			printf( "rho[%d]=%lf\n", i, rho[i] ) ;
+			//printf( "rho[%d]=%lf\n", i, rho[i] ) ;
 		}
 		//printf( "%lf\n", diff ) ;
 		if ( diff < 1e-3)
@@ -1705,13 +1709,13 @@ void TranscriptDecider::AbundanceEstimation( struct _subexon *subexons, int seCn
 
 	for ( i = 0 ; i < tcnt ; ++i )
 	{
-		printf( "%lf=>", transcripts[i].abundance ) ;
+		//printf( "%lf=>", transcripts[i].abundance ) ;
 		transcripts[i].abundance = 0 ;
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
 			transcripts[i].abundance += transcripts[i].constraintsSupport[j] ;
 		}
-		printf( "%lf\n", transcripts[i].abundance ) ;
+		//printf( "%lf\n", transcripts[i].abundance ) ;
 	}
 
 	// Release the memory of btable.
@@ -1744,11 +1748,11 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	memset( geneMaxCov, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
 	int *txptGid = new int[tcnt] ;
 
-	for ( i = 0 ; i < tcnt ; ++i )
+	/*for ( i = 0 ; i < tcnt ; ++i )
 	{
 		printf( "%d: %lf ", i, transcripts[i].FPKM ) ;
 		transcripts[i].seVector.Print() ;
-	}
+	}*/
 
 	for ( i = 0 ; i < tcnt ; ++i )
 	{
