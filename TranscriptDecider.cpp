@@ -904,7 +904,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				if ( ComputeScore( maxCoverDp.cover, 1.0, maxAbundance, maxAbundance, 0 ) < bestScore )
 					break ;
 			}*/
-			printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf\n", min, maxCoverDp.cover, score ) ;
+			//printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf\n", min, maxCoverDp.cover, score ) ;
 			attr.minAbundance = min ;
 		} // end of iteration for minAbundance.
 
@@ -942,8 +942,8 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			}*/
 		}
 		update *= ( 1 + iterCnt / 50 ) ;//* ( 1 + iterCnt / 50 )  ; 
-		printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
-				bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
+		//printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
+		//		bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
 		//bestDp.seVector.Print() ;
 
 		struct _transcript nt ;
@@ -1146,6 +1146,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 		{
 			if ( avgDepth[i] * alignments.readLen / (double)( subexons[i].end - subexons[i].start + 1 ) < 1 )
 		}*/
+
+		struct _pair32 firstRegion, lastRegion ;
 		
 		for ( i = 0 ; i < seCnt ;  )
 		{
@@ -1154,7 +1156,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				if ( subexons[j].start > subexons[j - 1].end + 1 )
 					break ;
 			}
-			
+
+						
 			int cnt = 0 ;
 			for ( k = i ; k < j ; ++k )	
 			{
@@ -1195,9 +1198,25 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			int seIdxCnt = subexonIdx.size() ;
 			transcriptLength[i] = 0 ;
 			
+			firstRegion.a = subexonIdx[0] ;
+			for ( j = 1 ; j < seIdxCnt ; ++j )
+			{
+				if ( subexons[ subexonIdx[j] ].start > subexons[ subexonIdx[j - 1] ].end + 1 )
+					break ;
+			}
+			firstRegion.b = subexonIdx[j - 1] ;
+			lastRegion.b = subexonIdx[ seIdxCnt - 1 ] ;
+			for ( j = seIdxCnt - 2 ; j >= 0 ; --j )
+			{
+				if ( subexons[ subexonIdx[j] ].end < subexons[ subexonIdx[j + 1] ].start - 1 )
+					break ;
+			}
+			lastRegion.a = subexonIdx[j + 1] ;
+
 			for ( j = 0 ; j < seIdxCnt ; ++j )
 				transcriptLength[i] += subexons[ subexonIdx[j] ].end - subexons[ subexonIdx[j] ].start + 1 ;
 			
+			//for ( j = firstRegion.b ; j < lastRegion.a ; ++j )
 			for ( j = 0 ; j < seIdxCnt - 1 ; ++j )
 			{
 				chain[j].a = subexonIdx[j] ;
@@ -1213,9 +1232,15 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				{	
 					++compatibleCnt ;
 					if ( tc[j].abundance < value && 
-						!( tc[j].i == tc[j].j 
+						!( seIdxCnt > 1 && tc[j].i == tc[j].j 
 							&& ( constraints.constraints[ tc[j].i ].first + constraints.constraints[ tc[j].i ].last == 2 * alltranscripts[i].first 
 								||  constraints.constraints[ tc[j].i ].first + constraints.constraints[ tc[j].i ].last == 2 * alltranscripts[i].last ) ) )
+						/*!( seIdxCnt > 1 
+							&& ( ( ( constraints.constraints[ tc[j].i ].first >= firstRegion.a && constraints.constraints[ tc[j].i ].last <= firstRegion.b ) 
+									&& ( constraints.constraints[ tc[j].j ].first >= firstRegion.a && constraints.constraints[ tc[j].j ].last <= firstRegion.b ) )
+						          || ( ( constraints.constraints[ tc[j].i ].first >= lastRegion.a && constraints.constraints[ tc[j].i ].last <= lastRegion.b )
+									&& ( constraints.constraints[ tc[j].j ].first >= lastRegion.a && constraints.constraints[ tc[j].j ].last <= lastRegion.b ) ) ) )
+					   )*/
 					{
 						// Not use the constraints totally within the 3'/5'-end in the transcript
 						value = tc[j].abundance ;
@@ -1278,7 +1303,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			// Every two-subexon chain should be covered by some reads if a transcript is expressed highly enough
 			int cnt = 0 ;
 			for ( j = 0 ; j < seIdxCnt - 1 ; ++j )	
-				if ( covered[j] == false )
+				if ( covered[j] == false ) // && j >= firstRegion.b && j <= lastRegion.a - 1 )
 				{
 					value = 0 ;
 				}
@@ -1580,6 +1605,10 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			nt.seVector.Nullify() ;
 			nt.seVector.Duplicate( alltranscripts[i].seVector ) ;
 			nt.constraintsSupport = new double[ tcCnt ] ;
+			if ( transcriptAbundance[i] == 0 )
+				nt.correlationScore = -1 ;
+			else
+				nt.correlationScore = 0 ;
 			memcpy( nt.constraintsSupport, alltranscripts[i].constraintsSupport, sizeof( double ) * tcCnt ) ;
 			transcripts.push_back( nt ) ;
 		}
@@ -1632,6 +1661,7 @@ void TranscriptDecider::AbundanceEstimation( struct _subexon *subexons, int seCn
 	int *transcriptLength = new int[tcnt] ;
 	int *compatibleList = new int[tcnt] ;
 	double *rho = new double[tcnt] ; // the abundance.
+	int iterCnt = 0 ;
 	
 	for ( i = 0 ; i < tcnt ; ++i )
 	{
@@ -1663,6 +1693,8 @@ void TranscriptDecider::AbundanceEstimation( struct _subexon *subexons, int seCn
 		if ( transcriptLength[i] < 1 )
 			transcriptLength[i] = 1 ;
 		rho[i] = transcripts[i].abundance / transcriptLength[i]  ; // use the rough estimation generated before.
+		if ( transcripts[i].correlationScore == -1 && rho[i] > 0.1 / (double)alignments.readLen )
+			rho[i] = 0.1 / (double)alignments.readLen  ;
 	}
 	
 	while ( 1 )
@@ -1697,13 +1729,21 @@ void TranscriptDecider::AbundanceEstimation( struct _subexon *subexons, int seCn
 			double newAbund = 0 ;
 			for ( j = 0 ; j < tcCnt ; ++j )
 				newAbund += transcripts[i].constraintsSupport[j] ;
-			double tmp = ( newAbund / transcriptLength[i] - rho[i] ) ;
-			diff += tmp < 0 ? -tmp : tmp ;
+			double old = rho[i] ;
 			rho[i] = newAbund / transcriptLength[i] ;
 			//printf( "rho[%d]=%lf\n", i, rho[i] ) ;
+			if ( transcripts[i].correlationScore == -1 && rho[i] > 0.1 / (double)alignments.readLen )
+				rho[i] = 0.1 / (double)alignments.readLen  ;
+			
+			double tmp = ( old - rho[i] ) ;
+			diff += tmp < 0 ? -tmp : tmp ;
 		}
 		//printf( "%lf\n", diff ) ;
 		if ( diff < 1e-3)
+			break ;
+
+		++iterCnt ;
+		if ( iterCnt >= 1000 )
 			break ;
 	}
 
@@ -1715,7 +1755,8 @@ void TranscriptDecider::AbundanceEstimation( struct _subexon *subexons, int seCn
 		{
 			transcripts[i].abundance += transcripts[i].constraintsSupport[j] ;
 		}
-		//printf( "%lf\n", transcripts[i].abundance ) ;
+		//printf( "%lf. (%lf)\n", transcripts[i].abundance, transcripts[i].correlationScore ) ;
+		//transcripts[i].seVector.Print() ;
 	}
 
 	// Release the memory of btable.

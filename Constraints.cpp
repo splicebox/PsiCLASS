@@ -58,6 +58,11 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 				return false ;
 		}
 
+		// The subexons must be consecutive
+		for ( j = leftIdx + 1 ; j <= rightIdx ; ++j )
+			if ( subexons[j].start > subexons[j - 1].end + 1 )
+				return false ;
+
 		if ( i == 0 )
 			ct.first = leftIdx ;
 		ct.last = rightIdx ;
@@ -288,7 +293,9 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 				subexons, seCnt, tag, ct ) )
 		{
 		
-			//printf( "%s\n", alignments.GetReadId() ) ;
+			//printf( "%s ", alignments.GetReadId() ) ;
+			//ct.vector.Print() ;
+
 
 			// If the alignment has clipped end or tail. We only keep those clipped in the 3'/5'-end
 			bool validClip = true ;
@@ -390,7 +397,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	
 	ComputeNormAbund( subexons ) ;
 
-	for ( i = 0 ; i < constraints.size() ; ++i )
+	/*for ( i = 0 ; i < constraints.size() ; ++i )
 	{
 		printf( "constraints %d: %lf %d %d %d ", i, constraints[i].normAbund, constraints[i].first, constraints[i].last, constraints[i].support ) ;
 		constraints[i].vector.Print() ;
@@ -399,7 +406,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	for ( i = 0 ; i < matePairs.size() ; ++i )
 	{
 		printf( "mates %d: %lf %d %d %d %d\n", i, matePairs[i].normAbund, matePairs[i].i, matePairs[i].j, matePairs[i].support, matePairs[i].uniqSupport ) ;
-	}
+	}*/
 
 	return 0 ;
 }
