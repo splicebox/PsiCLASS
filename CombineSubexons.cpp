@@ -137,8 +137,8 @@ double TransformCov( double c )
 	return ret ;
 }
 
-double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio, double kRatio[2], double thetaRatio[2],
-	double piCov, double kCov[2], double thetaCov[2] )
+double GetUpdateMixtureGammaClassifier( double ratio, double cov, double piRatio, double kRatio[2], double thetaRatio[2],
+	double piCov, double kCov[2], double thetaCov[2], bool conservative )
 {
 	double p1 = 0, p2 ;
 
@@ -151,12 +151,25 @@ double GetUpdateMixtureGammeClassifier( double ratio, double cov, double piRatio
 	// Make sure cov > 1?	
 	p2 = MixtureGammaAssignment( cov, piCov, kCov, thetaCov ) ;
 	double ret = 0 ;
-	if ( p1 >= p2 ) // we should use ratio.
-		ret = LogGammaDensity( ratio, kRatio[1], thetaRatio[1] ) 
-			- LogGammaDensity( ratio, kRatio[0], thetaRatio[0] ) ;
+
+	if ( conservative )
+	{
+		if ( p1 >= p2 ) // we should use ratio.
+			ret = LogGammaDensity( ratio, kRatio[1], thetaRatio[1] ) 
+				- LogGammaDensity( ratio, kRatio[0], thetaRatio[0] ) ;
+		else
+			ret = LogGammaDensity( cov, kCov[1], thetaCov[1] ) 	
+				- LogGammaDensity( cov, kCov[0], thetaCov[0] ) ;
+	}
 	else
-		ret = LogGammaDensity( cov, kCov[1], thetaCov[1] ) 	
-			- LogGammaDensity( cov, kCov[0], thetaCov[0] ) ;
+	{
+		if ( p1 >= p2 ) // we should use ratio.
+			ret = LogGammaDensity( ratio, kRatio[1], thetaRatio[1] ) 
+				- LogGammaDensity( ratio, kRatio[0], thetaRatio[0] ) ;
+		else
+			ret = LogGammaDensity( cov, kCov[1], thetaCov[1] ) 	
+				- LogGammaDensity( cov, kCov[0], thetaCov[0] ) ;
+	}
 	return ret ;
 }
 
@@ -1138,18 +1151,18 @@ int main( int argc, char *argv[] )
 							{
 								++intronicInfos[idx].leftOverhang.validCnt ;
 
-								double update = GetUpdateMixtureGammeClassifier( se.leftRatio, se.avgDepth, 
+								double update = GetUpdateMixtureGammaClassifier( se.leftRatio, se.avgDepth, 
 										overhangPiRatio, overhangKRatio, overhangThetaRatio, 
-										overhangPiCov, overhangKCov, overhangThetaCov ) ;
+										overhangPiCov, overhangKCov, overhangThetaCov, false ) ;
 								intronicInfos[idx].leftOverhang.classifier += update ;				
 							}
 						}
 						else if ( se.leftType == 1 )
 						{
 							++intronicInfos[idx].leftOverhang.validCnt ;
-							double update = GetUpdateMixtureGammeClassifier( 1.0, se.avgDepth, 
+							double update = GetUpdateMixtureGammaClassifier( 1.0, se.avgDepth, 
 									overhangPiRatio, overhangKRatio, overhangThetaRatio, 
-									overhangPiCov, overhangKCov, overhangThetaCov ) ;
+									overhangPiCov, overhangKCov, overhangThetaCov, true ) ;
 							intronicInfos[idx].leftOverhang.classifier += update ;			
 							
 							int seIdx = intronicInfos[idx].leftSubexonIdx ;
@@ -1174,9 +1187,9 @@ int main( int argc, char *argv[] )
 							{
 								++intronicInfos[idx].rightOverhang.validCnt ;
 
-								double update = GetUpdateMixtureGammeClassifier( se.rightRatio, se.avgDepth, 
+								double update = GetUpdateMixtureGammaClassifier( se.rightRatio, se.avgDepth, 
 										overhangPiRatio, overhangKRatio, overhangThetaRatio, 
-										overhangPiCov, overhangKCov, overhangThetaCov ) ;
+										overhangPiCov, overhangKCov, overhangThetaCov, false ) ;
 								intronicInfos[idx].rightOverhang.classifier += update ;				
 							}
 						}
@@ -1184,9 +1197,9 @@ int main( int argc, char *argv[] )
 						{
 							++intronicInfos[idx].rightOverhang.validCnt ;
 
-							double update = GetUpdateMixtureGammeClassifier( 1, se.avgDepth, 
+							double update = GetUpdateMixtureGammaClassifier( 1, se.avgDepth, 
 									overhangPiRatio, overhangKRatio, overhangThetaRatio, 
-									overhangPiCov, overhangKCov, overhangThetaCov ) ;
+									overhangPiCov, overhangKCov, overhangThetaCov, true ) ;
 							intronicInfos[idx].rightOverhang.classifier += update ;				
 
 							int seIdx = intronicInfos[idx].rightSubexonIdx ;
@@ -1207,20 +1220,20 @@ int main( int argc, char *argv[] )
 							++intronicInfos[idx].irCnt ;
 							if ( ratio > 0 && se.avgDepth > 1 )
 							{
-								double update = GetUpdateMixtureGammeClassifier( ratio, se.avgDepth,
+								double update = GetUpdateMixtureGammaClassifier( ratio, se.avgDepth,
 										irPiRatio, irKRatio, irThetaRatio,
-										irPiCov, irKCov, irThetaCov ) ;
-								//if ( se.start == 17171 )
+										irPiCov, irKCov, irThetaCov, true ) ;
+								//if ( intronicInfos[idx].start == 37617368 )
 								//	printf( "hi %lf %d %d: %d %d\n", update, se.start, se.end, intronicInfos[idx].start, intronicInfos[idx].end ) ;
 								intronicInfos[idx].irClassifier += update ;
 								++intronicInfos[idx].validIrCnt ;
 							}
 						}
-						else if ( se.leftType == 1 && se.rightType == 2 )
+						else if ( se.leftType == 1 || se.rightType == 2 )
 						{
 							//intronicInfos[idx].irClassifier += LogGammaDensity( 4.0, irKRatio[1], irThetaRatio[1] )
 							//                                         - LogGammaDensity( 4.0, irKRatio[0], irThetaRatio[0] ) ;
-							/*if ( se.start == 6643539 )
+							/*if ( se.start == 37617368 )
 							{
 								printf( "%lf: %lf %lf\n", se.avgDepth, MixtureGammaAssignment( ( irKCov[0] - 1 ) * irThetaCov[0], irPiRatio, irKCov, irThetaCov ),
 									MixtureGammaAssignment( TransformCov( 4.0 ), irPiRatio, irKCov, irThetaCov ) ) ;
@@ -1228,9 +1241,11 @@ int main( int argc, char *argv[] )
 							if ( se.avgDepth > 1 )
 							{
 								// let the depth be the threshold to determine.
-								double update = GetUpdateMixtureGammeClassifier( 4.0, se.avgDepth,
+								double update = GetUpdateMixtureGammaClassifier( 4.0, se.avgDepth,
 										irPiRatio, irKRatio, irThetaRatio,
-										irPiCov, irKCov, irThetaCov ) ;
+										irPiCov, irKCov, irThetaCov, true ) ;
+								//if ( intronicInfos[idx].start == 36266630 )
+								//	printf( "hi %lf %d %d: %d %d\n", update, se.start, se.end, intronicInfos[idx].start, intronicInfos[idx].end ) ;
 								intronicInfos[idx].irClassifier += update ;
 								++intronicInfos[idx].irCnt ;
 								++intronicInfos[idx].validIrCnt ;
@@ -1300,7 +1315,11 @@ int main( int argc, char *argv[] )
 				ii.irClassifier -= log( 1000.0 ) ;
 			else if ( ii.validIrCnt < fileCnt * 0.5 )
 				ii.irClassifier -= log( 100.0 ) ;*/
+			if ( ii.start == 37617368 )
+				printf( "%lf %lf\n", ii.irClassifier, avgIrPiRatio ) ;
 			ii.irClassifier = (double)1.0 / ( 1.0 + exp( ii.irClassifier + log( 1 - avgIrPiRatio ) - log( avgIrPiRatio ) ) ) ;
+			if ( ii.start == 37617368 )
+				printf( "%lf\n", ii.irClassifier ) ;
 		}
 		else
 			ii.irClassifier = -1 ;
