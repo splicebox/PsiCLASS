@@ -661,13 +661,14 @@ int main( int argc, char *argv[] )
 	// Build subexons from the collected split sites.
 	std::vector<struct _subexon> subexons ;
 	int diffCnt = 0 ; // |start of subexon split| - |end of subexon split|
-	
+	int seCnt = 0 ;
 	for ( i = 0 ; i < splitCnt - 1 ; ++i )	
 	{
 		struct _subexon se ;
-		/*if ( subexonSplits[i].pos == 553989 )
+		/*if ( subexonSplits[i].pos == 36946557 || subexonSplits[i + 1].pos == 36946557 )
 		{
-			printf( "%d %d: %d %d\n", subexonSplits[i].pos, subexonSplits[i].type, subexonSplits[i + 1].pos, subexonSplits[i + 1].type ) ;
+			printf( "%d %d %d: %d %d %d\n", subexonSplits[i].pos, subexonSplits[i].type, subexonSplits[i].splitType, 
+				subexonSplits[i + 1].pos, subexonSplits[i + 1].type, subexonSplits[i + 1].splitType ) ;
 		}*/
 
 		if ( subexonSplits[i].type == 1 )
@@ -704,7 +705,16 @@ int main( int argc, char *argv[] )
 		}
 			
 		if ( se.start > se.end ) //Note: this handles the case of repeated subexon split.
+		{
+			// handle the case in sample 0: [...[..]
+			// in sample 1:                 [..]...]
+			if ( seCnt > 0 && se.end == subexons[seCnt - 1].end && subexons[seCnt - 1].rightType < se.rightType ) 
+			{
+				subexons[seCnt - 1].rightType = se.rightType ;
+				subexons[seCnt - 1].rightStrand = se.rightStrand ;
+			}
 			continue ;
+		}
 		se.leftClassifier = se.rightClassifier = 0 ;
 		se.lcCnt = se.rcCnt = 0 ;
 		
@@ -716,10 +726,11 @@ int main( int argc, char *argv[] )
 		se.next = se.prev = NULL ;
 		se.nextCnt = se.prevCnt = 0 ;
 		subexons.push_back( se ) ;
+		++seCnt ;
 	}
 	// Merge the adjacent soft boundaries 
 	std::vector<struct _subexon> rawSubexons = subexons ;
-	int seCnt = subexons.size() ;
+	seCnt = subexons.size() ;
 	int exonCnt = exons.size() ;
 	subexons.clear() ;
 
@@ -893,7 +904,7 @@ int main( int argc, char *argv[] )
 		ni.chrId = subexons[i].chrId ;
 		seIntervals.push_back( ni ) ;
 
-		/*if ( subexons[i].start == 42671717 )	
+		/*if ( subexons[i].end == 42671717 )	
 		{
 			printf( "%d: %d-%d: %d\n", subexons[i].chrId, subexons[i].start, subexons[i].end, subexons[i].rightType ) ;
 		}*/
@@ -1315,11 +1326,7 @@ int main( int argc, char *argv[] )
 				ii.irClassifier -= log( 1000.0 ) ;
 			else if ( ii.validIrCnt < fileCnt * 0.5 )
 				ii.irClassifier -= log( 100.0 ) ;*/
-			if ( ii.start == 37617368 )
-				printf( "%lf %lf\n", ii.irClassifier, avgIrPiRatio ) ;
 			ii.irClassifier = (double)1.0 / ( 1.0 + exp( ii.irClassifier + log( 1 - avgIrPiRatio ) - log( avgIrPiRatio ) ) ) ;
-			if ( ii.start == 37617368 )
-				printf( "%lf\n", ii.irClassifier ) ;
 		}
 		else
 			ii.irClassifier = -1 ;
