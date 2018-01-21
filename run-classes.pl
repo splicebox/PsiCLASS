@@ -11,6 +11,8 @@ use threads::shared ;
 
 die "Usage: perl run-classes.pl [OPTIONS]\n".
     "Required:\n".
+    "\t-b STRING: the path to the BAM files. Use comma to separate ultiple bam files\n".
+    "\t\tor\n".
     "\t--lb STRING: the path to the file containing the alignments bam files\n".
     "Optional:\n".
     "\t-s STRING: the path to the trusted splice sites file (default: not used)\n".
@@ -39,7 +41,7 @@ sub system_call
 # Process the arguments
 my @bamFiles : shared ;
 my $spliceFile = "" ;
-my $bamFileList ;
+my $bamFileList = "" ;
 my $stage = 0 ;
 my $classesOpt = "" ;
 for ( $i = 0 ; $i < @ARGV ; ++$i )
@@ -53,6 +55,11 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 			chomp ;
 			push @bamFiles, $_ ;
 		}
+		++$i ;
+	}
+	elsif ( $ARGV[$i] eq "-b" )
+	{
+		@bamFiles = split /,/, $ARGV[$i + 1] ;
 		++$i ;
 	}
 	elsif ( $ARGV[$i] eq "-s" )
@@ -157,7 +164,7 @@ if ( $stage <= 0 )
 	}
 	else
 	{
-		system_call( "perl $WD/GetTrustedSplice.pl ${prefix}splice.list > ${prefix}bam.trusted_splice" ) ;
+		system_call( "$WD/trust-splice ${prefix}splice.list ". $bamFiles[0] ." > ${prefix}bam.trusted_splice" ) ;
 		for ( $i = 0 ; $i < @bamFiles ; ++$i )
 		{
 			system_call( "perl $WD/FilterSplice.pl ${prefix}bam_$i.raw_splice ${prefix}bam.trusted_splice > ${prefix}bam_$i.splice" ) ;
@@ -221,6 +228,15 @@ if ( $stage <= 2 )
 if ( $stage <= 3 )
 {
 	my $trimPrefix = substr( $prefix, 0, -1 ) ;
-	$cmd = "$WD/classes --lb $bamFileList -s ${prefix}subexon_combined.out -o ${trimPrefix} > classes.log" ;
+	my $bamPath = "" ;
+	if ( $bamFileList ne "" )
+	{
+		$bamPath = " --lb $bamFileList " ;
+	}
+	foreach my $b (@bamFiles)
+	{
+		$bamPath .= " -b $b " ;
+	}
+	$cmd = "$WD/classes $bamPath -s ${prefix}subexon_combined.out -o ${trimPrefix} > classes.log" ;
 	system_call( "$cmd" ) ;
 }
