@@ -1,11 +1,12 @@
 CXX = g++
+#CXXFLAGS= -Wall -O3 #-g #-std=c++11 #-Wall #-g
 CXXFLAGS= -Wall -g #-std=c++11 #-Wall #-g
 LINKPATH= -I./samtools-0.1.19 -L./samtools-0.1.19
 LINKFLAGS = -lbam -lz -lm -lpthread 
 DEBUG=
 OBJECTS = stats.o subexon-graph.o 
 
-all: subexon-info combine-subexons classes vote-transcripts junc grader
+all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice
 
 subexon-info: subexon-info.o $(OBJECTS)
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) subexon-info.o $(LINKFLAGS)
@@ -15,6 +16,9 @@ combine-subexons: combine-subexons.o $(OBJECTS)
 
 classes: classes.o constraints.o transcript-decider.o $(OBJECTS)
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) constraints.o transcript-decider.o classes.o $(LINKFLAGS)
+
+trust-splice: trust-splice.o
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) trust-splice.o $(LINKFLAGS)
 
 vote-transcripts: vote-transcripts.o 
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) vote-transcripts.o $(LINKFLAGS)
@@ -40,6 +44,8 @@ transcript-decider.o: TranscriptDecider.cpp TranscriptDecider.hpp Constraints.hp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 classes.o: classes.cpp SubexonGraph.hpp SubexonCorrelation.hpp BitTable.hpp Constraints.hpp alignments.hpp TranscriptDecider.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
+trust-splice.o: GetTrustedSplice.cpp alignments.hpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 vote-transcripts.o: Vote.cpp TranscriptDecider.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 junc.o: FindJunction.cpp
@@ -48,4 +54,4 @@ grader.o: grader.cpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 
 clean:
-	rm -f *.o *.gch subexon-info combine-subexons 
+	rm -f *.o *.gch subexon-info combine-subexons trust-splice vote-transcripts junc grader
