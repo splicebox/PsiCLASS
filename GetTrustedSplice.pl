@@ -94,11 +94,15 @@ foreach my $key (keys %spliceSupport)
 	#{
 	#	$flag = 1 if ( $spliceSupport{ $key } / $sampleCnt < 1 ) ;
 	#}
-	my $siteSupport = $spliceSiteSupport{ $cols[0]." ".$cols[1] } + $spliceSiteSupport{ $cols[0]." ".$cols[1] } ;
+	my $siteSupport = max( $spliceSiteSupport{ $cols[0]." ".$cols[1] }, $spliceSiteSupport{ $cols[0]." ".$cols[2] } ) ;
 	
 	if ( $spliceSupport{ $key } < $siteSupport / 10.0 )
 	{
 		#print  $spliceSupport{ $key } / $siteSupport,  " ", -log( $spliceSupport{ $key } / $siteSupport ) / log( 10.0 ), "\n" ;
+		#if ( $cols[1] == 73518141 && $cols[2] == 73518206 )
+		#{
+		#	print "test: ", $spliceSupport{$key}, " $siteSupport ",  -log( $spliceSupport{ $key } / $siteSupport ), "\n";
+		#}
 		my $needSample = min( -log( $spliceSupport{ $key } / $siteSupport ) / log( 10.0 ) + 1, $sampleCnt ) ;
 		next if ( $spliceSampleSupport{ $key } < $needSample ) ;
 	}
