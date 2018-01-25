@@ -712,7 +712,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 			extendsPairs[i].a = extends[i] ;
 			extendsPairs[i].b = tc[ extends[i] ].last ;
 		}
-		qsort( extendsPairs, extendCnt, sizeof( struct _pair32 ), CompExtendsPairs ) ;
+		qsort( extendsPairs, extendCnt, sizeof( struct _pair32 ), CompPairsByB ) ;
 
 		for ( i = 0 ; i < extendCnt ; ++i )
 			extends[i] = extendsPairs[i].a ;
@@ -772,7 +772,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 	}
 }
 
-void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, struct _dpAttribute &attr, std::vector<struct _transcript> &alltranscripts )
+void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCnt, int iterBound, Constraints &constraints, SubexonCorrelation &correlation, struct _dpAttribute &attr, std::vector<struct _transcript> &alltranscripts )
 {
 	int i, j, k ;
 	
@@ -997,6 +997,9 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				coalesceThreshold *= 2 ;
 		}
 		++iterCnt ;
+
+		if ( iterCnt >= iterBound )
+			break ;
 	}
 	CoalesceSameTranscripts( transcripts ) ;
 	int size = transcripts.size() ;
@@ -2280,16 +2283,29 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		}
 
 		// select candidate transcripts from each sample.
+		struct _pair32 *sampleComplexity = new struct _pair32[ sampleCnt ] ;
+		for ( i = 0 ; i < sampleCnt ; ++i )
+		{
+			sampleComplexity[i].a = i ;
+			sampleComplexity[i].b = constraints[i].constraints.size() ;
+		}
+		qsort( sampleComplexity, sampleCnt, sizeof( sampleComplexity[0] ), CompPairsByB ) ;
+
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
 			sampleTranscripts.clear() ;
-			PickTranscriptsByDP( subexons, seCnt, constraints[i], subexonCorrelation, attr, sampleTranscripts ) ;		
+			int iterBound = constraints[ sampleComplexity[i].a ].constraints.size() ;
+			if ( i < sampleCnt - 1 )
+				iterBound = 100 ;
+
+			PickTranscriptsByDP( subexons, seCnt, iterBound, constraints[ sampleComplexity[i].a ], subexonCorrelation, attr, sampleTranscripts ) ;		
 			int size = sampleTranscripts.size() ;
 			for ( j = 0 ; j < size ; ++j )
 				alltranscripts.push_back( sampleTranscripts[j] ) ;
 		}
 
 		// release the memory.
+		delete[] sampleComplexity ;
 		for ( i = 0 ; i < seCnt ; ++i )	
 		{
 			attr.f1[i].seVector.Release() ;

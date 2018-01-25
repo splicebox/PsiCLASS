@@ -211,7 +211,7 @@ private:
 	struct _dp *dpHash ;
 	void SearchSubTranscript( int tag, int strand, int parents[], int pcnt, struct _dp &pdp, int visit[], int vcnt, int extends[], int extendCnt, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
 	struct _dp SolveSubTranscript( int visit[], int vcnt, int strand, std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr ) ;
-	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, Constraints &constraints, SubexonCorrelation &correlation, struct _dpAttribute &attr, std::vector<struct _transcript> &allTranscripts ) ;
+	void PickTranscriptsByDP( struct _subexon *subexons, int seCnt, int iterBound, Constraints &constraints, SubexonCorrelation &correlation, struct _dpAttribute &attr, std::vector<struct _transcript> &allTranscripts ) ;
 
 	void SetDpContent( struct _dp &a, struct _dp &b, const struct _dpAttribute &attr )
 	{
@@ -267,7 +267,7 @@ private:
 			return false ;
 	} 
 
-	static int CompExtendsPairs( const void *p1, const void *p2 )
+	static int CompPairsByB( const void *p1, const void *p2 )
 	{
 		return ((struct _pair32 *)p1)->b - ((struct _pair32 *)p2)->b ;
 	}

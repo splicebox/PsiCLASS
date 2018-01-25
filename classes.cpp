@@ -32,6 +32,31 @@ static struct option long_options[] =
 		{ (char *)0, 0, 0, 0} 
 	} ;
 
+struct _getAlignmentsInfoThreadArg
+{
+	std::vector<Alignments> *pAlignmentFiles ;
+	int numThreads ;
+	int tid ;
+} ;
+
+void *GetAlignmentsInfo_Thread( void *pArg )
+{
+	int i ;
+	std::vector <Alignments> &alignmentFiles = *( ( (struct _getAlignmentsInfoThreadArg *)pArg )->pAlignmentFiles ) ;
+	int tid = ( (struct _getAlignmentsInfoThreadArg *)pArg )->tid ;
+	int numThreads = ( (struct _getAlignmentsInfoThreadArg *)pArg )->numThreads ;
+	int size = alignmentFiles.size() ;
+	for ( i = 0 ; i < size ; ++i )
+	{
+		if ( i % numThreads == tid )
+		{
+			alignmentFiles[i].GetGeneralInfo() ;
+			alignmentFiles[i].Rewind() ;
+		}
+	}
+	
+	pthread_exit( NULL ) ;
+}
 
 
 int main( int argc, char *argv[] )
@@ -133,12 +158,45 @@ int main( int argc, char *argv[] )
 		printf( "Must use -b option to specify BAM files.\n" ) ;
 		exit( 1 ) ;
 	}
-	
-	size = alignmentFiles.size() ;
-	for ( i = 0 ; i < size ; ++i )
+
+
+	if ( numThreads <= 1 )
 	{
-		alignmentFiles[i].GetGeneralInfo() ;
-		alignmentFiles[i].Rewind() ;
+		size = alignmentFiles.size() ;
+		for ( i = 0 ; i < size ; ++i )
+		{
+			alignmentFiles[i].GetGeneralInfo() ;
+			alignmentFiles[i].Rewind() ;
+		}
+	}
+	else
+	{
+		struct _getAlignmentsInfoThreadArg *args = new struct _getAlignmentsInfoThreadArg[ numThreads ] ;
+		pthread_attr_t pthreadAttr ;
+		pthread_t *threads ;
+		
+		pthread_attr_init( &pthreadAttr ) ;
+		pthread_attr_setdetachstate( &pthreadAttr, PTHREAD_CREATE_JOINABLE ) ;
+
+		threads = new pthread_t[ numThreads ] ;
+
+		for ( i = 0 ; i < numThreads ; ++i )
+		{
+			args[i].pAlignmentFiles = &alignmentFiles ;
+			args[i].tid = i ;
+			args[i].numThreads = numThreads ;
+
+			pthread_create( &threads[i], &pthreadAttr, GetAlignmentsInfo_Thread, &args[i] ) ;
+		}
+
+		for ( i = 0 ; i < numThreads ; ++i )
+		{
+			pthread_join( threads[i], NULL ) ;
+		}
+
+		pthread_attr_destroy( &pthreadAttr ) ;
+		delete[] args ;
+		delete[] threads ;
 	}
 
 	// Build the subexon graph
@@ -292,7 +350,8 @@ int main( int argc, char *argv[] )
 
 		for ( i = 0 ; i < numThreads ; ++i )
 		{
-			pthread_join( threads[i], NULL ) ;
+			if ( initThreads[i] )
+				pthread_join( threads[i], NULL ) ;
 		}
 		outputHandler.Flush() ;
 

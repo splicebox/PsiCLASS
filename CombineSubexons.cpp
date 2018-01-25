@@ -584,7 +584,7 @@ int main( int argc, char *argv[] )
 		CoalesceIntervals( introns ) ;
 		CoalesceSubexonSplits( subexonSplits ) ;
 		CleanIntervalIrOverhang( intervalIrOverhang ) ;
-		printf( "%d %d\n", subexonSplits.size(), intervalIrOverhang.size() ) ;
+		
 		fclose( fp ) ;
 	}
 	
