@@ -387,7 +387,6 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 
 		double prevK = k ;
 		double prevTheta = theta ;
-
 		double digammaK = digammal( k ) ;
 
 		gradK = sumZ * ( -log( theta ) - digammaK ) + sumZLogX ;
@@ -459,8 +458,11 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 		double diff = ABS( prevK - k ) + ABS( prevTheta - theta ) ;
 		if ( diff < 1e-5 ) 
 			break ;
-	
+		
 		++iterCnt ;
+		//if ( det <= 1e-4 && det >=-1e-4 && k >= 5000 ) //&& diff < 1 )
+		if ( k >= 5000 ) //&& diff < 1 )
+			break ;
 		if ( iterCnt == 1000 )
 			break ;
 	}
@@ -618,6 +620,7 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	//covRatio = buffer ;
 	while ( 1 )
 	{
+		//printf( "EM\n" )  ;
 		MixtureGammaEM( covRatio, n, piRatio, kRatio, thetaRatio, t, meanBound ) ;
 		//printf( "%lf %lf %lf %lf %lf\n", piRatio, kRatio[0], kRatio[1], thetaRatio[0], thetaRatio[1] ) ;
 		if ( piRatio > 0.999 || piRatio < 0.001 || IsParametersTheSame( kRatio, thetaRatio ) )
@@ -680,7 +683,10 @@ int RatioAndCovEM( double *covRatio, double *cov, int n, double &piRatio, double
 	meanBound[0] = 1.01 ;
 	meanBound[1] = -1 ;
 
+	//printf( "for coverage:\n" ) ;
+	//piCov = 0.001000 ;
 	MixtureGammaEM( cov, n, piCov, kCov, thetaCov, 0, meanBound ) ;	
+	//printf( "for coverage done\n" ) ;
 	piCov = piRatio ;
 
 	delete []buffer ;

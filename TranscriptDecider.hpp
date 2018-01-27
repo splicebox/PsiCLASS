@@ -31,9 +31,11 @@ struct _outputTranscript
 	int geneId, transcriptId ;
 	struct _pair32 *exons ;
 	int ecnt ;
-	double FPKM ;
 	char strand ;
 	int sampleId ;
+
+	double FPKM ;
+	double TPM ;
 } ;
 
 struct _dp
@@ -109,6 +111,8 @@ private:
 			return a.geneId < b.geneId ;
 		return a.transcriptId < b.transcriptId ;
 	}
+
+	
 public:
 	MultiThreadOutputTranscript( int cnt, Alignments &a ): alignments( a )
 	{
@@ -150,6 +154,46 @@ public:
 		outputQueue.push_back( t ) ;
 		pthread_mutex_unlock( &outputLock ) ;
 	}
+	
+	void Add_SingleThread( struct _outputTranscript &t ) 
+	{
+		outputQueue.push_back( t ) ;
+	}
+	
+	void ComputeFPKMTPM( std::vector<Alignments> &alignmentFiles )
+	{
+		int i ;
+		int qsize = outputQueue.size() ;
+		double *totalFPK = new double[ sampleCnt ] ;
+		memset( totalFPK, 0, sizeof( double ) * sampleCnt ) ;
+		for ( i = 0 ; i < qsize ; ++i )
+		{
+			totalFPK[ outputQueue[i].sampleId ] += outputQueue[i].FPKM ;
+		}
+
+		for ( i = 0 ; i < qsize ; ++i )
+		{
+			outputQueue[i].TPM = outputQueue[i].FPKM / ( totalFPK[ outputQueue[i].sampleId ] / 1000000.0 ) ;
+			outputQueue[i].FPKM /= ( alignmentFiles[ outputQueue[i].sampleId ].totalReadCnt / 1000000.0 ) ;
+		}
+
+
+	}
+
+	void OutputCommandInfo( int argc, char *argv[] )
+	{
+		int i ;
+		int j ;
+		for ( i = 0 ; i < sampleCnt ; ++i )
+		{
+			fprintf( outputFPs[i], "#CLASS_v3.0.0\n#" ) ;	
+			for ( j = 0 ; j < argc - 1 ; ++j )
+			{
+				fprintf( outputFPs[i], "%s ", argv[j] ) ;
+			}
+			fprintf( outputFPs[i], "%s\n", argv[j] ) ;
+		}
+	}
 
 	void Flush()
 	{
@@ -161,18 +205,18 @@ public:
 		{
 			struct _outputTranscript &t = outputQueue[i] ;
 			char *chrom = alignments.GetChromName( t.chrId ) ;
-			fprintf( outputFPs[t.sampleId], "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
+			fprintf( outputFPs[t.sampleId], "%s\tCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
 					chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 					prefix, chrom, t.geneId,
-					prefix, chrom, t.geneId, t.transcriptId, t.FPKM ) ;
+					prefix, chrom, t.geneId, t.transcriptId, t.FPKM, t.TPM ) ;
 			for ( j = 0 ; j < t.ecnt ; ++j )
 			{
-				fprintf( outputFPs[ t.sampleId ], "%s\tCLASSES\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
-						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; Abundance \"%.6lf\"\n",
+				fprintf( outputFPs[ t.sampleId ], "%s\tCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
+						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
 						chrom, t.exons[j].a, t.exons[j].b, t.strand,
 						prefix, chrom, t.geneId,
 						prefix, chrom, t.geneId, t.transcriptId,
-						j + 1, t.FPKM ) ;
+						j + 1, t.FPKM, t.TPM ) ;
 			}
 			delete []t.exons ;
 		}
@@ -283,7 +327,7 @@ private:
 
 	int GetFather( int f, int *father ) ;
 	
-	void ConvertTranscriptAbundanceToFPKM( struct _subexon *subexons, struct _transcript &t )
+	void ConvertTranscriptAbundanceToFPKM( struct _subexon *subexons, struct _transcript &t, int readCnt = 1000000 )
 	{
 		int txptLen = 0 ;
 		int i, size ;
@@ -293,12 +337,12 @@ private:
 		size = subexonInd.size() ;
 		for ( i = 0 ; i < size ; ++i )
 			txptLen += ( subexons[ subexonInd[i] ].end - subexons[ subexonInd[i] ].start + 1 ) ;
-		t.FPKM = t.abundance / ( ( alignments.totalReadCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
+		t.FPKM = t.abundance / ( ( readCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
 	}
 
-	int GetTranscriptLengthFromAbundanceAndFPKM( double abundance, double FPKM )
+	int GetTranscriptLengthFromAbundanceAndFPKM( double abundance, double FPKM, int readCnt = 1000000 )
 	{
-		return int( abundance / ( FPKM / 1000.0 ) / ( alignments.totalReadCnt / 1000000.0  ) + 0.5 ) ;
+		return int( abundance / ( FPKM / 1000.0 ) / ( readCnt / 1000000.0  ) + 0.5 ) ;
 	}
 
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;

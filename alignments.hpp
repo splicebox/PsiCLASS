@@ -94,6 +94,9 @@ public:
 	{
 		Close() ;
 		Open() ;
+
+		atBegin = true ;
+		atEnd = false ;
 	}
 
 	void Close()
@@ -136,6 +139,10 @@ public:
 		int i ;
 		int start = 0, len = 0 ;
 		uint32_t *rawCigar ;
+
+		if ( atBegin == true )
+			totalReadCnt = 0 ;
+
 		atBegin = false ;
 		while ( 1 )
 		{
@@ -150,6 +157,10 @@ public:
 					atEnd = true ;
 					return 0 ;
 				}
+
+				if ( ( b->core.flag & 0x900 ) == 0 )
+					++totalReadCnt ;
+				
 				if ( b->core.flag & 0xC )
 					continue ;
 
@@ -433,7 +444,7 @@ public:
 		int lensCnt = 0 ;
 		int mateDiffCnt = 0 ;
 		bool end = false ;
-
+		
 		while ( 1 )
 		{
 			while ( 1 )

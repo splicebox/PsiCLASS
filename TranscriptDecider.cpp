@@ -63,7 +63,7 @@ void TranscriptDecider::OutputTranscript( int sampleId, struct _subexon *subexon
 	size = j ;
 	
 	int gid = GetTranscriptGeneId( subexonInd, subexons ) ;
-	if ( numThreads <= 1 )
+	if ( 0 ) //numThreads <= 1 )
 	{
 		fprintf( outputFPs[sampleId], "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%s\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; Abundance \"%.6lf\";\n",
 				chrom, catSubexons[0].start + 1, catSubexons[size - 1].end + 1, strand,
@@ -95,7 +95,10 @@ void TranscriptDecider::OutputTranscript( int sampleId, struct _subexon *subexon
 		}
 		t.ecnt = size ;
 		t.strand = strand[0] ;
-		outputHandler->Add( t ) ;
+		if ( numThreads > 1 )
+			outputHandler->Add( t ) ;
+		else
+			outputHandler->Add_SingleThread( t ) ;
 	}
 	++transcriptId[ gid - baseGeneId ] ;
 

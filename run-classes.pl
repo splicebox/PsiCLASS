@@ -233,9 +233,12 @@ if ( $stage <= 3 )
 	{
 		$bamPath = " --lb $bamFileList " ;
 	}
-	foreach my $b (@bamFiles)
+	else
 	{
-		$bamPath .= " -b $b " ;
+		foreach my $b (@bamFiles)
+		{
+			$bamPath .= " -b $b " ;
+		}
 	}
 	$cmd = "$WD/classes $bamPath -s ${prefix}subexon_combined.out -o ${trimPrefix} > classes.log" ;
 	system_call( "$cmd" ) ;

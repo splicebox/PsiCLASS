@@ -50,7 +50,7 @@ void *GetAlignmentsInfo_Thread( void *pArg )
 	{
 		if ( i % numThreads == tid )
 		{
-			alignmentFiles[i].GetGeneralInfo() ;
+			alignmentFiles[i].GetGeneralInfo( true ) ;
 			alignmentFiles[i].Rewind() ;
 		}
 	}
@@ -160,12 +160,12 @@ int main( int argc, char *argv[] )
 	}
 
 
-	if ( numThreads <= 1 )
+	if ( 1 )
 	{
 		size = alignmentFiles.size() ;
 		for ( i = 0 ; i < size ; ++i )
 		{
-			alignmentFiles[i].GetGeneralInfo() ;
+			alignmentFiles[i].GetGeneralInfo( true ) ;
 			alignmentFiles[i].Rewind() ;
 		}
 	}
@@ -211,12 +211,14 @@ int main( int argc, char *argv[] )
 		Constraints constraints( &alignmentFiles[i] ) ;
 		multiSampleConstraints.push_back( constraints ) ;
 	}
+	MultiThreadOutputTranscript outputHandler( sampleCnt, alignmentFiles[0] ) ;
+	outputHandler.SetOutputFPs( outputPrefix ) ;
 
 	if ( numThreads <= 1 )
 	{
 		TranscriptDecider transcriptDecider( FPKMFraction, classifierThreshold, txptMinReadDepth, sampleCnt, alignmentFiles[0] ) ;
-
-		transcriptDecider.SetOutputFPs( outputPrefix ) ;
+		
+		transcriptDecider.SetMultiThreadOutputHandler( &outputHandler ) ;
 		transcriptDecider.SetNumThreads( numThreads ) ;
 		int giCnt = subexonGraph.geneIntervals.size() ;
 		for ( i = 0 ; i < giCnt ; ++i )
@@ -252,7 +254,6 @@ int main( int argc, char *argv[] )
 		pthread_cond_t fullWorkCond ;
 		pthread_attr_t pthreadAttr ;
 		pthread_t *threads ;
-		MultiThreadOutputTranscript outputHandler( sampleCnt, alignmentFiles[0] ) ;
 		bool *initThreads ;
 
 		pthread_mutex_init( &ftLock, NULL ) ;
@@ -290,7 +291,6 @@ int main( int argc, char *argv[] )
 
 			initThreads[i] = false ;
 		}
-		outputHandler.SetOutputFPs( outputPrefix ) ;
 
 
 		// Read in and distribute the work
@@ -353,7 +353,6 @@ int main( int argc, char *argv[] )
 			if ( initThreads[i] )
 				pthread_join( threads[i], NULL ) ;
 		}
-		outputHandler.Flush() ;
 
 		// Release memory
 		for ( i = 0 ; i < numThreads ; ++i )
@@ -365,6 +364,10 @@ int main( int argc, char *argv[] )
 		pthread_mutex_destroy( &ftLock ) ;
 		pthread_cond_destroy( &fullWorkCond ) ;
 	} // end of else for multi-thread.
+
+	outputHandler.OutputCommandInfo( argc, argv ) ; 
+	outputHandler.ComputeFPKMTPM( alignmentFiles ) ;
+	outputHandler.Flush() ;
 	
 	return 0 ;
 }
