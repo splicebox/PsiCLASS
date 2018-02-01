@@ -373,6 +373,8 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 	double inverseHessian[2][2] ;
 	int tmp ;
 
+	double positiveKRecord = -5, positiveThetaRecord = -5 ; // record the value of k, theta when theta, k becomes non-positive.
+
 	for ( i = 0 ; i < n ; ++i )	
 	{
 		sumZ += z[i] ;
@@ -418,22 +420,39 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 			double step = 0.5 ;
 			k = k - step * ( inverseHessian[0][0] * gradK + inverseHessian[0][1] * gradTheta ) ;
 			theta = theta - step * ( inverseHessian[1][0] * gradK + inverseHessian[1][1] * gradTheta ) ;
-
+			
+			bool flag = false ;
 			if ( k <= 1e-6 )
 			{
 				step = ( prevK - 1e-6 ) / ( inverseHessian[0][0] * gradK + inverseHessian[0][1] * gradTheta ) ;
+
+				if ( ABS( theta - positiveThetaRecord ) < 1e-5 )
+					flag = true ;
+				positiveThetaRecord = theta ;
 			}
 			if ( theta <= 1e-6 )
 			{
 				double tmp = ( prevTheta - 1e-6 ) / ( inverseHessian[1][0] * gradK + inverseHessian[1][1] * gradTheta ) ;
 				if ( tmp < step )
 					step = tmp ;
+
+				if ( ABS( k - positiveKRecord ) < 1e-5 )
+					flag = true ;
+				positiveKRecord = k ;
 			}
+
 			if ( step != 0.5 )
 			{
 				k = prevK - step * ( inverseHessian[0][0] * gradK + inverseHessian[0][1] * gradTheta ) ;
 				theta = prevTheta - step * ( inverseHessian[1][0] * gradK + inverseHessian[1][1] * gradTheta ) ;
 			}
+
+			/*if ( flag ) 
+			{
+				k = prevK ;
+				theta = prevTheta ;
+				break ;
+			}*/
 		}
 
 		if ( upperBoundK > 0 && k > upperBoundK )
@@ -451,9 +470,14 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 		}
 
 		if ( k <= 1e-6 )
+		{
 			k = 1e-6 ;
+		}
+
 		if ( theta <= 1e-6 )
+		{
 			theta = 1e-6 ;
+		}
 
 		double diff = ABS( prevK - k ) + ABS( prevTheta - theta ) ;
 		if ( diff < 1e-5 ) 
@@ -461,8 +485,12 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 		
 		++iterCnt ;
 		//if ( det <= 1e-4 && det >=-1e-4 && k >= 5000 ) //&& diff < 1 )
-		if ( k >= 5000 ) //&& diff < 1 )
+		if ( k >= 10000 ) //&& diff < 1 )
+		{
+			k = prevK ;
+			theta = prevTheta ;
 			break ;
+		}
 		if ( iterCnt == 1000 )
 			break ;
 	}
