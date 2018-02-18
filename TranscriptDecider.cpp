@@ -784,7 +784,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	int tcCnt = tc.size() ;
 	int coalesceThreshold = 1024 ;
 
-	printf( "tcCnt=%d\n", tcCnt ) ;
+	//printf( "tcCnt=%d\n", tcCnt ) ;
 
 	attr.timeStamp = 1 ;
 	attr.bufferTxpt.seVector.Init( seCnt ) ;
@@ -2301,6 +2301,9 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			if ( i < sampleCnt - 1 )
 				iterBound = 100 ;
 
+			if ( i >= 10 && alltranscripts.size() > 1000 )
+				iterBound = 10 ;
+
 			PickTranscriptsByDP( subexons, seCnt, iterBound, constraints[ sampleComplexity[i].a ], subexonCorrelation, attr, sampleTranscripts ) ;		
 			int size = sampleTranscripts.size() ;
 			for ( j = 0 ; j < size ; ++j )
@@ -2331,7 +2334,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	transcriptId = new int[usedGeneId - baseGeneId] ;
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
-		printf( "Pick transcripts for sample %d\n", i ) ;
+		//printf( "Pick transcripts for sample %d\n", i ) ;
 		std::vector<struct _transcript> predTranscripts ;
 		int size = alltranscripts.size() ;
 		for ( j = 0 ; j < size ; ++j )

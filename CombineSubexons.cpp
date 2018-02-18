@@ -534,6 +534,8 @@ int main( int argc, char *argv[] )
 
 			if ( se.leftType == 0 && se.rightType == 0 && ( se.leftClassifier == -1 || se.leftClassifier == 1 ) ) // ignore noisy single-exon island
 				continue ;
+			if ( se.leftType == 0 && se.rightType == 0 && ( fileCnt > 100 && se.leftClassifier > 0.99 ) )  
+				continue ;
 
 			if ( se.leftType == 1 && se.rightType == 2 ) // a full exon, we allow mixtured strand here.
 			{
@@ -619,7 +621,7 @@ int main( int argc, char *argv[] )
 	//std::sort( subexonSplits.begin(), subexonSplits.end(), CompSubexonSplit ) ;
 	
 	// Convert the hard boundary to soft boundary if the split sites is filtered from the introns
-	// Seems no need to do this now.
+	// Seems NO need to do this now.
 	int splitCnt = subexonSplits.size() ;
 	int intronSplitCnt = intronSplits.size() ;
 	k = 0 ;
@@ -855,6 +857,12 @@ int main( int argc, char *argv[] )
 			
 			if ( merge == false )
 			{
+				if ( j - i >= 3 )
+				{
+					rawSubexons[i].end = rawSubexons[ (i + j - 1) / 2 ].start ;
+					rawSubexons[j - 1].start = rawSubexons[ (i + j - 1) / 2].end ;
+				}
+
 				if ( rawSubexons[i].end + 1 == rawSubexons[j - 1].start )
 				{
 					--rawSubexons[i].end ;
@@ -879,6 +887,7 @@ int main( int argc, char *argv[] )
 			{
 				rawSubexons[i].end = rawSubexons[ ( i + j - 1 ) / 2 ].end ;
 			}
+
 			subexons.push_back( rawSubexons[i] ) ;		
 		}
 

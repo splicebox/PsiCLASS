@@ -178,9 +178,13 @@ int main( int argc, char *argv[] )
 	}
 	CoalesceSites( sites ) ;
 	
-	// Output the retained introns.
+	// Output the valid introns.
 	k = 0 ;
 	int siteCnt = sites.size() ;
+	double unit = sampleCnt / 100 ;
+	if ( unit < 1 )
+		unit = 1 ;
+
 	for ( i = 0 ; i < intronCnt ; ++i )
 	{
 		if ( introns[i].support / sampleCnt < 0.5 )
@@ -206,14 +210,14 @@ int main( int argc, char *argv[] )
 		//	printf( "test: %lf %lf\n", introns[i].support, siteSupport) ;
 		if ( introns[i].support < siteSupport / 10.0 )
 		{
-			double needSample = MIN( -log( introns[i].support  / siteSupport ) / log( 10.0 ) + 1, sampleCnt ) ;
+			double needSample = MIN( ( -log( introns[i].support  / siteSupport ) / log( 10.0 ) + 1 ) * unit, sampleCnt ) ;
 			if ( introns[i].sampleSupport < needSample )
 				continue ;
 		}
 
 		if ( introns[i].end - introns[i].start + 1 >= 100000 )
 		{
-			int needSample = MIN( ( introns[i].end - introns[i].start + 1 ) / 100000 + 1, sampleCnt ) ;
+			int needSample = MIN( ( ( introns[i].end - introns[i].start + 1 ) / 100000 + 1 ) * unit, sampleCnt ) ;
 			int flag = 0 ;
 			if ( (double)introns[i].uniqSupport / ( introns[i].uniqSupport + introns[i].secSupport ) < 0.1 
 				|| introns[i].uniqSupport / sampleCnt < 1 

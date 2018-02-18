@@ -148,8 +148,13 @@ int main( int argc, char *argv[] )
 			--len ;
 		}
 		fp = fopen( buffer, "r" ) ;
+
+
 		while ( fgets( line, sizeof( line ), fp ) != NULL )
 		{
+			if ( line[0] == '#' )
+				continue ;
+
 			sscanf( line, "%s %s %s %d %d %s %s", chrom, tool, type, &start, &end, buffer, strand ) ;
 
 			if ( strcmp( type, "exon" ) )
