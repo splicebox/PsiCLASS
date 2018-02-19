@@ -428,6 +428,28 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		subTxpt.last = visitdp.last ;
 		subTxpt.partial = false ;
 
+		if ( !attr.forAbundance && attr.minAbundance > 0 )
+		{
+			for ( i = 0 ; i < pcnt - 1 ; ++i )
+			{
+				if ( attr.uncoveredPair.find( parents[i] * attr.seCnt + parents[i + 1] ) != attr.uncoveredPair.end() )
+					belowMin = true ;
+			}
+			for ( i = -1 ; i < vcnt - 1 ; ++i )
+			{
+				if ( i == -1 && pcnt >= 1 )
+				{
+					if ( attr.uncoveredPair.find( parents[pcnt - 1]  * attr.seCnt + visit[0] ) != attr.uncoveredPair.end() )
+						belowMin = true ;
+				}
+				else
+				{
+					if ( attr.uncoveredPair.find( visit[i] * attr.seCnt + visit[i + 1] ) != attr.uncoveredPair.end() )
+						belowMin = true ;	
+				}
+			}
+		}
+
 		for ( i = tcStartInd ; i < size ; ++i )		
 		{
 			if ( tc[i].first > parents[ pcnt - 1] )
@@ -504,6 +526,28 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		subTxpt.first = parents[0] ;
 		subTxpt.last = visit[ vcnt - 1] ;
 		subTxpt.partial = false ;
+
+		if ( !attr.forAbundance && attr.minAbundance > 0 )
+		{
+			for ( i = 0 ; i < pcnt - 1 ; ++i )
+			{
+				if ( attr.uncoveredPair.find( parents[i] * attr.seCnt + parents[i + 1] ) != attr.uncoveredPair.end() )
+					belowMin = true ;
+			}
+			for ( i = -1 ; i < vcnt - 1 ; ++i )
+			{
+				if ( i == -1 && pcnt >= 1 )
+				{
+					if ( attr.uncoveredPair.find( parents[pcnt - 1]  * attr.seCnt + visit[0] ) != attr.uncoveredPair.end() )
+						belowMin = true ;
+				}
+				else
+				{
+					if ( attr.uncoveredPair.find( visit[i] * attr.seCnt + visit[i + 1] ) != attr.uncoveredPair.end() )
+						belowMin = true ;	
+				}
+			}
+		}
 
 		cover = 0 ;
 		for ( i = tcStartInd ; i < size ; ++i )		
@@ -805,6 +849,67 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	for ( i = 0 ; i < HASH_MAX ; ++i )
 		ResetDpContent( attr.hash[i] ) ;
 
+	// Set the uncovered pair
+	attr.uncoveredPair.clear() ;
+	BitTable bufferTable( seCnt ) ;
+	k = 0 ;
+	for ( i = 0 ; i < seCnt ; ++i )
+	{
+		for ( ; k < tcCnt ; ++k )
+		{
+			if ( tc[k].first >= i )
+				break ;
+		}
+
+		if ( k >= tcCnt || tc[k].first > i )
+		{
+			for ( j = 0 ; j < subexons[i].nextCnt ; ++j )
+			{
+				attr.uncoveredPair[i * seCnt + subexons[i].next[j] ]	= 1 ;
+			}
+			continue ;
+		}
+		
+		for ( j = 0 ; j < subexons[i].nextCnt ; ++j )			
+		{
+			bool covered = false ;
+			int l, n ;
+
+			n = subexons[i].next[j] ;
+			for ( l = k ; l < tcCnt ; ++l )
+			{
+				if ( tc[l].first > i )
+					break ;
+				if ( tc[l].vector.Test( i ) && tc[l].vector.Test( n ) )	
+				{
+					if ( n == i + 1 )
+					{
+						covered = true ;
+						break ;
+					}
+					else
+					{
+						bufferTable.Assign( tc[l].vector ) ;
+						bufferTable.MaskRegionOutside( i + 1, n - 1 ) ;
+						if ( bufferTable.IsAllZero() )
+						{
+							covered = true ;
+							break ;
+						}
+					}
+				}
+			}
+
+			if ( !covered )
+			{
+				//printf( "set!: (%d: %d %d) (%d: %d %d)\n", i, subexons[i].start, subexons[i].end, n, subexons[n].start, subexons[n].end ) ;
+				attr.uncoveredPair[ i * seCnt + n ] = 1 ;
+			}
+		}
+	}
+	bufferTable.Release() ;
+		
+
 	// Find the max abundance 
 	attr.forAbundance = true ;
 	attr.minAbundance = 0 ;
@@ -894,6 +999,19 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 					if ( tc[i].normAbund < min || min == -1 )
 						min = tc[i].normAbund ;
 				}
+			}
+
+			if ( attr.minAbundance == 0 )
+			{
+				std::vector<int> subexonIdx ;
+				maxCoverDp.seVector.GetOnesIndices( subexonIdx ) ;
+				int size = subexonIdx.size() ;
+				for ( i = 0 ; i < size - 1 ; ++i )
+					if ( attr.uncoveredPair.find( subexonIdx[i] * seCnt + subexonIdx[i + 1] ) != attr.uncoveredPair.end() )
+					{
+						min = 1e-6 ;
+						break ;
+					}
 			}
 			
 			double score = ComputeScore( maxCoverDp.cover, 1.0, min, maxAbundance, 0 ) ;
@@ -1083,6 +1201,9 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			inf = constraints.constraints[a].support ;
 		if ( constraints.constraints[b].support > inf )
 			inf = constraints.constraints[b].support ;
+
+		if ( tc[j].normAbund > inf )
+			inf = tc[j].normAbund ;
 
 		tc[j].abundance = tc[j].normAbund ;
 	}

@@ -66,6 +66,8 @@ struct _dpAttribute
 	struct _subexon *subexons ;
 	int seCnt ;
 
+	std::map<uint64_t, int> uncoveredPair ;
+	
 	double minAbundance ;
 	int timeStamp ;
 } ;
