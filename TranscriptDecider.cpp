@@ -448,6 +448,8 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 						belowMin = true ;	
 				}
 			}
+			if ( attr.forAbundance && belowMin )
+				cover = 1e-6 ;	
 		}
 
 		for ( i = tcStartInd ; i < size ; ++i )		
@@ -527,7 +529,8 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		subTxpt.last = visit[ vcnt - 1] ;
 		subTxpt.partial = false ;
 
-		if ( !attr.forAbundance && attr.minAbundance > 0 )
+		cover = 0 ;
+		if ( attr.forAbundance || attr.minAbundance > 0 )
 		{
 			for ( i = 0 ; i < pcnt - 1 ; ++i )
 			{
@@ -547,9 +550,14 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 						belowMin = true ;	
 				}
 			}
+
+			//if ( belowMin == true )
+			//	printf( "turned belowMin. %d. %d %d: %d %d %d\n", attr.uncoveredPair.size(), pcnt, vcnt, parents[0], visit[0], visit[ vcnt - 1] ) ;
+
+			if ( attr.forAbundance && belowMin )
+				cover = 1e-6 ;	
 		}
 
-		cover = 0 ;
 		for ( i = tcStartInd ; i < size ; ++i )		
 		{ 
 			// note that the value is parents[ pcnt - 1], because  
@@ -854,10 +862,10 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	BitTable bufferTable( seCnt ) ;
 	k = 0 ;
 	for ( i = 0 ; i < seCnt ; ++i )
-	{
+	{	
 		for ( ; k < tcCnt ; ++k )
 		{
-			if ( tc[k].first >= i )
+			if ( tc[k].last >= i )
 				break ;
 		}
 
