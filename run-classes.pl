@@ -240,6 +240,6 @@ if ( $stage <= 3 )
 			$bamPath .= " -b $b " ;
 		}
 	}
-	$cmd = "$WD/classes $bamPath -s ${prefix}subexon_combined.out -o ${trimPrefix} > classes.log" ;
+	$cmd = "$WD/classes $classesOpt $bamPath -s ${prefix}subexon_combined.out -o ${trimPrefix} > classes.log" ;
 	system_call( "$cmd" ) ;
 }
