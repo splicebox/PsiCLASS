@@ -1384,12 +1384,14 @@ class Blocks
 				if ( exonBlocks[i].leftType == 1 && exonBlocks[i].prevCnt == 0 )	
 				{
 					exonBlocks[i].leftType = 0 ;
+					exonBlocks[i].leftStrand = '.' ;
 					if ( i > 0 && exonBlocks[i - 1].rightType == 1 )	
 						exonBlocks[i - 1].rightType = 0 ;
 				}
 				if ( exonBlocks[i].rightType == 2 && exonBlocks[i].nextCnt == 0 )
 				{
 					exonBlocks[i].rightType = 0 ;
+					exonBlocks[i].rightStrand = '.' ;
 					if ( i < exonBlockCnt - 1 && exonBlocks[i + 1].leftType == 2 )
 						exonBlocks[i + 1].leftType = 0 ;
 				}

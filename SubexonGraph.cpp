@@ -51,6 +51,7 @@ int SubexonGraph::ComputeGeneIntervals()
 	while ( 1 )		
 	{
 		struct _geneInterval ngi ;
+		//printf( "%d %d %d\n", tag, subexons[tag].start + 1, subexons[tag].end + 1 ) ;
 		if ( GetGeneIntervalIdx( tag, ngi.endIdx, cnt ) == -1 )
 			break ;
 		++cnt ;
@@ -75,8 +76,10 @@ int SubexonGraph::ComputeGeneIntervals()
 			ngi.start = subexons[i].start ;
 		}
 
-		// Adjust the end. And here, we also need to decide wether we need to adjust "tag" or not, 
+		// Adjust the end. 
+		// And here, we also need to decide wether we need to adjust "tag" or not, 
 		// because the next interval might be overlap with current interval by the last subexon.
+		// We solve the overlap genes now, so we DON'T need to adjust tag.
 		if ( subexons[ ngi.endIdx ].rightStrand != 0 
 			&& subexons[ngi.endIdx].leftStrand != subexons[ngi.endIdx ].rightStrand )
 		{
@@ -89,7 +92,7 @@ int SubexonGraph::ComputeGeneIntervals()
 			}
 			ngi.end = subexons[i].end ;
 			
-			if ( subexons[ ngi.endIdx ].rightType == 2 )
+			/*if ( subexons[ ngi.endIdx ].rightType == 2 )
 			{
 				for ( i = ngi.endIdx ; i >= ngi.startIdx ; --i )
 				{	
@@ -99,7 +102,7 @@ int SubexonGraph::ComputeGeneIntervals()
 				// The last region overlapps.
 				if ( i >= ngi.startIdx && subexons[i].leftStrand != subexons[ ngi.endIdx ].rightStrand )
 					--tag ;
-			}
+			}*/
 		}
 		geneIntervals.push_back( ngi ) ;
 	}
@@ -202,6 +205,7 @@ void SubexonGraph::UpdateGeneId( struct _subexon *subexons, int seCnt )
 	{
 		for ( i = 0 ; i < seCnt ; ++i )
 		{
+			//printf( "%d (%d %d).\n", i, subexons[i].start, subexons[i].end ) ;
 			if ( ( subexons[i].geneId == -1 && subexons[i].rightStrand == strand ) 
 					|| ( strand == 1 && baseGeneId <= subexons[i].geneId && subexons[i].geneId <= lastMinusStrandGeneId && subexons[i].rightStrand == strand ) )
 			{

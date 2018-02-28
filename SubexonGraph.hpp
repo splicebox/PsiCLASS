@@ -87,8 +87,8 @@ public:
 					if ( se.end - se.start + 1 <= 7 )
 						continue ;
 				}
+
 				if ( se.leftClassifier >= classifierThreshold || se.leftClassifier < 0 )
-				//if ( se.leftClassifier < classifierThreshold )
 					continue ;
 			}
 			
@@ -318,6 +318,7 @@ public:
 				p = strchr( p, ' ' ) ;
 				++p ;
 			}
+			
 		}
 		return 1 ;
 	}

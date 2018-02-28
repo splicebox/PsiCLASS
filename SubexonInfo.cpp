@@ -114,7 +114,7 @@ void FilterAndSortSplitSites( std::vector<struct _splitSite> &sites )
 		for ( k = i ; k < j ; ++k )
 		{
 			if ( ( sites[k].support < 0.01 * maxSupport && sites[k].support <= 3 ) 
-				|| sites[k].support < 0.001 * maxSupport || sites[k].strand != strand
+				|| sites[k].support < 0.001 * maxSupport || sites[k].strand != strand // The introns from the different strand are filtered.
 				|| ( sites[k].support < 0.02 * maxSupport && sites[k].mismatchSum >= 2 * sites[k].support )
 				|| ( allOneExceptMax && sites[k].support == 1 ) 
 				|| ( sites[k].support <= 2 && sites[k].mismatchSum >= 2 * sites[k].support )
@@ -854,6 +854,9 @@ int main( int argc, char *argv[] )
 	FilterRepeatSplitSites( splitSites ) ;
 	regions.FilterSplitSitesInRegions( splitSites ) ;
 	regions.FilterGeneMergeSplitSites( splitSites ) ;
+
+	//for ( i = 0 ; i < splitSites.size() ; ++i )
+	//	printf( "%d %d\n", splitSites[i].pos + 1, splitSites[i].oppositePos + 1 ) ;
 
 	allSplitSites = splitSites ;
 	KeepUniqSplitSites( splitSites ) ;

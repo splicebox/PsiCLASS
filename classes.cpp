@@ -16,7 +16,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t\tor\n"
 	"\t--lb STRING: path to the file of the list of BAM files.\n"
 	"Optional:\n"
-	"\t-t INT: number of threads. (default: 0)\n"
+	"\t-t INT: number of threads. (default: 1)\n"
 	"\t-o STRING: the prefix of the output file. (default: not used)\n"
 	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" 
 	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)\n"
@@ -39,6 +39,17 @@ struct _getAlignmentsInfoThreadArg
 	int tid ;
 } ;
 
+struct _getConstraintsThreadArg
+{
+	std::vector<Constraints> *pMultiSampleConstraints ;	
+	int numThreads ;
+	int tid ;
+
+	struct _subexon *subexons ;
+	int seCnt ;
+	int start, end ;
+} ;
+
 void *GetAlignmentsInfo_Thread( void *pArg )
 {
 	int i ;
@@ -58,6 +69,22 @@ void *GetAlignmentsInfo_Thread( void *pArg )
 	pthread_exit( NULL ) ;
 }
 
+
+void *GetConstraints_Thread( void *pArg )
+{
+	int i ;
+	struct _getConstraintsThreadArg &arg = *( (struct _getConstraintsThreadArg *)pArg ) ;
+	std::vector<Constraints> &multiSampleConstraints = *( arg.pMultiSampleConstraints ) ;
+	int tid = arg.tid ;
+	int numThreads = arg.numThreads ;
+	int size = multiSampleConstraints.size() ;
+	for ( i = 0 ; i < size ; ++i )
+	{
+		if ( i % numThreads == tid )
+			multiSampleConstraints[i].BuildConstraints( arg.subexons, arg.seCnt, arg.start, arg.end ) ;
+	}
+	pthread_exit( NULL ) ;
+}
 
 int main( int argc, char *argv[] )
 {
@@ -160,7 +187,7 @@ int main( int argc, char *argv[] )
 	}
 
 
-	if ( 1 )
+	if ( alignmentFiles.size() < 50 )
 	{
 		size = alignmentFiles.size() ;
 		for ( i = 0 ; i < size ; ++i )
@@ -224,7 +251,8 @@ int main( int argc, char *argv[] )
 		for ( i = 0 ; i < giCnt ; ++i )
 		{
 			struct _geneInterval gi = subexonGraph.geneIntervals[i] ;
-			printf( "%d: %d %d %d\n", i, gi.endIdx - gi.startIdx + 1, gi.start, gi.end ) ;	
+			printf( "%d: %d %d %d\n", i, gi.endIdx - gi.startIdx + 1, gi.start + 1, gi.end + 1 ) ;	
+			fflush( stdout ) ;
 			struct _subexon *intervalSubexons = new struct _subexon[ gi.endIdx - gi.startIdx + 1 ] ;
 			subexonGraph.ExtractSubexons( gi.startIdx, gi.endIdx, intervalSubexons ) ;
 
@@ -254,6 +282,7 @@ int main( int argc, char *argv[] )
 		pthread_cond_t fullWorkCond ;
 		pthread_attr_t pthreadAttr ;
 		pthread_t *threads ;
+		pthread_t *getConstraintsThreads ;
 		bool *initThreads ;
 
 		pthread_mutex_init( &ftLock, NULL ) ;
@@ -262,6 +291,7 @@ int main( int argc, char *argv[] )
 		pthread_attr_setdetachstate( &pthreadAttr, PTHREAD_CREATE_JOINABLE ) ;
 
 		threads = new pthread_t[ numThreads ] ;
+		getConstraintsThreads = new pthread_t[ numThreads ] ;
 		initThreads = new bool[numThreads] ;
 		freeThreads = new int[ numThreads ] ;
 		ftCnt = numThreads ;
@@ -298,12 +328,40 @@ int main( int argc, char *argv[] )
 		for ( i = 0 ; i < giCnt ; ++i )
 		{
 			struct _geneInterval gi = subexonGraph.geneIntervals[i] ;
-			printf( "%d: %d %d %d\n", i, gi.endIdx - gi.startIdx + 1, gi.start, gi.end ) ;	
+			printf( "%d: %d %d %d. Free threads: %d/%d\n", i, gi.endIdx - gi.startIdx + 1, gi.start + 1, gi.end + 1, ftCnt, numThreads + 1 ) ;	
+			fflush( stdout ) ;
 			struct _subexon *intervalSubexons = new struct _subexon[ gi.endIdx - gi.startIdx + 1 ] ;
 			subexonGraph.ExtractSubexons( gi.startIdx, gi.endIdx, intervalSubexons ) ;
 			subexonCorrelation.ComputeCorrelation( intervalSubexons, gi.endIdx - gi.startIdx + 1, alignmentFiles[0] ) ;
-			for ( j = 0 ; j < sampleCnt ; ++j )
-				multiSampleConstraints[j].BuildConstraints( intervalSubexons, gi.endIdx - gi.startIdx + 1, gi.start, gi.end ) ;	
+			
+			int gctCnt = ftCnt ;
+			if ( gctCnt > 1 && sampleCnt > 1 )
+			{
+				gctCnt = ( gctCnt < sampleCnt ? gctCnt : sampleCnt ) ;	
+				struct _getConstraintsThreadArg *args = new struct _getConstraintsThreadArg[ gctCnt ] ;
+				for ( j = 0 ; j < gctCnt ; ++j )
+				{
+					args[j].pMultiSampleConstraints = &multiSampleConstraints ;
+					args[j].numThreads = gctCnt ;
+					args[j].tid = j ;
+					args[j].subexons = intervalSubexons ;
+					args[j].seCnt = gi.endIdx - gi.startIdx + 1 ;
+					args[j].start = gi.start ; args[j].end = gi.end ;
+					pthread_create( &getConstraintsThreads[j], &pthreadAttr, GetConstraints_Thread, &args[j] ) ;
+				}
+
+
+				
+				for ( j = 0 ; j < gctCnt ; ++j )
+					pthread_join( getConstraintsThreads[j], NULL ) ;		
+
+				delete[] args ;
+			}
+			else
+			{
+				for ( j = 0 ; j < sampleCnt ; ++j )
+					multiSampleConstraints[j].BuildConstraints( intervalSubexons, gi.endIdx - gi.startIdx + 1, gi.start, gi.end ) ;	
+			}
 			
 			// Search for the free queue.
 			int tag = -1 ; // get the working thread.

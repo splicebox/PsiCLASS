@@ -324,6 +324,41 @@ void CoalesceSubexonSplits( std::vector<struct _subexonSplit> &splits )
 	splits.resize( k + 1 ) ;
 }
 
+void CoalesceDifferenentStrandSubexonSplits( std::vector<struct _subexonSplit> &splits )
+{
+	int i, j, k, l ;
+	int cnt = splits.size() ;
+	k = 0 ;
+	for ( i = 0 ; i < cnt ;  )
+	{
+		for ( j = i + 1 ; j < cnt ; ++j )
+		{
+			if ( splits[i].chrId == splits[j].chrId && splits[i].pos == splits[j].pos && splits[i].type == splits[j].type && splits[i].splitType == splits[j].splitType )
+				continue ;
+			break ;
+		}
+
+		int maxWeight = -1 ;
+		int weightSum = 0 ;
+		int strand = splits[i].strand ;
+		for ( l = i ; l < j ; ++l )
+		{
+			weightSum += splits[l].weight ;
+			if ( splits[l].strand != 0 && splits[l].weight > maxWeight )
+			{
+				strand = splits[l].strand ;
+				maxWeight = splits[l].weight ;
+			}
+		}
+		splits[k] = splits[i] ;
+		splits[k].weight = weightSum ;
+		++k ;
+
+		i = j ;
+	}
+	splits.resize( k ) ;
+}
+
 
 void CoalesceIntervals( std::vector<struct _interval> &intervals )
 {
@@ -416,7 +451,8 @@ void CleanUpSubexonConnections( std::vector<struct _subexon> &subexons )
 				for ( ; k <= i ; ++k )
 					if ( subexons[k].end >= subexons[i].prev[j] )
 						break ;
-				if ( subexons[k].end == subexons[i].prev[j] )
+				if ( subexons[k].end == subexons[i].prev[j] 
+					&& ( SubexonGraph::IsSameStrand( subexons[k].rightStrand, subexons[i].leftStrand ) || subexons[k].end + 1 == subexons[i].start ) )
 				{
 					subexons[i].prev[m] = subexons[i].prev[j] ;
 					++m ;
@@ -432,7 +468,8 @@ void CleanUpSubexonConnections( std::vector<struct _subexon> &subexons )
 			for ( ; k < seCnt ; ++k )
 				if ( subexons[k].chrId != subexons[i].chrId || subexons[k].start >= subexons[i].next[j] )			
 					break ;
-				if ( subexons[k].start == subexons[i].next[j] )
+				if ( subexons[k].start == subexons[i].next[j] 
+					&& ( SubexonGraph::IsSameStrand( subexons[i].rightStrand, subexons[k].leftStrand ) || subexons[i].end + 1 == subexons[k].start ) )
 				{
 					subexons[i].next[m] = subexons[i].next[j] ;
 					++m ;
@@ -534,7 +571,7 @@ int main( int argc, char *argv[] )
 
 			if ( se.leftType == 0 && se.rightType == 0 && ( se.leftClassifier == -1 || se.leftClassifier == 1 ) ) // ignore noisy single-exon island
 				continue ;
-			if ( se.leftType == 0 && se.rightType == 0 && ( fileCnt > 100 && se.leftClassifier > 0.99 ) )  
+			if ( se.leftType == 0 && se.rightType == 0 && ( fileCnt >= 10 && se.leftClassifier > 0.99 ) )  
 				continue ;
 
 			if ( se.leftType == 1 && se.rightType == 2 ) // a full exon, we allow mixtured strand here.
@@ -589,6 +626,8 @@ int main( int argc, char *argv[] )
 		
 		fclose( fp ) ;
 	}
+
+	CoalesceDifferenentStrandSubexonSplits( subexonSplits ) ;
 	
 	// Obtain the split sites from the introns.
 	int intronCnt = introns.size() ;

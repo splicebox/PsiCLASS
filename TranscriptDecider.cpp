@@ -208,7 +208,8 @@ int TranscriptDecider::IsConstraintInTranscript( struct _transcript transcript, 
 	if ( c.last > transcript.last )
 	{
 		//compatibleTestVectorC.MaskRegionOutsideInRange( s, e, c.first, c.last ) ;
-		compatibleTestVectorC.MaskRegionOutside( s, e ) ;
+		//compatibleTestVectorC.MaskRegionOutside( s, e ) ;
+		compatibleTestVectorC.MaskRegionOutside( 0, e ) ; // Because the bits before s are already all 0s in C. 
 	}
 	/*printf( "after masking %d %d. %d %d %d %d:\n", s, e, transcript.first, transcript.last, c.first, c.last ) ;
 	compatibleTestVectorT.Print() ;
@@ -612,7 +613,8 @@ std::vector<struct _constraint> &tc, int tcStartInd, struct _dpAttribute &attr )
 		for ( i = 0 ; i < subexons[tag].nextCnt ; ++i )
 		{
 			int b = subexons[tag].next[i] ;
-			if ( SubexonGraph::IsSameStrand( subexons[tag].rightStrand, strand ) ||
+			if ( ( SubexonGraph::IsSameStrand( subexons[tag].rightStrand, strand ) 
+				&& SubexonGraph::IsSameStrand( subexons[b].leftStrand, strand ) ) ||
 					subexons[b].start == subexons[tag].end + 1 )		
 			{
 				int backupStrand = strand ;
@@ -784,7 +786,9 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 	{
 		int a = visit[vcnt - 1] ;
 		int b = subexons[a].next[i] ;
-		if ( SubexonGraph::IsSameStrand( subexons[a].rightStrand, strand ) ||
+		if ( ( SubexonGraph::IsSameStrand( subexons[a].rightStrand, strand ) 
+			&& SubexonGraph::IsSameStrand( subexons[b].leftStrand, strand ) )
+			||
 			subexons[b].start == subexons[a].end + 1 )		
 		{
 			int backupStrand = strand ;
@@ -1033,7 +1037,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				if ( ComputeScore( maxCoverDp.cover, 1.0, maxAbundance, maxAbundance, 0 ) < bestScore )
 					break ;
 			}*/
-			//printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf\n", min, maxCoverDp.cover, score ) ;
+			printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf\n", min, maxCoverDp.cover, score ) ;
 			attr.minAbundance = min ;
 		} // end of iteration for minAbundance.
 
@@ -1071,8 +1075,8 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			}*/
 		}
 		update *= ( 1 + iterCnt / 50 ) ;//* ( 1 + iterCnt / 50 )  ; 
-		//printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
-		//		bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
+		printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
+				bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
 		//bestDp.seVector.Print() ;
 
 		struct _transcript nt ;
@@ -2366,6 +2370,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 
 	int atCnt = cnt ;
 	printf( "atCnt=%d %d %d %d\n", atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
+	fflush( stdout ) ;
 	std::vector<struct _transcript> alltranscripts ;
 	
 	if ( !useDP )
