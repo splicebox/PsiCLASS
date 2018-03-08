@@ -1,6 +1,6 @@
 CXX = g++
-#CXXFLAGS= -Wall -O3 #-g #-std=c++11 #-Wall #-g
-CXXFLAGS= -Wall -g #-std=c++11 #-Wall #-g
+CXXFLAGS= -Wall -O3 #-g #-std=c++11 #-Wall #-g
+#CXXFLAGS= -Wall -g #-std=c++11 #-Wall #-g
 LINKPATH= -I./samtools-0.1.19 -L./samtools-0.1.19
 LINKFLAGS = -lbam -lz -lm -lpthread 
 DEBUG=
@@ -9,6 +9,10 @@ OBJECTS = stats.o subexon-graph.o
 all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice
 
 subexon-info: subexon-info.o $(OBJECTS)
+	if [ ! -f ./samtools-0.1.19/libbam.a ] ; \
+	        then \
+		                cd samtools-0.1.19 ; make ;\
+	fi ;
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) $(OBJECTS) subexon-info.o $(LINKFLAGS)
 
 combine-subexons: combine-subexons.o $(OBJECTS)
