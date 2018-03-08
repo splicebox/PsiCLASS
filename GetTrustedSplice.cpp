@@ -103,7 +103,7 @@ void CoalesceSites( std::vector<struct _site> &sites )
 
 int main( int argc, char *argv[] )
 {
-	int i, k ;
+	int i, j, k ;
 	FILE *fpList ;	
 	FILE *fp ;
 	char spliceFile[2048] ;
@@ -177,11 +177,29 @@ int main( int argc, char *argv[] )
 		sites.push_back( ns ) ;
 	}
 	CoalesceSites( sites ) ;
+
+	// Get the chromsomes with too many split sites.
+	int siteCnt = sites.size() ;
+	std::vector<bool> badChrom ;
+
+	badChrom.resize( alignments.GetChromCount() ) ;
+	int size = alignments.GetChromCount() ;
+	for ( i = 0 ; i < size ; ++i )
+		badChrom[i] = false ;
+
+	for ( i = 0 ; i < siteCnt ; ) 	
+	{
+		for ( j = i + 1 ; sites[j].chrId == sites[i].chrId ; ++j )	
+			;
+		//printf( "%s %d %d:\n", alignments.GetChromName( sites[i].chrId ), alignments.GetChromLength( sites[i].chrId ), j - i ) ;
+		if ( ( j - i ) * 20 > alignments.GetChromLength( sites[i].chrId ) )
+			badChrom[ sites[i].chrId ] = true ;
+		i = j ;
+	}
 	
 	// Output the valid introns.
 	k = 0 ;
-	int siteCnt = sites.size() ;
-	double unit = sampleCnt / 100 ;
+	double unit = sampleCnt / 50 ;
 	if ( unit < 1 )
 		unit = 1 ;
 
@@ -189,6 +207,12 @@ int main( int argc, char *argv[] )
 	{
 		if ( introns[i].support / sampleCnt < 0.5 )
 			continue ;
+
+		if ( badChrom[ introns[i].chrId ] )
+		{
+			if ( introns[i].sampleSupport <= sampleCnt / 2 )	
+				continue ;
+		}
 		
 		if ( introns[i].uniqSupport <= 2 && ( introns[i].support / sampleCnt < 1 || introns[i].sampleSupport < MIN( 2, sampleCnt ) ) )
 			continue ;

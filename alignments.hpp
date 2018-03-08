@@ -294,6 +294,11 @@ public:
 		return fpSam->header->target_len[ tid ] ;
 	}
 
+	int GetChromCount()
+	{
+		return fpSam->header->n_targets ;
+	}
+
 	void GetMatePosition( int &chrId, int64_t &pos )
 	{
 		if ( b->core.flag & 0x8 )

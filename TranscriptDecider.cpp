@@ -1032,12 +1032,12 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				bestScore = score ;
 				SetDpContent( bestDp, maxCoverDp, attr ) ;
 			}
-			/*else if ( score < bestScore )
+			else if ( score < bestScore )
 			{
 				if ( ComputeScore( maxCoverDp.cover, 1.0, maxAbundance, maxAbundance, 0 ) < bestScore )
 					break ;
-			}*/
-			printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf\n", min, maxCoverDp.cover, score ) ;
+			}
+			//printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf\n", min, maxCoverDp.cover, score ) ;
 			attr.minAbundance = min ;
 		} // end of iteration for minAbundance.
 
@@ -1075,8 +1075,8 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			}*/
 		}
 		update *= ( 1 + iterCnt / 50 ) ;//* ( 1 + iterCnt / 50 )  ; 
-		printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
-				bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
+		//printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
+		//		bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
 		//bestDp.seVector.Print() ;
 
 		struct _transcript nt ;
@@ -2524,13 +2524,15 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 void *TranscriptDeciderSolve_Wrapper( void *a ) 
 {
 	int i ;
-
+	
 	struct _transcriptDeciderThreadArg &arg = *( (struct _transcriptDeciderThreadArg *)a ) ;
 	TranscriptDecider transcriptDecider( arg.FPKMFraction, arg.classifierThreshold, arg.txptMinReadDepth, arg.sampleCnt, *( arg.alignments ) ) ;
 	transcriptDecider.SetNumThreads( arg.numThreads + 1 ) ;
 	transcriptDecider.SetMultiThreadOutputHandler( arg.outputHandler ) ;
 	transcriptDecider.Solve( arg.subexons, arg.seCnt, arg.constraints, arg.subexonCorrelation ) ;
 	
+	int start = arg.subexons[0].start ;
+	int end = arg.subexons[ arg.seCnt - 1 ].end ;
 	// Release memory
 	for ( i = 0 ; i < arg.seCnt ; ++i )
 	{
@@ -2546,6 +2548,9 @@ void *TranscriptDeciderSolve_Wrapper( void *a )
 	if ( *( arg.ftCnt ) == 1 )
 		pthread_cond_signal( arg.fullWorkCond ) ;
 	pthread_mutex_unlock( arg.ftLock) ;
+	printf( "Thread %d: %d-%d finished.\n", arg.tid, start + 1, end + 1 ) ;
+	fflush( stdout ) ;
+
 
 	pthread_exit( NULL ) ;
 }
