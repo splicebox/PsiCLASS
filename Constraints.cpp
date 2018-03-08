@@ -318,7 +318,8 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			if ( validClip )
 			{
 				constraints.push_back( ct ) ; // if we just coalesced but the list size does not decrease, this will force capacity increase.
-				//printf( "ct.vector: %d %d\n", ct.vector.Test(0), ct.vector.Test(1) ) ;
+				//if ( !strcmp( alignments.GetReadId(), "ERR188021.8489052" ) )
+				//	ct.vector.Print()  ;
 				// Add the mate-pair information.
 				int mateChrId ;
 				int64_t matePos ;

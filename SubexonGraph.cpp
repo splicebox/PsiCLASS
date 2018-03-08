@@ -153,7 +153,10 @@ void SubexonGraph::SetGeneId( int tag, int strand, struct _subexon *subexons, in
 	if ( subexons[tag].geneId != -1 && subexons[tag].geneId != -2 )
 	{
 		if ( subexons[tag].geneId != id ) // a subexon may belong to more than one gene.
+		{
+			//printf( "Set -2, %d: %d %d %d %d\n", id, tag, subexons[tag].geneId, subexons[tag].start + 1, strand ) ;
 			subexons[tag].geneId = -2 ; 
+		}
 		else
 			return ;
 		// There is no need to terminate at the ambiguous exon, the strand will prevent
@@ -162,7 +165,7 @@ void SubexonGraph::SetGeneId( int tag, int strand, struct _subexon *subexons, in
 	}
 	else if ( subexons[tag].geneId == -2 )
 		return ;
-	//printf( "%d: %d %d %d %d\n", id, tag, subexons[tag].start, strand ) ;
+	//printf( "%d: %d %d %d %d\n", id, tag, subexons[tag].geneId, subexons[tag].start + 1, strand ) ;
 	int i ;
 	if ( subexons[tag].geneId != -2 )
 		subexons[ tag ].geneId = id ;
@@ -205,7 +208,7 @@ void SubexonGraph::UpdateGeneId( struct _subexon *subexons, int seCnt )
 	{
 		for ( i = 0 ; i < seCnt ; ++i )
 		{
-			//printf( "%d (%d %d).\n", i, subexons[i].start, subexons[i].end ) ;
+			//printf( "%d (%d %d) %d.\n", i, subexons[i].start + 1, subexons[i].end + 1, subexons[i].geneId ) ;
 			if ( ( subexons[i].geneId == -1 && subexons[i].rightStrand == strand ) 
 					|| ( strand == 1 && baseGeneId <= subexons[i].geneId && subexons[i].geneId <= lastMinusStrandGeneId && subexons[i].rightStrand == strand ) )
 			{
@@ -226,6 +229,6 @@ void SubexonGraph::UpdateGeneId( struct _subexon *subexons, int seCnt )
 
 	/*for ( i = 0 ; i < seCnt ; ++i ) 
 	  {
-	  printf( "geneId %d: %d-%d %d\n", i, subexons[i].start, subexons[i].end, subexons[i].geneId ) ;
+	  printf( "geneId %d: %d-%d %d\n", i, subexons[i].start + 1, subexons[i].end + 1, subexons[i].geneId ) ;
 	  }*/
 }
