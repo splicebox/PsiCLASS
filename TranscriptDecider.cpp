@@ -2310,16 +2310,19 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	}*/
 
 	// Find the gene ids.
-	usedGeneId = baseGeneId = -1 ;
+	baseGeneId = subexons[0].lcCnt ;
+	usedGeneId = subexons[0].rcCnt ;
 	defaultGeneId[0] = defaultGeneId[1] = -1 ;
 	for ( i = 0 ; i < seCnt ; ++i )
 	{
 		if ( subexons[i].geneId < 0 )
 			continue ;
-		if ( baseGeneId == -1 || subexons[i].geneId < baseGeneId )	
-			baseGeneId = subexons[i].geneId ;
-		if ( subexons[i].geneId > usedGeneId )
-			usedGeneId = subexons[i].geneId ;
+
+		//if ( baseGeneId == -1 || subexons[i].geneId < baseGeneId )	
+		//	baseGeneId = subexons[i].geneId ;
+		//if ( subexons[i].geneId > usedGeneId )
+		//	usedGeneId = subexons[i].geneId ;
+	
 		if ( ( subexons[i].rightStrand == -1 || subexons[i].leftStrand == -1 ) &&
 			( defaultGeneId[0] == -1 || subexons[i].geneId < defaultGeneId[0] ) )
 			defaultGeneId[0] = subexons[i].geneId ;
@@ -2331,7 +2334,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		defaultGeneId[0] = baseGeneId ;
 	if ( defaultGeneId[1] == -1 )
 		defaultGeneId[1] = baseGeneId ;
-	++usedGeneId ;
+	
 	//printf( "%d %d %d\n", defaultGeneId[0], baseGeneId, usedGeneId ) ;
 	cnt = 0 ;
 	memset( f, -1, sizeof( int ) * seCnt ) ;

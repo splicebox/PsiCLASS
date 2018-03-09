@@ -226,6 +226,12 @@ void SubexonGraph::UpdateGeneId( struct _subexon *subexons, int seCnt )
 			subexons[i].geneId = usedGeneId ;
 			++usedGeneId ;
 		}
+	// Put base and usedGeneId in lcCnt, rcCnt field.
+	for ( i = 0 ; i < seCnt ; ++i )	
+	{
+		subexons[i].lcCnt = baseGeneId ;
+		subexons[i].rcCnt = usedGeneId ;
+	}
 
 	/*for ( i = 0 ; i < seCnt ; ++i ) 
 	  {
