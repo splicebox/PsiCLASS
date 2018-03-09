@@ -198,7 +198,7 @@ if ( $stage <= 1 )
 	}
 	else
 	{
-		print "hi ", scalar( @threads ), " ", scalar( @bamFiles), "\n" ;
+		#print "hi ", scalar( @threads ), " ", scalar( @bamFiles), "\n" ;
 		foreach ( @threads )
 		{
 			$_ = threads->create( \&threadRunSubexonInfo ) ;
