@@ -119,7 +119,7 @@ int main( int argc, char *argv[] )
 	}
 	if ( fpGTFlist == NULL )
 	{
-		printf( "Must use --lg option to speicfy the list of GTF files.\n" ) ;
+		printf( "Must use --lg option to speicfy the list of GTF files.\n%s", usage ) ;
 		exit( 1 ) ;
 	}
 	
@@ -136,7 +136,7 @@ int main( int argc, char *argv[] )
 	int gid = -1 ;
 	int chrId = -1 ;
 	int chrIdUsed = 0 ;
-	char cStrand ;
+	char cStrand = '.' ;
 	char prefix[50] ;
 
 	while ( fgets( buffer, sizeof( buffer ), fpGTFlist ) != NULL )
