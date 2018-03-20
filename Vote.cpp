@@ -138,6 +138,7 @@ int main( int argc, char *argv[] )
 	int chrIdUsed = 0 ;
 	char cStrand = '.' ;
 	char prefix[50] ;
+	double FPKM = 0, TPM = 0 ;
 
 	while ( fgets( buffer, sizeof( buffer ), fpGTFlist ) != NULL )
 	{
@@ -168,7 +169,8 @@ int main( int argc, char *argv[] )
 					nt.strand = cStrand ;
 					nt.ecnt = tmpExons.size() ;
 					nt.exons = new struct _pair32[nt.ecnt] ;
-					nt.FPKM = 1 ;
+					nt.FPKM = FPKM ;
+					nt.TPM = TPM ;
 					for ( i = 0 ; i < nt.ecnt ; ++i )
 						nt.exons[i] = tmpExons[i] ;
 					tmpExons.clear() ;
@@ -200,6 +202,30 @@ int main( int argc, char *argv[] )
 				--p ;
 			*p = '\0' ;
 			gid = GetTailNumber( buffer ) ;
+
+			p = strstr( line, "FPKM" ) ;
+			for ( ; *p != ' ' ; ++p )
+				;
+			p += 2 ; // add extra 1 to skip \"
+			sscanf( p, "%s", buffer ) ;
+			//printf( "+%s %d\n", tid, strlen( tid )  ) ;
+			p = buffer + strlen( buffer ) ;
+			while ( *p != '\"' )
+				--p ;
+			*p = '\0' ;
+			FPKM = atof( buffer ) ;
+			
+			p = strstr( line, "TPM" ) ;
+			for ( ; *p != ' ' ; ++p )
+				;
+			p += 2 ; // add extra 1 to skip \"
+			sscanf( p, "%s", buffer ) ;
+			//printf( "+%s %d\n", tid, strlen( tid )  ) ;
+			p = buffer + strlen( buffer ) ;
+			while ( *p != '\"' )
+				--p ;
+			*p = '\0' ;
+			TPM = atof( buffer ) ;
 
 			cStrand = strand[0] ;
 
@@ -258,6 +284,7 @@ int main( int argc, char *argv[] )
 	int size = transcripts.size() ;
 	for ( i = 0 ; i < size ; )
 	{
+		int l ;
 		for ( j = i + 1 ; j < size ; ++j )
 		{
 			if ( CompTranscripts( transcripts[i], transcripts[j] ) )
@@ -269,15 +296,34 @@ int main( int argc, char *argv[] )
 			outputTranscripts.push_back( transcripts[i] ) ;
 		}*/
 
+		double sumFPKM = 0 ;
+		double sumTPM = 0 ;
+		
+		for ( l = i ; l < j ; ++l )
+		{
+			sumFPKM += transcripts[l].FPKM ;
+			sumTPM += transcripts[l].TPM ;
+		}
+
 		transcripts[k] = transcripts[i] ;
-		for ( int l = i + 1 ; l < j ; ++l )
+		for ( l = i + 1 ; l < j ; ++l )
 			delete[] transcripts[l].exons ;
-		transcripts[k].FPKM = j - i ;
+
+		transcripts[k].FPKM = sumFPKM / ( j - i ) ;
+		transcripts[k].TPM = sumTPM / ( j - i ) ;
+		
+		if ( j - i < fraction * sampleCnt || j - i <  minSampleCnt )
+		{
+			transcripts[k].FPKM = -1 ;
+		}
+
 		++k ;
 		i = j ;
 	}
 	transcripts.resize( k ) ;	
 	
+	// The original motivation to separate the coalscing and voting is to allow
+	// a gene with one txpt to pass the vote, but it seems not helping.
 	size = k ;
 	for ( i = 0 ; i < size ; )
 	{
@@ -302,7 +348,8 @@ int main( int argc, char *argv[] )
 		{
 			for ( l = i ; l < j ; ++l )
 			{
-				if ( transcripts[l].FPKM >= fraction * sampleCnt && transcripts[l].FPKM >= minSampleCnt )
+				//if ( transcripts[l].FPKM >= fraction * sampleCnt && transcripts[l].FPKM >= minSampleCnt )
+				if ( transcripts[l].FPKM != -1 )
 				{
 					outputTranscripts.push_back( transcripts[l] ) ;
 				}
@@ -325,20 +372,20 @@ int main( int argc, char *argv[] )
 			transcriptId = 0 ;
 		else
 			++transcriptId ;
-
-		fprintf( stdout, "%s\tCLASSES\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\";\n",
+		fprintf( stdout, "%s\tCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
 				chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 				prefix, chrom, t.geneId,
-				prefix, chrom, t.geneId, transcriptId ) ;
+				prefix, chrom, t.geneId, transcriptId, t.FPKM, t.TPM ) ;
 		for ( j = 0 ; j < t.ecnt ; ++j )
 		{
-			fprintf( stdout, "%s\tCLASSES\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
-					"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\";\n",
+			fprintf( stdout, "%s\tCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
+					"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
 					chrom, t.exons[j].a, t.exons[j].b, t.strand,
 					prefix, chrom, t.geneId,
 					prefix, chrom, t.geneId, transcriptId,
-					j + 1 ) ;
+					j + 1, t.FPKM, t.TPM ) ;
 		}
+
 		prevGid = t.geneId ;
 	}
 	return 0 ;
