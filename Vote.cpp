@@ -282,6 +282,9 @@ int main( int argc, char *argv[] )
 	// Coalesce same transcripts
 	std::sort( transcripts.begin(), transcripts.end(), CompSortTranscripts ) ;
 	int size = transcripts.size() ;
+	if ( minSampleCnt > sampleCnt )
+		minSampleCnt = sampleCnt ;
+
 	for ( i = 0 ; i < size ; )
 	{
 		int l ;
