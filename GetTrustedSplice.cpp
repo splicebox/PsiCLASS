@@ -238,7 +238,12 @@ int main( int argc, char *argv[] )
 			if ( introns[i].sampleSupport < needSample )
 				continue ;
 		}
-
+		
+		if ( sampleCnt >= 100 ) //&& introns[i].end - introns[i].start + 1 >= 50000 )
+		{
+			if ( introns[i].sampleSupport <= sampleCnt * 0.01 )
+				continue ;
+		}
 		if ( introns[i].end - introns[i].start + 1 >= 100000 )
 		{
 			int needSample = MIN( ( ( introns[i].end - introns[i].start + 1 ) / 100000 + 1 ) * unit, sampleCnt ) ;
