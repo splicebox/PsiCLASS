@@ -18,6 +18,7 @@ die "Usage: perl run-classes.pl [OPTIONS]\n".
     "\t-s STRING: the path to the trusted splice sites file (default: not used)\n".
     "\t-o STRING: the prefix of output files (default: classes)\n". 
     "\t-t INT: number of threads (default: 1)\n".
+    "\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n".
     "\t--stage NUM:  (default: 0)\n".
     "\t\t0-start from beginning (building splice sites for each sample)\n".
     "\t\t1-start from building subexon files for each sample\n".
@@ -44,6 +45,7 @@ my $spliceFile = "" ;
 my $bamFileList = "" ;
 my $stage = 0 ;
 my $classesOpt = "" ;
+my $juncOpt = "" ;
 for ( $i = 0 ; $i < @ARGV ; ++$i )
 {
 	if ( $ARGV[$i] eq "--lb" )
@@ -87,6 +89,11 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 		$classesOpt .= " -t $numThreads" ;
 		++$i ;
 	}
+	elsif ( $ARGV[ $i ] eq "--hasMateIdSuffix" )
+	{
+		$classesOpt .= " --hasMateIdSuffix" ;
+		$juncOpt .= " --hasMateIdSuffix" ;
+	}
 	else
 	{
 		die "Unknown argument: ", $ARGV[$i], "\n" ;
@@ -113,7 +120,7 @@ sub threadRunSplice
 	for ( $i = 0 ; $i < scalar( @bamFiles ) ; ++$i )	
 	{
 		next if ( ( $i % $numThreads ) != $tid ) ;
-		system_call( "$WD/junc ".$bamFiles[$i]." -a > ${prefix}bam_$i.raw_splice" ) ;
+		system_call( "$WD/junc ".$bamFiles[$i]." -a $juncOpt > ${prefix}bam_$i.raw_splice" ) ;
 	}
 }
 
@@ -124,7 +131,7 @@ if ( $stage <= 0 )
 	{
 		for ( $i = 0 ; $i < @bamFiles ; ++$i )
 		{
-			system_call( "$WD/junc ".$bamFiles[$i]." -a > ${prefix}bam_$i.raw_splice" ) ;
+			system_call( "$WD/junc ".$bamFiles[$i]." -a $juncOpt > ${prefix}bam_$i.raw_splice" ) ;
 			#if ( $spliceFile ne "" )
 			#{
 			#	system_call( "perl $WD/ManipulateIntronFile.pl $spliceFile ${prefix}bam_$i.raw_splice > ${prefix}bam_$i.splice" ) ;
