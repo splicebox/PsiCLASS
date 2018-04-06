@@ -22,6 +22,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)\n"
 	"\t-d FLOAT: filter the transcript whose average read depth is less than the given number. (default: 2.5)\n"
 	"\t--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)\n"
+	"\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n"
 	;
 
 static const char *short_options = "s:b:f:o:d:t:c:h" ;
@@ -29,6 +30,7 @@ static struct option long_options[] =
 	{
 		{ "ls", required_argument, 0, 10000 },
 		{ "lb", required_argument, 0, 10001 },
+		{ "hasMateIdSuffix", no_argument, 0, 10002 },
 		{ (char *)0, 0, 0, 0} 
 	} ;
 
@@ -105,6 +107,7 @@ int main( int argc, char *argv[] )
 	double txptMinReadDepth = 2.5 ;
 	char outputPrefix[1024] = "" ;
 	int numThreads = 1 ;
+	bool hasMateReadIdSuffix = false ;
 	
 	std::vector<Alignments> alignmentFiles ;
 	SubexonCorrelation subexonCorrelation ;
@@ -168,6 +171,10 @@ int main( int argc, char *argv[] )
 				a.Open( buffer ) ;
 				alignmentFiles.push_back( a ) ;
 			}
+		}
+		else if ( c == 10002 ) // the mate pair read id has suffix.
+		{
+			hasMateReadIdSuffix = true ;
 		}
 		else
 		{
@@ -236,6 +243,8 @@ int main( int argc, char *argv[] )
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		Constraints constraints( &alignmentFiles[i] ) ;
+		constraints.SetHasMateReadIdSuffix( hasMateReadIdSuffix ) ;
+
 		multiSampleConstraints.push_back( constraints ) ;
 	}
 	MultiThreadOutputTranscript outputHandler( sampleCnt, alignmentFiles[0] ) ;

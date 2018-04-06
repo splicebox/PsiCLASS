@@ -114,6 +114,7 @@ private:
 
 	int cachedMatePos ;
 	std::map<std::string, int> cachedIdx ;
+	bool hasMateReadIdSuffix ; // ignore the last ".{1,2}" or "/{1,2}" .
 public:
 	MateReadIds() 
 	{ 
@@ -123,6 +124,7 @@ public:
 		nh.pos = nh.idx = nh.matePos = -1 ;
 		heap.push_back( nh ) ;
 		cachedMatePos = -1 ;
+		hasMateReadIdSuffix = false ;
 	}
 	~MateReadIds() 
 	{
@@ -192,6 +194,16 @@ public:
 			cachedMatePos = matePos ;
 		}
 		std::string s( id ) ;
+		if ( hasMateReadIdSuffix )
+		{
+			int len = s.length() ;
+			if ( len >= 2 && ( s[len - 1] == '1' || s[len - 1] == '2' ) 
+				&& ( s[len - 2] == '.' || s[len - 2] == '/' ) )
+			{
+				s[len - 1] = '2' - s[len - 1] + '1' ;
+			}
+		}
+
 		if ( cachedIdx.find( s ) != cachedIdx.end() )
 		{
 			return cachedIdx[s] ;
@@ -210,6 +222,11 @@ public:
 		
 		for ( std::map<std::string, int>::iterator it = cachedIdx.begin() ; it != cachedIdx.end() ; ++it )
 			it->second = newIdx[ it->second ] ;
+	}
+
+	void SetHasMateReadIdSuffix( bool in )
+	{
+		hasMateReadIdSuffix = true ;
 	}
 } ;
 
@@ -332,7 +349,13 @@ public:
 		pAlignments = c.pAlignments ;
 	}
 
+	void SetHasMateReadIdSuffix( bool in )
+	{
+		mateReadIds.SetHasMateReadIdSuffix( in ) ;
+	}
+
 	int BuildConstraints( struct _subexon *subexons, int seCnt, int start, int end ) ;
+
 } ;
 
 #endif
