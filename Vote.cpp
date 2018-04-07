@@ -15,7 +15,7 @@ char usage[] = "./transcript-vote [OPTIONS] > output.gtf:\n"
 	"\t--lg: path to the list of GTF files.\n"
 	"Optional:\n" 
 	"\t-f FLOAT: the fraction of samples the transcript showed up. (default: 0.4)\n"
-	"\t-n INT: the number of samples a transcript showed up. (default: 5)\n"
+	"\t-n INT: the number of samples a transcript showed up. (default: 3)\n"
 	;
 
 
@@ -88,7 +88,7 @@ int main( int argc, char *argv[] )
 {
 	int i, j, k ;
 	double fraction = 0.4 ;
-	int minSampleCnt = 5 ;
+	int minSampleCnt = 3 ;
 	std::map<std::string, int> chrNameToId ;
 	std::map<int, std::string> chrIdToName ;
 
