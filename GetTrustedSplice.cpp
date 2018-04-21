@@ -244,6 +244,25 @@ int main( int argc, char *argv[] )
 			if ( introns[i].sampleSupport <= sampleCnt * 0.01 )
 				continue ;
 		}
+		/*if ( sampleCnt >= 50 )
+		{
+			// just some randomly intron.
+			if ( introns[i].sampleSupport == 1 
+				&& ( sites[a].associatedIntronCnt == 1 || sites[b].associatedIntronCnt == 1 ) )
+				continue ;
+		}*/
+
+		/*if (  introns[i].end - introns[i].start + 1 < 50 )
+		{
+			int needSample = MIN( ( 5 - ( introns[i].end - introns[i].start + 1 ) / 10 ) * unit, sampleCnt ) ;
+			int flag = 0 ;
+
+			if ( introns[i].sampleSupport < needSample )
+				flag = 1 ;
+			if ( flag == 1 )
+				continue ;
+		}*/
+
 		if ( introns[i].end - introns[i].start + 1 >= 100000 )
 		{
 			int needSample = MIN( ( ( introns[i].end - introns[i].start + 1 ) / 100000 + 1 ) * unit, sampleCnt ) ;
@@ -254,10 +273,11 @@ int main( int argc, char *argv[] )
 				flag = 1 ;
 			if ( flag == 1 && introns[i].end - introns[i].start + 1 >= 300000 )
 				continue ;
-			if ( flag == 1 && ( sites[a].associatedIntronCnt > 1 || sites[b].associatedIntronCnt > 1 || introns[i].sampleSupport <= 1 ) )
+			if ( flag == 1 && ( sites[a].associatedIntronCnt > 1 || sites[b].associatedIntronCnt > 1 || introns[i].sampleSupport <= 1 ) ) // an intron may connect two genes
 				continue ;
 		}
 		
+				
 		printf( "%s %d %d 10 %c 10 0 0 0\n", alignments.GetChromName( introns[i].chrId ), introns[i].start, introns[i].end, introns[i].strand ) ;
 	}
 

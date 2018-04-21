@@ -298,7 +298,9 @@ public:
 		int size = constraints.size() ;
 		for ( i = 0 ; i < size ; ++i )
 			constraints[i].vector.Release() ;
+		constraints.clear() ;
 		std::vector<struct _constraint>().swap( constraints ) ;
+		matePairs.clear() ;
 		std::vector<struct _matePairConstraint>().swap( matePairs ) ;
 	}
 
@@ -321,8 +323,10 @@ public:
 		{
 			for ( i = 0 ; i < size ; ++i )
 				constraints[i].vector.Release() ;
+			constraints.clear() ;
 			std::vector<struct _constraint>().swap( constraints ) ;
 		}
+		matePairs.clear() ;
 		std::vector<struct _matePairConstraint>().swap( matePairs ) ;
 		
 		//constraints.resize( c.constraints.size() ) ;
@@ -346,6 +350,35 @@ public:
 			constraints[i].vector.Duplicate( c.constraints[i].vector ) ;
 		}
 		matePairs = c.matePairs ;
+		pAlignments = c.pAlignments ;
+	}
+
+	void DownsampleConstraintsFrom( Constraints &c, int stride = 10 )
+	{
+		int i ;
+		int size = constraints.size(), k ;
+
+		if ( size > 0 )
+		{
+			for ( i = 0 ; i < size ; ++i )
+				constraints[i].vector.Release() ;
+			constraints.clear() ;
+			std::vector<struct _constraint>().swap( constraints ) ;
+		}
+		matePairs.clear() ;
+		std::vector<struct _matePairConstraint>().swap( matePairs ) ;
+		
+		//constraints.resize( c.constraints.size() ) ;
+		//constraints = c.constraints ;
+		k = 0 ;
+		size = c.constraints.size() ;
+		for ( i = 0 ; i < size ; i += stride, ++k  )
+		{
+			constraints.push_back( c.constraints[i] ) ;
+			constraints[k].vector.Nullify() ; // so that it won't affect the BitTable in "c"
+			constraints[k].vector.Duplicate( c.constraints[i].vector ) ;
+		}
+		// mate pairs is not used. if we down-sampling
 		pAlignments = c.pAlignments ;
 	}
 
