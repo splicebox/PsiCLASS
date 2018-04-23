@@ -179,7 +179,7 @@ public:
 			outputQueue[i].FPKM /= ( alignmentFiles[ outputQueue[i].sampleId ].totalReadCnt / 1000000.0 ) ;
 		}
 
-
+		delete[] totalFPK ;
 	}
 
 	void OutputCommandInfo( int argc, char *argv[] )

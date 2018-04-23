@@ -668,12 +668,14 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 		int key = 0 ;	
 		for ( i = 0 ; i < vcnt ; ++i )
 			key = ( key * attr.seCnt + visit[i] ) % HASH_MAX ;
+		if ( key < 0 )
+			key += HASH_MAX ;
 
 		if ( attr.hash[key].cover != -1 && attr.hash[key].cnt == vcnt && attr.hash[key].strand == strand && 
 			( attr.hash[key].timeStamp == attr.timeStamp || 
 				( attr.hash[key].minAbundance < attr.minAbundance && attr.hash[key].cover == -2 ) ) )
 		{
-			/*struct _transcript subTxpt = attr.bufferTxpt ;
+			struct _transcript subTxpt = attr.bufferTxpt ;
 			subTxpt.seVector.Reset() ;
 			for ( i = 0 ; i < vcnt ; ++i )
 				subTxpt.seVector.Set( visit[i] ) ;
@@ -685,13 +687,14 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 			if ( subTxpt.seVector.IsAllZero() )
 			{
 				return attr.hash[key] ;
-			}*/
+			}
 			
-			for ( i = 0 ; i < vcnt ; ++i )
+			// Can't use the code below, because vcnt is the header of subexons.
+			/*for ( i = 0 ; i < vcnt ; ++i )
 				if ( !attr.hash[key].seVector.Test( visit[i] ) )
 					break ;
 			if ( i >= vcnt )
-				return attr.hash[key] ;
+				return attr.hash[key] ;*/
 				
 		}
 	}
@@ -832,6 +835,9 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 		int key = 0 ;	
 		for ( i = 0 ; i < vcnt ; ++i )
 			key = ( key * attr.seCnt + visit[i] ) % HASH_MAX ;
+		if ( key < 0 )
+			key += HASH_MAX ;
+
 		//static int hashUsed = 0 ;
 		//if (  attr.hash[key].cover == -1 )
 		//	++hashUsed ;
@@ -1089,8 +1095,9 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			}*/
 		}
 		update *= ( 1 + iterCnt / 50 ) ;//* ( 1 + iterCnt / 50 )  ; 
+
 		//printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
-		//		bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
+		//	bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
 		//bestDp.seVector.Print() ;
 
 		struct _transcript nt ;
@@ -1607,7 +1614,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			}
 
 			value = transcriptAbundance[i] ;
-			if ( cnt == 0 ) // This transcript does not satisfy any undepleted constraints.
+			if ( cnt < 1 ) // This transcript does not satisfy any undepleted constraints.
 				continue ;
 			cnt *= coveredPortion[i] ;
 			
@@ -1649,6 +1656,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			}
 		}
 		
+		int supportCnt = 0 ;
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
 			if ( btable[maxtag].Test( j ) )
@@ -1667,9 +1675,10 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 						for ( l = 0 ; l < atcnt ; ++l )
 						{
 							if ( btable[l].Test(j) )
-								coverCnt[l] = -1 ;
+								coverCnt[l] -= tc[j].effectiveCount ;
 						}
 					}
+					++supportCnt ;
 				}
 				else if ( alltranscripts[maxtag].constraintsSupport[j] == 0 ) 
 				{
@@ -1759,6 +1768,8 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			}
 		}
 		tc[ updateTag ].abundance = 0 ;
+		if ( supportCnt == 0 )
+			break ;
 		//adjustScore[maxtag] += 1 / (double)tcCnt ;
 		//printf( "maxtag=%d %lf %d\n", maxtag, update, updateTag ) ;
 	}
@@ -2399,7 +2410,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	}
 
 	int atCnt = cnt ;
-	printf( "atCnt=%d %d %d %d\n", atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
+	printf( "%d: atCnt=%d %d %d %d\n", subexons[0].start, atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	fflush( stdout ) ;
 	std::vector<struct _transcript> alltranscripts ;
 	
@@ -2468,7 +2479,8 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 
 			if ( i < sampleCnt - 10 && alltranscripts.size() > 1000 )
 				iterBound = 10 ;
-			//printf( "%d: %d %d\n", sampleComplexity[i].a, constraints[ sampleComplexity[i].a ].constraints.size(), constraints[ sampleComplexity[i].a ].matePairs.size()) ;	
+			//printf( "%d %d: %d %d %d %d\n", subexons[0].start + 1, sampleComplexity[i].a, constraints[ sampleComplexity[i].a ].constraints.size(), constraints[ sampleComplexity[i].a ].matePairs.size(),
+			//	alltranscripts.size(), iterBound ) ; fflush( stdout ) ;	
 			if ( ( constraints[ sampleComplexity[i].a ].constraints.size() > 1000 
 				&& constraints[ sampleComplexity[i].a ].constraints.size() * 10 < constraints[ sampleComplexity[i].a ].matePairs.size() ) 
 				|| ( downsampleCnt > 0 && (int)constraints[ sampleComplexity[i].a ].constraints.size() >= downsampleCnt ) )
@@ -2482,6 +2494,8 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 				downsampledConstraints.DownsampleConstraintsFrom( constraints[ sampleComplexity[i].a ], stride ) ; 
 				if ( downsampleCnt <= 0 )
 					downsampleCnt = downsampledConstraints.constraints.size() ;
+				if ( iterBound <= 10 )
+					continue ;
 				PickTranscriptsByDP( subexons, seCnt, iterBound, downsampledConstraints, subexonCorrelation, attr, sampleTranscripts ) ;		
 			}
 			else
@@ -2491,6 +2505,9 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			int size = sampleTranscripts.size() ;
 			for ( j = 0 ; j < size ; ++j )
 				alltranscripts.push_back( sampleTranscripts[j] ) ;
+			
+			// we can further pick a smaller subsets of transcripts here if the number is still to big.
+			CoalesceSameTranscripts( alltranscripts ) ;
 		}
 
 		// release the memory.
@@ -2510,8 +2527,6 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		delete[] attr.f2 ;
 		//delete[] attr.hash ;
 
-		// we can further pick a smaller subsets of transcripts here if the number is still to big. 
-		CoalesceSameTranscripts( alltranscripts ) ;
 	}
 
 	transcriptId = new int[usedGeneId - baseGeneId] ;

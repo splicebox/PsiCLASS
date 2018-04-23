@@ -377,6 +377,15 @@ public:
 			constraints.push_back( c.constraints[i] ) ;
 			constraints[k].vector.Nullify() ; // so that it won't affect the BitTable in "c"
 			constraints[k].vector.Duplicate( c.constraints[i].vector ) ;
+
+			/*std::vector<int> seIdx ;
+			constraints[k].vector.GetOnesIndices( seIdx ) ; 
+			int j, l = seIdx.size() ;
+			for ( j = 2 ; j < l ; ++j )
+			{
+				constraints[k].vector.Unset( seIdx[j] ) ;
+			}
+			constraints[k].last = seIdx[1] ;*/
 		}
 		// mate pairs is not used. if we down-sampling
 		pAlignments = c.pAlignments ;
