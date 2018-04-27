@@ -281,6 +281,7 @@ int main( int argc, char *argv[] )
 
 	// Coalesce same transcripts
 	std::sort( transcripts.begin(), transcripts.end(), CompSortTranscripts ) ;
+	std::vector<int> sampleSupport ;
 	int size = transcripts.size() ;
 	if ( minSampleCnt > sampleCnt )
 		minSampleCnt = sampleCnt ;
@@ -319,22 +320,29 @@ int main( int argc, char *argv[] )
 		{
 			transcripts[k].FPKM = -1 ;
 		}
-
+		sampleSupport.push_back( j - i ) ;
 		++k ;
 		i = j ;
 	}
 	transcripts.resize( k ) ;	
 	
-	// The original motivation to separate the coalscing and voting is to allow
-	// a gene with one txpt to pass the vote, but it seems not helping.
+	// The motivation to separate the coalscing and voting is to allow
+	// a gene with no txpt passing the vote to pick a representative.
 	size = k ;
 	for ( i = 0 ; i < size ; )
 	{
+		int cnt = 0 ;
+		if ( transcripts[i].FPKM != -1 )
+			++cnt ;
+
 		for ( j = i + 1 ; j < size ; ++j )
+		{
 			if ( transcripts[i].geneId != transcripts[j].geneId )
 				break ;
+			if ( transcripts[j].FPKM != -1 )
+				++cnt ;
+		}
 		int l ;
-		int cnt = j - i ;
 		/*double *freq = new double[cnt] ;
 		for ( l = 0 ; l < cnt ; ++l )
 			freq[l] = transcripts[l].FPKM / sampleCnt ;
@@ -344,10 +352,58 @@ int main( int argc, char *argv[] )
 			printf( "%lf\n", freq[l] ) ;
 		printf( "===========\n" ) ;
 		delete[] freq ;*/
-		if ( 0 ) //cnt == 1 )
-			//outputTranscripts.push_back( transcripts[i] ) ;
-			;
-		else
+		/*if ( cnt == 0 )
+		{
+			int maxEcnt = -1 ;
+			int maxCnt = 0 ;
+			int maxtag ;
+			for ( l = i ; l < j ; ++l )
+				if ( transcripts[l].ecnt > maxEcnt )
+					maxEcnt = transcripts[l].ecnt ;
+			
+			if ( maxEcnt >= 2 )
+			{
+				int maxSampleSupport = -1 ;
+				maxtag = i ;
+				for ( l = i ; l < j ; ++l )
+				{
+					if ( transcripts[l].ecnt > 1 && transcripts[l].ecnt >= 2  )
+					{
+						if ( sampleSupport[l] > maxSampleSupport )
+						{
+							maxSampleSupport = sampleSupport[l] ;
+							maxtag = l ;				
+							maxCnt = 1 ;
+						}
+						else if ( sampleSupport[l] == maxSampleSupport )
+							++maxCnt ;
+					}
+				}
+				
+				if ( maxSampleSupport >= 3 && maxSampleSupport >= ( fraction / 10 ) * sampleCnt && transcripts[maxtag].TPM > 0)
+				{
+					if ( maxCnt > 1 )
+					{
+						int maxTPM = -1 ;
+						for ( l = i ; l < j ; ++l )
+						{
+							if ( sampleSupport[l] != maxSampleSupport )
+								continue ;
+							if ( transcripts[l].TPM > maxTPM )
+							{
+								maxTPM = transcripts[l].TPM ;
+								maxtag = l ;
+							}
+						}
+
+					}
+					transcripts[maxtag].FPKM = 0 ;
+					//fprintf( stderr, "recovered: %d %d\n", sampleSupport[ maxtag ], transcripts[ maxtag ].ecnt ) ;
+					outputTranscripts.push_back( transcripts[maxtag] ) ;
+				}
+			}
+		}
+		else*/
 		{
 			for ( l = i ; l < j ; ++l )
 			{

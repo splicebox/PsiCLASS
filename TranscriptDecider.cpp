@@ -647,7 +647,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 	if ( vcnt == 1 )
 	{
 		if ( attr.f1[ visit[0] ].cover != -1 && attr.f1[ visit[0] ].strand == strand && ( attr.f1[ visit[0] ].timeStamp == attr.timeStamp  || 
-			( attr.f1[ visit[0] ].minAbundance < attr.minAbundance && attr.f1[visit[0]].cover == -2 ) ) )
+			( attr.f1[ visit[0] ].minAbundance < attr.minAbundance && attr.f1[visit[0]].cover == -2 ) ) ) //even given lower minAbundance threshold, it fails
 		{
 			return attr.f1[ visit[0] ] ;
 		}
@@ -672,6 +672,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 			key += HASH_MAX ;
 
 		if ( attr.hash[key].cover != -1 && attr.hash[key].cnt == vcnt && attr.hash[key].strand == strand && 
+			( attr.hash[key].first == visit[0] )  &&
 			( attr.hash[key].timeStamp == attr.timeStamp || 
 				( attr.hash[key].minAbundance < attr.minAbundance && attr.hash[key].cover == -2 ) ) )
 		{
@@ -972,6 +973,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	maxCoverDp.seVector.Init( seCnt ) ;
 	bestDp.seVector.Init( seCnt ) ;
 	int iterCnt = 0 ;
+
 	while ( 1 )
 	{
 		double bestScore ;
@@ -1023,7 +1025,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 			subTxpt.seVector.Assign( maxCoverDp.seVector ) ;
 			subTxpt.first = maxCoverDp.first ;
 			subTxpt.last = maxCoverDp.last ;
-
+			
 			for ( i = 0 ; i < tcCnt ; ++i )
 			{
 				if ( IsConstraintInTranscript( subTxpt, tc[i] ) == 1 )	
@@ -1057,7 +1059,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				if ( ComputeScore( maxCoverDp.cover, 1.0, maxAbundance, maxAbundance, 0 ) < bestScore )
 					break ;
 			}
-			//printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf\n", min, maxCoverDp.cover, score ) ;
+			//printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf timeStamp=%d\n", min, maxCoverDp.cover, score, attr.timeStamp ) ;
 			attr.minAbundance = min ;
 		} // end of iteration for minAbundance.
 
@@ -2410,7 +2412,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	}
 
 	int atCnt = cnt ;
-	printf( "%d: atCnt=%d %d %d %d\n", subexons[0].start, atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
+	printf( "%d: atCnt=%d %d %d %d\n", subexons[0].start + 1, atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	fflush( stdout ) ;
 	std::vector<struct _transcript> alltranscripts ;
 	
@@ -2480,7 +2482,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			if ( i < sampleCnt - 10 && alltranscripts.size() > 1000 )
 				iterBound = 10 ;
 			//printf( "%d %d: %d %d %d %d\n", subexons[0].start + 1, sampleComplexity[i].a, constraints[ sampleComplexity[i].a ].constraints.size(), constraints[ sampleComplexity[i].a ].matePairs.size(),
-			//	alltranscripts.size(), iterBound ) ; fflush( stdout ) ;	
+			//		alltranscripts.size(), iterBound ) ; fflush( stdout ) ;	
 			if ( ( constraints[ sampleComplexity[i].a ].constraints.size() > 1000 
 				&& constraints[ sampleComplexity[i].a ].constraints.size() * 10 < constraints[ sampleComplexity[i].a ].matePairs.size() ) 
 				|| ( downsampleCnt > 0 && (int)constraints[ sampleComplexity[i].a ].constraints.size() >= downsampleCnt ) )

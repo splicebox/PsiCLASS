@@ -13,7 +13,7 @@ die "Usage: perl run-classes.pl [OPTIONS]\n".
     "Required:\n".
     "\t-b STRING: the path to the BAM files. Use comma to separate ultiple bam files\n".
     "\t\tor\n".
-    "\t--lb STRING: the path to the file containing the alignments bam files\n".
+    "\t--lb STRING: the path to the file listing the alignments bam files\n".
     "Optional:\n".
     "\t-s STRING: the path to the trusted splice sites file (default: not used)\n".
     "\t-o STRING: the prefix of output files (default: classes)\n". 
