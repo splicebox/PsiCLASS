@@ -316,7 +316,7 @@ int main( int argc, char *argv[] )
 		transcripts[k].FPKM = sumFPKM / ( j - i ) ;
 		transcripts[k].TPM = sumTPM / ( j - i ) ;
 		
-		if ( j - i < fraction * sampleCnt || j - i <  minSampleCnt )
+		if ( j - i < int( fraction * sampleCnt ) || j - i <  minSampleCnt )
 		{
 			transcripts[k].FPKM = -1 ;
 		}
