@@ -436,10 +436,10 @@ public:
 			tab[i] = in.tab[i] ;
 	}
 
-	void SetBulk( int ind, uint64_t val )
+	/*void SetBulk( int ind, uint64_t val )
 	{
 		tab[ind] = val ;
-	}
+	}*/
 
 	void Assign( BitTable &in )
 	{

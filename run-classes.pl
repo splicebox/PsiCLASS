@@ -19,7 +19,7 @@ die "Usage: perl run-classes.pl [OPTIONS]\n".
     "\t-o STRING: the prefix of output files (default: classes)\n". 
     "\t-t INT: number of threads (default: 1)\n".
     "\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n".
-    "\t--stage NUM:  (default: 0)\n".
+    "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning (building splice sites for each sample)\n".
     "\t\t1-start from building subexon files for each sample\n".
     "\t\t2-start from combining subexon files\n".

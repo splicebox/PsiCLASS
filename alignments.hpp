@@ -339,6 +339,13 @@ public:
 		return segmentsSum ;
 	}
 
+	bool IsFirstMate()
+	{
+		if ( b->core.flag & 0x40 )
+			return true ;
+		return false ;
+	}
+
 	bool IsReverse()
 	{
 		if ( b->core.flag & 0x10 )	

@@ -345,6 +345,20 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 					{
 						mateReadIds.Insert( alignments.GetReadId(), alignments.segments[0].a, constraints.size() - 1, matePos ) ;					
 					}
+					else // two mates have the same coordinate.
+					{	
+						if ( alignments.IsFirstMate() )
+						{
+							struct _matePairConstraint nm ;
+							nm.i = constraints.size() - 1 ;
+							nm.j = constraints.size() - 1 ;
+							nm.abundance = 0 ;
+							nm.support = 1 ;
+							nm.uniqSupport = alignments.IsUnique() ? 1 : 0 ;				
+							nm.effectiveCount = 2 ;
+							matePairs.push_back( nm ) ;
+						}
+					}
 				}
 			}
 			else
@@ -381,7 +395,8 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 	if ( alignments.fragStdev == 0 )
 	{
 		int size = constraints.size() ;
-		
+		matePairs.clear() ;
+
 		for ( i = 0 ; i < size ; ++i )
 		{
 			struct _matePairConstraint nm ;

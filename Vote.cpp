@@ -14,7 +14,7 @@ char usage[] = "./transcript-vote [OPTIONS] > output.gtf:\n"
 	"Required:\n"
 	"\t--lg: path to the list of GTF files.\n"
 	"Optional:\n" 
-	"\t-f FLOAT: the fraction of samples the transcript showed up. (default: 0.4)\n"
+	"\t-f FLOAT: the fraction of samples the transcript showed up. (default: 0.25)\n"
 	"\t-n INT: the number of samples a transcript showed up. (default: 3)\n"
 	;
 
@@ -87,7 +87,7 @@ bool CompSortTranscripts( const struct _outputTranscript &a, const struct _outpu
 int main( int argc, char *argv[] )
 {
 	int i, j, k ;
-	double fraction = 0.4 ;
+	double fraction = 0.25 ;
 	int minSampleCnt = 3 ;
 	std::map<std::string, int> chrNameToId ;
 	std::map<int, std::string> chrIdToName ;
