@@ -16,21 +16,22 @@ die "Usage: perl run-classes.pl [OPTIONS]\n".
     "\t--lb STRING: the path to the file listing the alignments bam files\n".
     "Optional:\n".
     "\t-s STRING: the path to the trusted splice sites file (default: not used)\n".
-    "\t-o STRING: the prefix of output files (default: classes)\n". 
+    "\t-o STRING: the prefix of output files (default: psiclass)\n". 
     "\t-t INT: number of threads (default: 1)\n".
     "\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning (building splice sites for each sample)\n".
     "\t\t1-start from building subexon files for each sample\n".
     "\t\t2-start from combining subexon files\n".
-    "\t\t3-start from assembly the transcripts\n"
+    "\t\t3-start from assembly the transcripts\n".
+    "\t\t4-start from voting the consensus transcripts\n"
     if ( @ARGV == 0 ) ;
 
 my $WD = dirname( abs_path( $0 ) ) ;
 
 my $i ;
 my $cmd ;
-my $prefix = "classes_" ;
+my $prefix = "psiclass_" ;
 my $numThreads = 1 ;
 
 sub system_call
@@ -247,6 +248,20 @@ if ( $stage <= 3 )
 			$bamPath .= " -b $b " ;
 		}
 	}
-	$cmd = "$WD/classes $classesOpt $bamPath -s ${prefix}subexon_combined.out -o ${trimPrefix} > classes.log" ;
+	$cmd = "$WD/classes $classesOpt $bamPath -s ${prefix}subexon_combined.out -o ${trimPrefix} > ${prefix}classes.log" ;
 	system_call( "$cmd" ) ;
 }
+
+# Run voting
+if ( $stage <= 4 )
+{
+	open FPgtflist, ">${prefix}gtf.list" ;
+	for ( $i = 0 ; $i < @bamFiles ; ++$i )		
+	{
+		print FPgtflist "${prefix}sample_${i}.gtf\n" ;
+	}
+	close FPgtflist ;
+	$cmd = "$WD/vote-transcripts --lg ${prefix}gtf.list > ${prefix}vote.gtf" ;
+	system_call( "$cmd" ) ;
+}
+

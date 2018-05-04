@@ -54,36 +54,6 @@ int CompDouble( const void *p1, const void *p2 )
 		return 0 ;
 }
 
-int CompTranscripts( const struct _outputTranscript &a, const struct _outputTranscript &b )
-{
-	int i ;
-	if ( a.geneId != b.geneId )
-		return a.geneId - b.geneId ;
-	if ( a.ecnt != b.ecnt )
-		return a.ecnt - b.ecnt ;
-
-	for ( i = 0 ; i < a.ecnt ; ++i )
-	{
-		if ( a.exons[i].a != b.exons[i].a )					
-			return a.exons[i].a - b.exons[i].a ;
-
-		if ( a.exons[i].b != b.exons[i].b )					
-			return a.exons[i].b - b.exons[i].b ;
-	}
-	return 0 ;
-}
-
-bool CompSortTranscripts( const struct _outputTranscript &a, const struct _outputTranscript &b )
-{
-	int tmp = CompTranscripts( a, b ) ;
-	if ( tmp < 0 )
-		return true ;
-	else if ( tmp > 0 )
-		return false ;
-	else
-		return a.sampleId < b.sampleId ;
-}
-
 int main( int argc, char *argv[] )
 {
 	int i, j, k ;
@@ -280,7 +250,7 @@ int main( int argc, char *argv[] )
 	fclose( fpGTFlist ) ;
 
 	// Coalesce same transcripts
-	std::sort( transcripts.begin(), transcripts.end(), CompSortTranscripts ) ;
+	std::sort( transcripts.begin(), transcripts.end(), MultiThreadOutputTranscript::CompSortTranscripts ) ;
 	std::vector<int> sampleSupport ;
 	int size = transcripts.size() ;
 	if ( minSampleCnt > sampleCnt )
@@ -291,7 +261,7 @@ int main( int argc, char *argv[] )
 		int l ;
 		for ( j = i + 1 ; j < size ; ++j )
 		{
-			if ( CompTranscripts( transcripts[i], transcripts[j] ) )
+			if ( MultiThreadOutputTranscript::CompTranscripts( transcripts[i], transcripts[j] ) )
 				break ;
 		}
 		// [i,j) are the same transcripts.
@@ -427,17 +397,18 @@ int main( int argc, char *argv[] )
 	{
 		struct _outputTranscript &t = outputTranscripts[i] ;
 		const char *chrom = chrIdToName[t.chrId].c_str() ;
-		if ( t.geneId != prevGid )
+		/*if ( t.geneId != prevGid )
 			transcriptId = 0 ;
 		else
-			++transcriptId ;
-		fprintf( stdout, "%s\tCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
+			++transcriptId ;*/
+		transcriptId = outputTranscripts[i].transcriptId ;
+		fprintf( stdout, "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
 				chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 				prefix, chrom, t.geneId,
 				prefix, chrom, t.geneId, transcriptId, t.FPKM, t.TPM ) ;
 		for ( j = 0 ; j < t.ecnt ; ++j )
 		{
-			fprintf( stdout, "%s\tCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
+			fprintf( stdout, "%s\tPsiCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
 					"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
 					chrom, t.exons[j].a, t.exons[j].b, t.strand,
 					prefix, chrom, t.geneId,

@@ -433,6 +433,27 @@ int main( int argc, char *argv[] )
 	} // end of else for multi-thread.
 
 	outputHandler.OutputCommandInfo( argc, argv ) ; 
+	for ( i = 0 ; i < sampleCnt ; ++i )
+	{
+		char buffer[1024] ;
+		alignmentFiles[i].GetFileName( buffer ) ;
+		int separator = -1 ;
+		
+		// deprive the directory.
+		for ( j = 0 ; buffer[j] ; ++j )
+		{
+			if ( buffer[j] == '/' )
+				separator = j ;
+		}
+		if ( separator != -1 )
+		{
+			++separator ;
+			for ( j = separator ; buffer[j] ; ++j )
+				buffer[j - separator] = buffer[j] ;
+			buffer[j - separator] = '\0' ;
+		}
+		outputHandler.OutputCommentToSampleGTF( i, buffer ) ;
+	}
 	outputHandler.ComputeFPKMTPM( alignmentFiles ) ;
 	outputHandler.Flush() ;
 	

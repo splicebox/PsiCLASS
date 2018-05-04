@@ -105,17 +105,37 @@ private:
 	std::vector<FILE *> outputFPs ;
 	Alignments &alignments ;
 
-	static bool CompOutputTranscript( const struct _outputTranscript &a, const struct _outputTranscript &b )
+public:
+	static int CompTranscripts( const struct _outputTranscript &a, const struct _outputTranscript &b )
 	{
-		if ( a.chrId != b.chrId )
-			return a.chrId < b.chrId ;
+		int i ;
 		if ( a.geneId != b.geneId )
-			return a.geneId < b.geneId ;
-		return a.transcriptId < b.transcriptId ;
+			return a.geneId - b.geneId ;
+		if ( a.ecnt != b.ecnt )
+			return a.ecnt - b.ecnt ;
+
+		for ( i = 0 ; i < a.ecnt ; ++i )
+		{
+			if ( a.exons[i].a != b.exons[i].a )					
+				return a.exons[i].a - b.exons[i].a ;
+
+			if ( a.exons[i].b != b.exons[i].b )					
+				return a.exons[i].b - b.exons[i].b ;
+		}
+		return 0 ;
 	}
 
-	
-public:
+	static bool CompSortTranscripts( const struct _outputTranscript &a, const struct _outputTranscript &b )
+	{
+		int tmp = CompTranscripts( a, b ) ;
+		if ( tmp < 0 )
+			return true ;
+		else if ( tmp > 0 )
+			return false ;
+		else
+			return a.sampleId < b.sampleId ;
+	}
+
 	MultiThreadOutputTranscript( int cnt, Alignments &a ): alignments( a )
 	{
 		sampleCnt = cnt ;
@@ -188,7 +208,7 @@ public:
 		int j ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
-			fprintf( outputFPs[i], "#CLASS_v3.0.0\n#" ) ;	
+			fprintf( outputFPs[i], "#PsiCLASS_v1.0.0\n#" ) ;	
 			for ( j = 0 ; j < argc - 1 ; ++j )
 			{
 				fprintf( outputFPs[i], "%s ", argv[j] ) ;
@@ -197,23 +217,55 @@ public:
 		}
 	}
 
+	void OutputCommentToSampleGTF( int sampleId, char *s )
+	{
+		fprintf( outputFPs[ sampleId ], "#%s\n", s ) ;
+	}
+
 	void Flush()
 	{
-		std::sort( outputQueue.begin(), outputQueue.end(), CompOutputTranscript ) ;	
+		std::sort( outputQueue.begin(), outputQueue.end(), CompSortTranscripts ) ;	
 		int i, j ;
 		int qsize = outputQueue.size() ;
 		char prefix[10] = "" ;
+
+		// Recompute the transcript id
+		int gid = -1 ;
+		int tid = 0 ;
+		for ( i = 0 ; i < qsize ; )
+		{
+			for ( j = i + 1 ; j < qsize ; ++j )
+			{
+				if ( CompTranscripts( outputQueue[i], outputQueue[j] ) )
+					break ;
+			}
+			int l ;	
+			if ( outputQueue[i].geneId != gid )
+			{
+				gid = outputQueue[i].geneId ;
+				tid = 0 ;
+			}
+			else
+				++tid ;
+
+			for ( l = i ; l < j ; ++l )
+				outputQueue[l].transcriptId = tid ;
+
+			i = j ;
+		}
+
+		// output
 		for ( i = 0 ; i < qsize ; ++i )
 		{
 			struct _outputTranscript &t = outputQueue[i] ;
 			char *chrom = alignments.GetChromName( t.chrId ) ;
-			fprintf( outputFPs[t.sampleId], "%s\tCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
+			fprintf( outputFPs[t.sampleId], "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
 					chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 					prefix, chrom, t.geneId,
 					prefix, chrom, t.geneId, t.transcriptId, t.FPKM, t.TPM ) ;
 			for ( j = 0 ; j < t.ecnt ; ++j )
 			{
-				fprintf( outputFPs[ t.sampleId ], "%s\tCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
+				fprintf( outputFPs[ t.sampleId ], "%s\tPsiCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
 						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
 						chrom, t.exons[j].a, t.exons[j].b, t.strand,
 						prefix, chrom, t.geneId,

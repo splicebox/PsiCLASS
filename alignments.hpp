@@ -329,6 +329,11 @@ public:
 		return 1 ;
 	}
 
+	void GetFileName( char *buffer )
+	{
+		strcpy( buffer, fileName ) ;
+	}
+
 	int GetReadLength()
 	{
 		return b->core.l_qseq ;
