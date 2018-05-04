@@ -104,6 +104,7 @@ int main( int argc, char *argv[] )
 	std::vector<struct _pair32> tmpExons ;
 	int sampleCnt = 0 ;
 	int gid = -1 ;
+	int tid = -1 ;
 	int chrId = -1 ;
 	int chrIdUsed = 0 ;
 	char cStrand = '.' ;
@@ -136,6 +137,7 @@ int main( int argc, char *argv[] )
 					nt.sampleId = sampleCnt ; 
 					nt.chrId = chrId ;
 					nt.geneId = gid ;
+					nt.transcriptId = tid ;
 					nt.strand = cStrand ;
 					nt.ecnt = tmpExons.size() ;
 					nt.exons = new struct _pair32[nt.ecnt] ;
@@ -172,6 +174,18 @@ int main( int argc, char *argv[] )
 				--p ;
 			*p = '\0' ;
 			gid = GetTailNumber( buffer ) ;
+			
+			p = strstr( line, "transcript_id" ) ;
+			for ( ; *p != ' ' ; ++p )
+				;
+			p += 2 ; // add extra 1 to skip \"
+			sscanf( p, "%s", buffer ) ;
+			//printf( "+%s %d\n", tid, strlen( tid )  ) ;
+			p = buffer + strlen( buffer ) ;
+			while ( *p != '\"' )
+				--p ;
+			*p = '\0' ;
+			tid = GetTailNumber( buffer ) ;
 
 			p = strstr( line, "FPKM" ) ;
 			for ( ; *p != ' ' ; ++p )
@@ -235,6 +249,7 @@ int main( int argc, char *argv[] )
 			nt.sampleId = sampleCnt ; 
 			nt.chrId = chrId ;
 			nt.geneId = gid ;
+			nt.transcriptId = tid ;
 			nt.strand = cStrand ;
 			nt.ecnt = tmpExons.size() ;
 			nt.exons = new struct _pair32[nt.ecnt] ;
