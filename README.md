@@ -20,6 +20,7 @@ CLASS3 depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and sam
 
 
 ### Usage
+
 Usage: ./psiclass [OPTIONS]
 	Required:
 		-b STRING: the path to the BAM files. Use comma to separate ultiple bam files
