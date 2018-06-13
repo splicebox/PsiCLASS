@@ -21,22 +21,22 @@ CLASS3 depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and sam
 
 ### Usage
 
-Usage: ./psiclass [OPTIONS]
-	Required:
-		-b STRING: the path to the BAM files. Use comma to separate ultiple bam files
-			or
-		--lb STRING: the path to the file listing the alignments bam files
-	Optional:
-		-s STRING: the path to the trusted splice sites file (default: not used)
-		-o STRING: the prefix of output files (default: ./psiclass)
-		-t INT: number of threads (default: 1)
-		--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)
-		--stage INT:  (default: 0)
-			0-start from beginning (building splice sites for each sample)
-			1-start from building subexon files for each sample
-			2-start from combining subexon files
-			3-start from assembly the transcripts
-			4-start from voting the consensus transcripts
+	Usage: ./psiclass [OPTIONS]
+		Required:
+			-b STRING: the path to the BAM files. Use comma to separate ultiple bam files
+				or
+			--lb STRING: the path to the file listing the alignments bam files
+		Optional:
+			-s STRING: the path to the trusted splice sites file (default: not used)
+			-o STRING: the prefix of output files (default: ./psiclass)
+			-t INT: number of threads (default: 1)
+			--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)
+			--stage INT:  (default: 0)
+				0-start from beginning (building splice sites for each sample)
+				1-start from building subexon files for each sample
+				2-start from combining subexon files
+				3-start from assembly the transcripts
+				4-start from voting the consensus transcripts
 
 ### Output
 
