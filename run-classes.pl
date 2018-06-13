@@ -9,7 +9,7 @@ use File::Basename;
 use threads ;
 use threads::shared ;
 
-die "Usage: perl run-classes.pl [OPTIONS]\n".
+die "Usage: ./psiclass [OPTIONS]\n".
     "Required:\n".
     "\t-b STRING: the path to the BAM files. Use comma to separate ultiple bam files\n".
     "\t\tor\n".
