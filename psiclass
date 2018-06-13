@@ -98,9 +98,6 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 			$prefix .= "_" ;
 		}
 		
-		mkdir $outdir if ( !-d $outdir ) ;
-		mkdir "$outdir/splice" if ( !-d "$outdir/splice" ) ;
-		mkdir "$outdir/subexon" if ( !-d "$outdir/subexon" ) ;
 		++$i ;
 	}
 	elsif ( $ARGV[$i] eq "--stage" )
@@ -128,6 +125,11 @@ if ( scalar( @bamFiles ) == 0 )
 {
 	die "Must use option --lb to specify the list of bam files.\n" ;
 }
+
+mkdir $outdir if ( !-d $outdir ) ;
+mkdir "$outdir/splice" if ( !-d "$outdir/splice" ) ;
+mkdir "$outdir/subexon" if ( !-d "$outdir/subexon" ) ;
+
 
 my $threadLock : shared ;
 my @sharedFiles : shared ;
