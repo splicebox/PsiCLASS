@@ -11,7 +11,7 @@ use threads::shared ;
 
 die "Usage: ./psiclass [OPTIONS]\n".
     "Required:\n".
-    "\t-b STRING: the path to the BAM files. Use comma to separate ultiple bam files\n".
+    "\t-b STRING: the path to the BAM files. Use comma to separate multiple bam files\n".
     "\t\tor\n".
     "\t--lb STRING: the path to the file listing the alignments bam files\n".
     "Optional:\n".
@@ -63,7 +63,7 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 	}
 	elsif ( $ARGV[$i] eq "-b" )
 	{
-		@bamFiles = split /,/, $ARGV[$i + 1] ;
+		push @bamFiles, ( split /,/, $ARGV[$i + 1] ) ;
 		++$i ;
 	}
 	elsif ( $ARGV[$i] eq "-s" )

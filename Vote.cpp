@@ -253,6 +253,8 @@ int main( int argc, char *argv[] )
 			nt.strand = cStrand ;
 			nt.ecnt = tmpExons.size() ;
 			nt.exons = new struct _pair32[nt.ecnt] ;
+			nt.FPKM = FPKM ;
+			nt.TPM = TPM ;
 			for ( i = 0 ; i < nt.ecnt ; ++i )
 				nt.exons[i] = tmpExons[i] ;
 			tmpExons.clear() ;
@@ -287,7 +289,6 @@ int main( int argc, char *argv[] )
 
 		double sumFPKM = 0 ;
 		double sumTPM = 0 ;
-		
 		for ( l = i ; l < j ; ++l )
 		{
 			sumFPKM += transcripts[l].FPKM ;
