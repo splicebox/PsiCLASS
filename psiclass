@@ -18,7 +18,7 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-s STRING: the path to the trusted splice sites file (default: not used)\n".
     "\t-o STRING: the prefix of output files (default: ./psiclass)\n". 
     "\t-t INT: number of threads (default: 1)\n".
-    "\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n".
+    "\t--mateId: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning (building splice sites for each sample)\n".
     "\t\t1-start from building subexon files for each sample\n".
@@ -111,7 +111,7 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 		$classesOpt .= " -t $numThreads" ;
 		++$i ;
 	}
-	elsif ( $ARGV[ $i ] eq "--hasMateIdSuffix" )
+	elsif ( $ARGV[ $i ] eq "--mateId" )
 	{
 		$classesOpt .= " --hasMateIdSuffix" ;
 		$juncOpt .= " --hasMateIdSuffix" ;
