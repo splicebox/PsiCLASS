@@ -16,7 +16,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t\tor\n"
 	"\t--lb STRING: path to the file of the list of BAM files.\n"
 	"Optional:\n"
-	"\t-t INT: number of threads. (default: 1)\n"
+	"\t-p INT: number of threads. (default: 1)\n"
 	"\t-o STRING: the prefix of the output file. (default: not used)\n"
 	"\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n" 
 	"\t-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)\n"
@@ -25,7 +25,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n"
 	;
 
-static const char *short_options = "s:b:f:o:d:t:c:h" ;
+static const char *short_options = "s:b:f:o:d:p:c:h" ;
 static struct option long_options[] =
 	{
 		{ "ls", required_argument, 0, 10000 },
@@ -146,7 +146,7 @@ int main( int argc, char *argv[] )
 		{
 			txptMinReadDepth = atof( optarg ) ;
 		}
-		else if ( c == 't' )
+		else if ( c == 'p' )
 		{
 			numThreads = atoi( optarg ) ;
 		}
