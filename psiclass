@@ -11,20 +11,20 @@ use threads::shared ;
 
 die "Usage: ./psiclass [OPTIONS]\n".
     "Required:\n".
-    "\t-b STRING: the path to the BAM files. Use comma to separate multiple bam files\n".
+    "\t-b STRING: paths to the alignment BAM files. Use comma to separate multiple BAM files\n".
     "\t\tor\n".
-    "\t--lb STRING: the path to the file listing the alignments bam files\n".
+    "\t--lb STRING: path to the file listing the alignments BAM files\n".
     "Optional:\n".
-    "\t-s STRING: the path to the trusted splice sites file (default: not used)\n".
-    "\t-o STRING: the prefix of output files (default: ./psiclass)\n". 
+    "\t-s STRING: path to the trusted splice sites file (default: not used)\n".
+    "\t-o STRING: prefix of output files (default: ./psiclass)\n". 
     "\t-p INT: number of processes/threads (default: 1)\n".
-    #"\t--mateIdx: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n".
+    #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
     "\t--stage INT:  (default: 0)\n".
-    "\t\t0-start from beginning (building splice sites for each sample)\n".
+    "\t\t0-start from beginning - building splice sites for each sample\n".
     "\t\t1-start from building subexon files for each sample\n".
-    "\t\t2-start from combining subexon files\n".
-    "\t\t3-start from assembly the transcripts\n".
-    "\t\t4-start from voting the consensus transcripts\n"
+    "\t\t2-start from combining subexon files across samples\n".
+    "\t\t3-start from assembling the transcripts for each sample\n".
+    "\t\t4-start from voting the consensus transcripts across samples\n"
     if ( @ARGV == 0 ) ;
 
 my $WD = dirname( abs_path( $0 ) ) ;
@@ -48,6 +48,7 @@ my $stage = 0 ;
 my $classesOpt = "" ;
 my $juncOpt = "" ;
 my $outdir = "." ;
+my $mateIdx = -1 ;
 for ( $i = 0 ; $i < @ARGV ; ++$i )
 {
 	if ( $ARGV[$i] eq "--lb" )
@@ -113,8 +114,13 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 	}
 	elsif ( $ARGV[ $i ] eq "--mateIdx" )
 	{
-		$classesOpt .= " --hasMateIdSuffix" ;
-		$juncOpt .= " --hasMateIdSuffix" ;
+		$mateIdx = $ARGV[ $i + 1 ] ;
+		if ( $mateIdx == 1 )
+		{
+			$classesOpt .= " --hasMateIdSuffix" ;
+			$juncOpt .= " --hasMateIdSuffix" ;
+		}
+		++$i ;
 	}
 	else
 	{
@@ -124,6 +130,32 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 if ( scalar( @bamFiles ) == 0 )
 {
 	die "Must use option --lb to specify the list of bam files.\n" ;
+}
+
+if ( $mateIdx == -1 )
+{	
+	open FPsam, "$WD/samtools-0.1.19/samtools view ".$bamFiles[0]."| head -1000 |" ; 
+	my $flag = 0 ;
+	while ( <FPsam> )
+	{
+		my @cols = split /\t/ ;
+		my $id = $cols[0] ;
+
+		if ( !( $id =~ /[\.|\/][1|2]$/ ) )
+		{
+			$flag = 1 ;
+			last ;
+		}
+	}
+	close FPsam ;
+
+	if ( $flag == 0 )
+	{
+		print "Found mate read id index suffix(.1 or /1). Calling \"--mateIdx 1\" option. If this is a false calling, please use \"--mateIdx 0\".\n" ;
+		$classesOpt .= " --hasMateIdSuffix" ;
+		$juncOpt .= " --hasMateIdSuffix" ;
+
+	}
 }
 
 mkdir $outdir if ( !-d $outdir ) ;
