@@ -12,7 +12,7 @@ Includes portions copyright from:
 
 ### What is PsiCLASS?
 
-PsiCLASS is a reference-based transcriptome assembler for single or multiple RNA-seq samples. Unlike conventional methods that analyze each sample separately and then merge the outcomes to create a unified set of meta-annotations, PsiCLASS takes a multi-sample approach, simultaneously analyzing all RNA-seq data sets in an experiment. PsiCLASS is both a transcript assembler and a meta-assembler, producing  separate transcript sets for the individual samples and a unified set of meta-annotations. The algorithmic underpinnings of PsiCLASS include using a global subexon splice graph, statistical cross-sample feature (intron, exon) selection methods, and an efficient dynamic programming optimization algorithm to select a subset of transcripts from among those encoded in the graph, based on the read support in each sample. Lastly, the set of meta-annotations is selected from among the transcripts generated for individual samples by voting. While PsiCLASS is highly accurate and efficient for medium-to-large collections of RNA-seq data, its performance is equally high for small RNA-seq data sets and even for individual samples, and therefore can be effectively used both as a multi-sample and as a conventional single-sample assembler. 
+PsiCLASS is a reference-based transcriptome assembler for single or multiple RNA-seq samples. Unlike conventional methods that analyze each sample separately and then merge the outcomes to create a unified set of meta-annotations, PsiCLASS takes a multi-sample approach, simultaneously analyzing all RNA-seq data sets in an experiment. PsiCLASS is both a transcript assembler and a meta-assembler, producing  separate transcript sets for the individual samples and a unified set of meta-annotations. The algorithmic underpinnings of PsiCLASS include using a global subexon splice graph, statistical cross-sample feature (intron, subexon) selection methods, and an efficient dynamic programming algorithm to select a subset of transcripts from among those encoded in the graph, based on the read support in each sample. Lastly, the set of meta-annotations is selected from among the transcripts generated for individual samples by voting. While PsiCLASS is highly accurate and efficient for medium-to-large collections of RNA-seq data, its accuracy is equally high for small RNA-seq data sets (2-10 samples) and even for individual samples, and therefore can be effectively used both as a multi-sample and as a conventional single-sample assembler. 
 
 ### Install
 
@@ -42,7 +42,7 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                      		3-start from assembling the transcripts for each sample
                      		4-start from voting the consensus transcripts across samples
 	
-#### Advanced usage #advanced-usage
+#### Advanced usage
 
 Alternatively, one can run the different components of the program in succession, for instance:
 
