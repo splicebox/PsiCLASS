@@ -33,21 +33,60 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                         	or
                		--lb STRING: path to the file listing the alignment BAM files
        		Optional:
-               		-s STRING: path to the trusted splice sites file (default: not used)
+               		-s STRING: path to the trusted splice file (default: not used)
           		-o STRING: prefix of output files (default: ./psiclass)
           		-t INT: number of threads (default: 1)
               		--stage INT:  (default: 0)
-                    		0-start from the beginning - building the splice site file for each sample
-                   		1-start from building the subexon file for each samples
+                     		0-start from the beginning - building the splice site file for each sample
+                     		1-start from building the subexon file for each samples
                      		2-start from combining the subexon files across samples
                      		3-start from assembling the transcripts for each sample
                      		4-start from voting the consensus transcripts across samples
 	
 #### Advanced usage
 
-Alternatively, one can run the different components of the program in succession, for instance:
+Alternatively, one can run the different components of the program in succession. For instance, if you are using PsiCLASS on single sample s0.bam you can use:
+
+	# Find the introns
+	./junc s0.bam > s0.splice
+	# Build subexon graph
+	./subexon-info s0.bam s0.splice > s0.subexon
+	# Transcriptome assembly
+	./classes -b s0.bam -s s0.subexon > s0.gtf
+
+The component `classes` is the core of PsiCLASS, which has more tuning options:
+
+	Usage: ./classes [OPTIONS]
+		Required:
+			-s STRING: path to the subexon file.
+			-b STRING: path to the BAM file. Use multiple -b to specify multiple BAM files.
+				or
+			--lb STRING: path to the file of the list of BAM files.
+		Optional:
+			-p INT: number of threads. (default: 1)
+			-o STRING: the prefix of the output file. (default: not used)
+			-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)
+			-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)
+			-d FLOAT: filter the transcript whose average read depth is less than the given number. (default: 2.5)
+			--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)
+			--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)
+
+
+If you want to adjust the voting threshold, you can run the voting components indpendently:
+	
+	Usage: ./transcript-vote [OPTIONS] > output.gtf:
+		Required:
+			--lg: path to the list of GTF files.
+		Optional:
+			-f FLOAT: the fraction of samples the transcript showed up. (default: 0.25)
+			-n INT: the number of samples a transcript showed up. (default: 3)
+
 
 ### Practical notes
+
+*Use trusted introns from other souces.* Though PsiCLASS contains module to infer the set of trusted introns, you can still use the annotation or tools like [JULIP](https://github.com/Guangyu-Yang/JULiP) to find the set of trusted introns. This file contains three columns like:
+
+	chr_name start_site end_site
 
 *Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) and [STAR](https://github.com/alexdobin/STAR). At this point, its behavior on alignment data generated with other tools is unknown. 
 
@@ -66,7 +105,7 @@ Subexon and splice (intron) files, and other auxiliary files, are in the subdire
 
 	Intron files: splice/*
 	Subexon graph files: subexon/*
-	Log file: ./(psiclass)_classes.log
+	Log file: (psiclass)_classes.log
 
 ### Example
 

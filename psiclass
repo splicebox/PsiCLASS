@@ -15,7 +15,7 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t\tor\n".
     "\t--lb STRING: path to the file listing the alignments BAM files\n".
     "Optional:\n".
-    "\t-s STRING: path to the trusted splice sites file (default: not used)\n".
+    "\t-s STRING: path to the trusted splice file (default: not used)\n".
     "\t-o STRING: prefix of output files (default: ./psiclass)\n". 
     "\t-p INT: number of processes/threads (default: 1)\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
