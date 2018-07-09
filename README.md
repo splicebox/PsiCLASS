@@ -47,11 +47,11 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
 
 Alternatively, one can run the different components of the program in succession. For instance, if you are using PsiCLASS on single sample s0.bam you can use:
 
-	# Find the introns
+	# Find introns
 	./junc s0.bam > s0.splice
 	# Build subexon graph
 	./subexon-info s0.bam s0.splice > s0.subexon
-	# Transcriptome assembly
+	# Assemble the transcripts 
 	./classes -b s0.bam -s s0.subexon > s0.gtf
 
 The component `classes` is the core of PsiCLASS, which has more tuning options:
@@ -88,7 +88,13 @@ If you want to adjust the voting threshold, you can run the voting components in
 
 	chr_name start_site end_site
 
-*Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) and [STAR](https://github.com/alexdobin/STAR). At this point, its behavior on alignment data generated with other tools is unknown. 
+*Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) and [STAR](https://github.com/alexdobin/STAR). 
+
+Since PsiCLASS needs the XS field of the BAM file to determine the strand, STAR should be running with option `--outSAMstrandField intronMotif`.
+
+If you are using STAR to find non-canonical splice sites, you can use the included `addXS` to add the XS field in the BAM file by
+
+	samtools view -h in.bam | ./addXS reference_genome.fa | samtools view -bS - > out.bam
 
 *Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting tool (see [Advanced usage](#advanced-usage) above) with different cutoffs, and assess the performance against a reference set of gene annotations, such as [GENCODE](https://www.gencodegenes.org), using the included tool 'grader'. Note that the per sample sets of transcripts will remain unchanged.        
 
