@@ -7,8 +7,8 @@ Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increas
 
 	Copyright (C) 2018- and GNU GPL by Li Song, Liliana Florea
 
-	Includes portions copyright from:
-[`samtools`](https://github.com/samtools/samtools) - Copyright (C) 2008-, Genome Research Ltd, Heng Li
+Includes portions copyright from:
+	[`samtools`](https://github.com/samtools/samtools) - Copyright (C) 2008-, Genome Research Ltd, Heng Li
 
 ### What is PsiCLASS?
 
