@@ -42,9 +42,15 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                      		3-start from assembling the transcripts for each sample
                      		4-start from voting the consensus transcripts across samples
 	
-#### Advanced usage
+#### Advanced usage #advanced-usage
 
-Alternatively, one can run the program in succession, for instance:
+Alternatively, one can run the different components of the program in succession, for instance:
+
+### Practical notes
+
+*Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) or [STAR](https://github.com/alexdobin/STAR). At this point, its behavior on alignment data generated with other tools is unknown. 
+
+*Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting tool (see [Advanced usage](#advanced-usage) above) with different cutoffs, and assess the performance against a reference gene anntation, such as [GENCODE](https://www.gencodegenes.org) using the included tool 'grader'.       
 
 ### Input/Output
 
