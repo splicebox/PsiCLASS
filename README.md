@@ -3,7 +3,7 @@ PsiCLASS
 
 Described in: 
 
-Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increases the accuracy of transcript assembly, Submitted.
+Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increases the accuracy of transcript assembly, *Submitted*.
 
 Copyright (C) 2018- and GNU GPL by Li Song, Liliana Florea
 
@@ -16,10 +16,10 @@ PsiCLASS is a reference-based transcriptome assembler for single or multiple RNA
 
 ### Install
 
-1. Clone the [GitHub repo](https://github.com/mourisl/class3), e.g. with `git clone https://github.com/mourisl/class3.git`
+1. Clone the [GitHub repo](https://github.com/splicebox/psiclass), e.g. with `git clone https://github.com/splicebox/psiclass.git`
 2. Run `make` in the repo directory
 
-PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and samtools dependends on [zlib](http://en.wikipedia.org/wiki/Zlib).
+PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and samtools depends on [zlib](http://en.wikipedia.org/wiki/Zlib).
 
 
 ### Usage
@@ -48,28 +48,28 @@ Alternatively, one can run the different components of the program in succession
 
 ### Practical notes
 
-*Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) or [STAR](https://github.com/alexdobin/STAR). At this point, its behavior on alignment data generated with other tools is unknown. 
+*Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) and [STAR](https://github.com/alexdobin/STAR). At this point, its behavior on alignment data generated with other tools is unknown. 
 
-*Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting tool (see [Advanced usage](#advanced-usage) above) with different cutoffs, and assess the performance against a reference gene anntation, such as [GENCODE](https://www.gencodegenes.org) using the included tool 'grader'.       
+*Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting tool (see [Advanced usage](#advanced-usage) above) with different cutoffs, and assess the performance against a reference gene anntation, such as [GENCODE](https://www.gencodegenes.org) using the included tool 'grader'. Note that the per sample sets of transcripts will remain unchanged.        
 
 ### Input/Output
 
-The primary input to PsiCLASS is a set of BAM files, one for each RNA-seq sample in the analysis. The program calculates a set of subexons files and a set of splice (intron) files, for the individual samples. (Optionally, one may specify a path to an external file of trusted introns.) The output consists of one GTF file of transcripts for each sample, and the GTF file of meta-annotation produced by voting, stored in the output directory, either the current directory or that specified by the '-o' parameter:
+The primary input to PsiCLASS is a set of BAM alignment files, one for each RNA-seq sample in the analysis. The program calculates a set of subexons files and a set of splice (intron) files, for the individual samples. (Optionally, one may specify a path to an external file of trusted introns.) The output consists of one GTF file of transcripts for each sample, and the GTF file of meta-annotations produced by voting, stored in the output directory:
 
 	Sample-wise GTF files: (psiclass)_sample_{0,1,...,n-1}.gtf
 	Meta-assembly GTF file: (psiclass)_vote.gtf
 
 where indices 0,1,...,n-1 match the order of the input BAM files.
 
-Subexon and splice (intron) files, and other auxiliary files, are in subdirectories:
+Subexon and splice (intron) files, and other auxiliary files, are in the subdirectories:
 
 	Intron files: splice/*
 	Subexon graph files: subexon/*
-	Log file: (psiclass)_classes.log
+	Log file: ./(psiclass)_classes.log
 
 ### Example
 
-The directory './example' in this distribution contains two BAM files, along with an example BAM list file. You can run PsiCLASS with:
+The directory './example' in this distribution contains two BAM files, along with an example of a BAM list file. You can run PsiCLASS with:
 
 	./psiclass -b example/s1.bam,example/s2.bam
 
