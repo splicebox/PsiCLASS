@@ -6,7 +6,7 @@ LINKFLAGS = -lbam -lz -lm -lpthread
 DEBUG=
 OBJECTS = stats.o subexon-graph.o 
 
-all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice
+all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice addXS
 
 subexon-info: subexon-info.o $(OBJECTS)
 	if [ ! -f ./samtools-0.1.19/libbam.a ] ; \
@@ -32,6 +32,9 @@ junc: junc.o
 
 grader: grader.o
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) grader.o $(LINKFLAGS)
+
+addXS: addXS.o
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) addXS.o $(LINKFLAGS)
 	
 
 subexon-info.o: SubexonInfo.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.hpp
@@ -55,6 +58,8 @@ vote-transcripts.o: Vote.cpp TranscriptDecider.hpp
 junc.o: FindJunction.cpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 grader.o: grader.cpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
+addXS.o: AddXS.cpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 
 clean:

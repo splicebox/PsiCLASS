@@ -18,6 +18,8 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-s STRING: path to the trusted splice file (default: not used)\n".
     "\t-o STRING: prefix of output files (default: ./psiclass)\n". 
     "\t-p INT: number of processes/threads (default: 1)\n".
+    "\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n".
+    "\t--vf(--vn) FLOAT(NUM): the minimum fraction(number) of samples a transcript appears in when voting (default: 0.25(3))\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning - building splice sites for each sample\n".
@@ -47,6 +49,7 @@ my $bamFileList = "" ;
 my $stage = 0 ;
 my $classesOpt = "" ;
 my $juncOpt = "" ;
+my $voteOpt = "" ;
 my $outdir = "." ;
 my $mateIdx = -1 ;
 for ( $i = 0 ; $i < @ARGV ; ++$i )
@@ -112,6 +115,11 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 		$classesOpt .= " -p $numThreads" ;
 		++$i ;
 	}
+	elsif ( $ARGV[ $i ] eq "-c" )
+	{
+		$classesOpt .= " -c ".$ARGV[ $i + 1 ] ;
+		++$i ;
+	}
 	elsif ( $ARGV[ $i ] eq "--mateIdx" )
 	{
 		$mateIdx = $ARGV[ $i + 1 ] ;
@@ -121,6 +129,17 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 			$juncOpt .= " --hasMateIdSuffix" ;
 		}
 		++$i ;
+	}
+	elsif ( $ARGV[ $i ] eq "--vf" )
+	{
+		$voteOpt .= " -f ".$ARGV[$i + 1] ;
+		++$i ;
+	}
+	elsif ( $ARGV[ $i ] eq "--vn" )
+	{
+		$voteOpt .= " -n ".$ARGV[$i + 1] ;
+		++$i ;
+		
 	}
 	else
 	{
@@ -319,7 +338,7 @@ if ( $stage <= 4 )
 		print FPgtflist "$outdir/${prefix}sample_${i}.gtf\n" ;
 	}
 	close FPgtflist ;
-	$cmd = "$WD/vote-transcripts --lg $outdir/${prefix}gtf.list > $outdir/${prefix}vote.gtf" ;
+	$cmd = "$WD/vote-transcripts --lg $outdir/${prefix}gtf.list $voteOpt > $outdir/${prefix}vote.gtf" ;
 	system_call( "$cmd" ) ;
 }
 
