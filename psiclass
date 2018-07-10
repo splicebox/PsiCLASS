@@ -19,7 +19,7 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-o STRING: prefix of output files (default: ./psiclass)\n". 
     "\t-p INT: number of processes/threads (default: 1)\n".
     "\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n".
-    "\t--vf(--vn) FLOAT(NUM): the minimum fraction(number) of samples a transcript appears in when voting (default: 0.25(3))\n".
+    "\t-vn INT |-vf FLOAT : minimum number | fraction of samples a transcript must appear in to be reported (defaults: 3, 0.25)\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning - building splice sites for each sample\n".

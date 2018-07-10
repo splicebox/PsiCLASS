@@ -34,6 +34,7 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                		-s STRING: path to the trusted splice file (default: not used)
           		-o STRING: prefix of output files (default: ./psiclass)
           		-p INT: number of threads (default: 1)
+			-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)
 			-vn INT |-vf FLOAT : minimum number | fraction of samples a transcript must appear in to be reported 
 				(defaults: 3, 0.25)
               		--stage INT:  (default: 0)
