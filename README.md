@@ -113,7 +113,7 @@ Subexon and splice (intron) files, and other auxiliary files, are in the subdire
 
 ### Example
 
-The directory './example' in this distribution contains two BAM files, along with an example of a BAM list file. You can run PsiCLASS with:
+The directory './example' in this distribution contains two BAM files, along with an example of a BAM list file. Run PsiCLASS with:
 
 	./psiclass -b example/s1.bam,example/s2.bam
 
