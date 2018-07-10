@@ -44,45 +44,6 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                      		3-start from assembling the transcripts for each sample
                      		4-start from voting the consensus transcripts across samples
 	
-<!---#### Advanced usage
-
-Alternatively, one can run the different components of the program in succession. For instance, if you are using PsiCLASS on single sample s0.bam you can use:
-
-	# Find introns
-	./junc s0.bam > s0.splice
-	# Build subexon graph
-	./subexon-info s0.bam s0.splice > s0.subexon
-	# Assemble the transcripts 
-	./classes -b s0.bam -s s0.subexon > s0.gtf
-
-The component `classes` is the core of PsiCLASS, which has more tuning options:
-
-	Usage: ./classes [OPTIONS]
-		Required:
-			-s STRING: path to the subexon file.
-			-b STRING: path to the BAM file. Use multiple -b to specify multiple BAM files.
-				or
-			--lb STRING: path to the file of the list of BAM files.
-		Optional:
-			-p INT: number of threads. (default: 1)
-			-o STRING: the prefix of the output file. (default: not used)
-			-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)
-			-f FLOAT: filter the transcript from the gene if its abundance is lower than the given number percent of the most abundant one. (default: 0.05)
-			-d FLOAT: filter the transcript whose average read depth is less than the given number. (default: 2.5)
-			--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)
-			--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)
-
-
-If you want to adjust the voting threshold, you can run the voting components independently:
-	
-	Usage: ./transcript-vote [OPTIONS] > output.gtf:
-		Required:
-			--lg: path to the list of GTF files.
-		Optional:
-			-f FLOAT: the fraction of samples the transcript showed up. (default: 0.25)
-			-n INT: the number of samples a transcript showed up. (default: 3)
-
---->
 ### Practical notes
 
 *Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) and [STAR](https://github.com/alexdobin/STAR). 
