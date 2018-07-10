@@ -25,8 +25,6 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
 
 ### Usage
 
-#### Basic usage
-
 	Usage: ./psiclass [OPTIONS]
 		Required:
                 	-b STRING: paths to the alignment BAM files; use comma to separate multiple BAM files
@@ -35,7 +33,9 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
        		Optional:
                		-s STRING: path to the trusted splice file (default: not used)
           		-o STRING: prefix of output files (default: ./psiclass)
-          		-t INT: number of threads (default: 1)
+          		-p INT: number of threads (default: 1)
+			-vn INT |-vf FLOAT : minimum number | fraction of samples a transcript must appear in to be reported 
+				(defaults: 3, 0.25)
               		--stage INT:  (default: 0)
                      		0-start from the beginning - building the splice site file for each sample
                      		1-start from building the subexon file for each samples
@@ -43,7 +43,7 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                      		3-start from assembling the transcripts for each sample
                      		4-start from voting the consensus transcripts across samples
 	
-#### Advanced usage
+<!---#### Advanced usage
 
 Alternatively, one can run the different components of the program in succession. For instance, if you are using PsiCLASS on single sample s0.bam you can use:
 
@@ -72,7 +72,7 @@ The component `classes` is the core of PsiCLASS, which has more tuning options:
 			--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)
 
 
-If you want to adjust the voting threshold, you can run the voting components indpendently:
+If you want to adjust the voting threshold, you can run the voting components independently:
 	
 	Usage: ./transcript-vote [OPTIONS] > output.gtf:
 		Required:
@@ -81,26 +81,24 @@ If you want to adjust the voting threshold, you can run the voting components in
 			-f FLOAT: the fraction of samples the transcript showed up. (default: 0.25)
 			-n INT: the number of samples a transcript showed up. (default: 3)
 
-
+--->
 ### Practical notes
-
-*Use trusted introns from other souces.* Though PsiCLASS contains module to infer the set of trusted introns, you can still use the annotation or tools like [JULIP](https://github.com/Guangyu-Yang/JULiP) to find the set of trusted introns. This file contains three columns like:
-
-	chr_name start_site end_site
 
 *Alignment compatibility.* PsiCLASS has been tuned to run on alignments generated with the tools [HISAT](https://ccb.jhu.edu/software/hisat/index.shtml) and [STAR](https://github.com/alexdobin/STAR). 
 
-Since PsiCLASS needs the XS field of the BAM file to determine the strand, STAR should be running with option `--outSAMstrandField intronMotif`.
-
-If you are using STAR to find non-canonical splice sites, you can use the included `addXS` to add the XS field in the BAM file by
+When running PsiCLASS with STAR alignments, run STAR with the option `--outSAMstrandField intronMotif`, which will include the XS field indicating the strand in the BAM alignments. Further, when including alignments with *non-canonical splice sites*, use the provided `addXS` executable to add the XS field:
 
 	samtools view -h in.bam | ./addXS reference_genome.fa | samtools view -bS - > out.bam
 
-*Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting tool (see [Advanced usage](#advanced-usage) above) with different cutoffs, and assess the performance against a reference set of gene annotations, such as [GENCODE](https://www.gencodegenes.org), using the included tool 'grader'. Note that the per sample sets of transcripts will remain unchanged.        
+*Trusted introns from other sources.* By default, PsiCLASS determines a set of trusted introns from the input spliced alignments, to use in building the global subexon graph. Alternatively, the user can supply an external set of trusted introns, for instance extracted from the GENCODE gene annotations or judiciously selected from the input data using a tool like [JULIP](https://github.com/Guangyu-Yang/JULiP). This file must contain three columns:
+
+	chr_name start_site end_site
+	
+*Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting stage (see [Usage](#usage) above) with different cutoffs, and assess the performance against a reference set of gene annotations, such as [GENCODE](https://www.gencodegenes.org). Note that the per sample sets of transcripts will remain unchanged.        
 
 ### Input/Output
 
-The primary input to PsiCLASS is a set of BAM alignment files, one for each RNA-seq sample in the analysis. The program calculates a set of subexons files and a set of splice (intron) files, for the individual samples. (Optionally, one may specify a path to an external file of trusted introns.) The output consists of one GTF file of transcripts for each sample, and the GTF file of meta-annotations produced by voting, stored in the output directory:
+The primary input to PsiCLASS is a set of BAM alignment files, one for each RNA-seq sample in the analysis. The program calculates a set of subexon files and a set of splice (intron) files, for the individual samples. (Optionally, one may specify a path to an external file of trusted introns as explained [above](#practical-notes).) The output consists of one GTF file of transcripts for each sample, and the GTF file of meta-annotations produced by voting, stored in the output directory:
 
 	Sample-wise GTF files: (psiclass)_sample_{0,1,...,n-1}.gtf
 	Meta-assembly GTF file: (psiclass)_vote.gtf
