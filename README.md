@@ -10,6 +10,8 @@ Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increas
 Includes portions copyright from: 
 
 	samtools - Copyright (C) 2008-, Genome Research Ltd, Heng Li
+	
+Commands, scripts and supporting data for the paper can be found [here](https://github.com/splicebox/PsiCLASS_paper/).
 
 ### What is PsiCLASS?
 
