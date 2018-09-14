@@ -8,7 +8,9 @@
 #define MAX(x, y) (((x)<(y))?(y):(x))
 #define MIN(x, y) (((x)<(y))?(x):(y))
 
-char usage[] = "Usage: ./trust-splice splice_file_list one_bam_file\n" ;
+char usage[] = "Usage: ./trust-splice splice_file_list one_bam_file [OPTIONS]\n"
+		"Options:\n"
+		"\t-a FLOAT: average number of supported reads from the samples (default: 0.5)\n" ;
 
 struct _intron
 {
@@ -113,11 +115,26 @@ int main( int argc, char *argv[] )
 	Alignments alignments ;
 	std::vector<struct _intron> introns ;
 	std::vector<struct _site> sites ;
+	double averageSupportThreshold = 0.5 ;
 
 	if ( argc <= 1 )
 	{
 		printf( "%s", usage ) ;
 		exit( 1 ) ;
+	}
+
+	for ( i = 3 ; i < argc ; ++i )
+	{
+		if ( !strcmp( argv[ i ], "-a" ) )
+		{
+			averageSupportThreshold = atof( argv[i + 1] ) ;
+			++i ;
+		}
+		else
+		{
+			printf( "Unknown option: %s", argv[i] ) ;
+			exit( 1 ) ;
+		}
 	}
 
 	alignments.Open( argv[2] ) ;
@@ -205,7 +222,7 @@ int main( int argc, char *argv[] )
 
 	for ( i = 0 ; i < intronCnt ; ++i )
 	{
-		if ( introns[i].support / sampleCnt < 0.5 )
+		if ( introns[i].support / sampleCnt < averageSupportThreshold )
 			continue ;
 
 		if ( badChrom[ introns[i].chrId ] )

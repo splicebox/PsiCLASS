@@ -19,7 +19,8 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-o STRING: prefix of output files (default: ./psiclass)\n". 
     "\t-p INT: number of processes/threads (default: 1)\n".
     "\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n".
-    "\t-vn INT |-vf FLOAT : minimum number | fraction of samples a transcript must appear in to be reported (defaults: 3, 0.25)\n".
+    "\t--sa FLOAT: the minimum average number of supported read for retained introns. (default: 0.5)\n".
+    "\t--vn INT |--vf FLOAT : minimum number | fraction of samples a transcript must appear in to be reported (defaults: 3, 0.25)\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning - building splice sites for each sample\n".
@@ -49,9 +50,11 @@ my $bamFileList = "" ;
 my $stage = 0 ;
 my $classesOpt = "" ;
 my $juncOpt = "" ;
+my $trustSpliceOpt = "" ;
 my $voteOpt = "" ;
 my $outdir = "." ;
 my $mateIdx = -1 ;
+my $spliceAvgSupport = 0.5 ;
 for ( $i = 0 ; $i < @ARGV ; ++$i )
 {
 	if ( $ARGV[$i] eq "--lb" )
@@ -128,6 +131,11 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 			$classesOpt .= " --hasMateIdSuffix" ;
 			$juncOpt .= " --hasMateIdSuffix" ;
 		}
+		++$i ;
+	}
+	elsif ( $ARGV[ $i ] eq "--sa" )
+	{
+		$trustSpliceOpt .= " -a ".$ARGV[$i + 1] ;
 		++$i ;
 	}
 	elsif ( $ARGV[ $i ] eq "--vf" )
@@ -249,7 +257,7 @@ if ( $stage <= 0 )
 	}
 	else
 	{
-		system_call( "$WD/trust-splice $outdir/splice/${prefix}splice.list ". $bamFiles[0] ." > $outdir/splice/${prefix}bam.trusted_splice" ) ;
+		system_call( "$WD/trust-splice $outdir/splice/${prefix}splice.list ". $bamFiles[0] ." $trustSpliceOpt > $outdir/splice/${prefix}bam.trusted_splice" ) ;
 		for ( $i = 0 ; $i < @bamFiles ; ++$i )
 		{
 			system_call( "perl $WD/FilterSplice.pl $outdir/splice/${prefix}bam_$i.raw_splice $outdir/splice/${prefix}bam.trusted_splice > $outdir/splice/${prefix}bam_$i.splice" ) ;
