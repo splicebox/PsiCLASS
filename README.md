@@ -3,13 +3,15 @@ PsiCLASS
 
 Described in: 
 
-Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increases the accuracy of transcript assembly, *Submitted*.
+Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increases the accuracy of transcript assembly, *Submitted*. 
 
 	Copyright (C) 2018- and GNU GPL by Li Song, Liliana Florea
 
 Includes portions copyright from: 
 
 	samtools - Copyright (C) 2008-, Genome Research Ltd, Heng Li
+	
+Commands, scripts and supporting data for the paper can be found [here](https://github.com/splicebox/PsiCLASS_paper/).
 
 ### What is PsiCLASS?
 
