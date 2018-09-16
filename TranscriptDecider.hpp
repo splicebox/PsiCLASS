@@ -414,7 +414,7 @@ private:
 		j = 0 ;
 		for ( i = 0 ; i < tcnt ; ++i )
 		{
-			if ( transcripts[i].abundance == -1 )
+			if ( transcripts[i].abundance < 0 )
 			{
 				transcripts[i].seVector.Release() ; // Don't forget release the memory.
 				delete[] transcripts[i].constraintsSupport ;
