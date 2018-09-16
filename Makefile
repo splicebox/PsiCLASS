@@ -6,7 +6,7 @@ LINKFLAGS = -lbam -lz -lm -lpthread
 DEBUG=
 OBJECTS = stats.o subexon-graph.o 
 
-all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice addXS
+all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice add-genename addXS
 
 subexon-info: subexon-info.o $(OBJECTS)
 	if [ ! -f ./samtools-0.1.19/libbam.a ] ; \
@@ -35,7 +35,9 @@ grader: grader.o
 
 addXS: addXS.o
 	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) addXS.o $(LINKFLAGS)
-	
+
+add-genename: add-genename.o
+	$(CXX) -o $@ $(LINKPATH) $(CXXFLAGS) add-genename.o $(LINKFLAGS)
 
 subexon-info.o: SubexonInfo.cpp alignments.hpp blocks.hpp support.hpp defs.h stats.hpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
@@ -61,6 +63,8 @@ grader.o: grader.cpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 addXS.o: AddXS.cpp
 	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
+add-genename.o: AddGeneName.cpp
+	$(CXX) -c -o $@ $(LINKPATH) $(CXXFLAGS) $< $(LINKFLAGS)
 
 clean:
-	rm -f *.o *.gch subexon-info combine-subexons trust-splice vote-transcripts junc grader
+	rm -f *.o *.gch subexon-info combine-subexons trust-splice vote-transcripts junc grader add-genename addXS
