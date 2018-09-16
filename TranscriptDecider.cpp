@@ -2166,6 +2166,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	bufferTable.Release() ;
 	delete []geneMaxFPKM ;
 	delete []geneMaxFPKMTag ;
+	delete []nonOverlapMaxFPKM ;
 	delete []txptGid ;
 
 	/*==================================================================
