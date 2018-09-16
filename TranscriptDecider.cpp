@@ -1585,7 +1585,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 		{
 			double value = inf ;
 			double cnt = 0 ;
-			
+
 			if ( coverCnt[i] == -1 )
 			{
 				for ( j = 0 ; j < tcCnt ; ++j )
@@ -1619,11 +1619,11 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			if ( cnt < 1 ) // This transcript does not satisfy any undepleted constraints.
 				continue ;
 			cnt *= coveredPortion[i] ;
-			
+
 			double seCntAdjust = 1 ;
 			//if ( maxAbundance >= 1 && value / maxAbundance >= 0.2 )
 			//	seCntAdjust = sqrt( (double)( transcriptSeCnt[i] ) / seCnt ) ;//< 0.5 ? 0.5 : (double)( transcriptSeCnt[i] ) / seCnt ;
-			
+
 			double score = ComputeScore( cnt, seCntAdjust, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;
@@ -1643,8 +1643,10 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			}
 			//printf( "score: %d %lf -> %lf\n", i, cnt, score ) ;
 		}
+
 		if ( maxcnt == 0 || maxtag == -1 )
 			break ;
+
 		// Update the abundance for each constraint.	
 		double update = inf ;
 		int updateTag = 0 ;
@@ -1657,7 +1659,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				updateTag = j ;
 			}
 		}
-		
+
 		int supportCnt = 0 ;
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
@@ -1696,10 +1698,10 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 						if ( alltranscripts[i].abundance > 0 && btable[i].Test(j) )
 						{
 							sum += alltranscripts[i].constraintsSupport[j] ;
-							
+
 							double tmp =  ( alltranscripts[i].constraintsSupport[j] + alltranscripts[maxtag].constraintsSupport[j] ) * 
-									transcriptAbundance[maxtag] / ( transcriptAbundance[maxtag] + transcriptAbundance[i] ) 
-									- alltranscripts[maxtag].constraintsSupport[j] ;
+								transcriptAbundance[maxtag] / ( transcriptAbundance[maxtag] + transcriptAbundance[i] ) 
+								- alltranscripts[maxtag].constraintsSupport[j] ;
 							if ( tmp > 0 )
 							{
 								list[ listCnt ] = i ;
@@ -1708,7 +1710,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 							}
 						}
 					}
-					
+
 					double ratio = 1 ;
 					double takeOutFactor = 0.5 ;
 					if ( update < tc[j].normAbund )
@@ -1721,7 +1723,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 						if ( takeOut > ( tc[j].support * factor ) * takeOutFactor )
 							ratio = ( tc[j].support * factor ) * takeOutFactor / takeOut ;
 					}
-					
+
 					if ( 1 ) //update < tc[j].normAbund )
 					{
 						for ( i = 0 ; i < listCnt ; ++i )
@@ -1730,13 +1732,13 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 							//	( alltranscripts[ list[i] ].constraintsSupport[j] / sum  ) ;
 							//if ( alltranscripts[ list[i] ].constraintsSupport[j] < tmp )
 							//	printf( "WARNING! %lf %lf, %lf\n", alltranscripts[ list[i] ].constraintsSupport[j], sum, tmp ) ;
-							
+
 							//double tmp = alltranscripts[ list[i] ].constraintsSupport[j] * transcriptAbundance[maxtag] / ( transcriptAbundance[maxtag] + transcriptAbundance[ list[i] ] ) * ratio ; 
 							double tmp =  ( ( alltranscripts[ list[i] ].constraintsSupport[j] + alltranscripts[maxtag].constraintsSupport[j] ) * 
 									transcriptAbundance[maxtag] / ( transcriptAbundance[maxtag] + transcriptAbundance[ list[i] ] ) 
 									- alltranscripts[maxtag].constraintsSupport[j] ) * ratio ;
-							
-					
+
+
 							alltranscripts[ list[i] ].constraintsSupport[j] -= tmp ;
 							alltranscripts[ list[i] ].abundance -= tmp ;
 						}
@@ -1748,11 +1750,11 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 					}
 					/*else
 					{
-						double tmp = ( tc[j].support / (double)( listCnt + 1 ) ) * factor ;
+					  	double tmp = ( tc[j].support / (double)( listCnt + 1 ) ) * factor ;
 						for ( i = 0 ; i < listCnt ; ++i )	
 						{
 							alltranscripts[ list[i] ].abundance -= alltranscripts[ list[i] ].constraintsSupport[j] ;
-
+	
 							alltranscripts[ list[i] ].constraintsSupport[j] = tmp ;
 							alltranscripts[ list[i] ].abundance += tmp ;
 						}
@@ -1766,7 +1768,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			if ( tc[j].abundance < 0 )
 			{
 				tc[j].abundance = 0 ;
-				
+
 			}
 		}
 		tc[ updateTag ].abundance = 0 ;
@@ -1963,7 +1965,12 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	// Remove transcripts whose FPKM are too small.
 	//printf( "%d %d\n", usedGeneId, baseGeneId ) ;
 	double *geneMaxFPKM = new double[usedGeneId - baseGeneId ] ;
+	int *geneMaxFPKMTag = new int[usedGeneId - baseGeneId ] ;
+	double *nonOverlapMaxFPKM = new double[ usedGeneId - baseGeneId ] ; // the max FPKM among all the transcripts not overlapping with maxFPKMTag transcripts.
 	memset( geneMaxFPKM, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
+	memset( geneMaxFPKMTag, 0, sizeof( int ) * ( usedGeneId - baseGeneId ) ) ;
+	memset( nonOverlapMaxFPKM, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
+	
 	double *geneMaxCov = new double[ usedGeneId - baseGeneId ] ;
 	memset( geneMaxCov, 0, sizeof( double ) * ( usedGeneId - baseGeneId ) ) ;
 	int *txptGid = new int[tcnt] ;
@@ -1981,10 +1988,21 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 		//printf( "gid=%d\n", gid ) ;
 		//printf( "%lf %lf %d\n", transcripts[i].abundance, transcripts[i].FPKM, len ) ;
 		if ( transcripts[i].FPKM > geneMaxFPKM[gid - baseGeneId ] )
+		{
 			geneMaxFPKM[ gid - baseGeneId ] = transcripts[i].FPKM ;
+			geneMaxFPKMTag[ gid - baseGeneId ] = i ;
+		}
 		if ( transcripts[i].abundance * alignments.readLen / len > geneMaxCov[gid - baseGeneId ] )
 			geneMaxCov[gid - baseGeneId] = ( transcripts[i].abundance * alignments.readLen ) / len ;
 		txptGid[i] = gid ;
+	}
+
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+		int tag = txptGid[i] - baseGeneId ;
+		if ( ( transcripts[i].last < transcripts[ geneMaxFPKMTag[ tag ] ].first 
+			|| transcripts[i].first > transcripts[ geneMaxFPKMTag[tag] ].last ) && transcripts[i].FPKM > nonOverlapMaxFPKM[tag] )
+			nonOverlapMaxFPKM[tag] = transcripts[i].FPKM ;
 	}
 	BitTable bufferTable ;
 	bufferTable.Duplicate( transcripts[0].seVector ) ;
@@ -2055,11 +2073,47 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 				;
 			}
 			else*/
-				transcripts[i].abundance = -1 ;
+				transcripts[i].abundance = -transcripts[i].abundance ;
 		}
 		//if ( transcripts[i].FPKM >= 0.8 * geneMaxFPKM[ txptGid[i] - baseGeneId ] && geneMaxCov[ txptGid[i] - baseGeneId ] >= txptMinReadDepth )
 		//	continue ;
-		if ( transcripts[i].abundance != -1 )
+	}
+
+	if ( nonOverlapMaxFPKM != 0 )
+	{
+		// Go two iterations to rescue, the first iteration should be just for marking.
+		std::vector<int> rescueList ;
+		for ( i = 0 ; i < tcnt ; ++i )
+		{
+			if ( transcripts[i].abundance >= 0 )
+				continue ;
+
+			for ( j = 0 ; j < tcnt ; ++j )
+			{
+				if ( transcripts[j].abundance < 0 || txptGid[i] != txptGid[j] )
+					continue ;
+				if ( transcripts[i].first <= transcripts[j].last && transcripts[i].last >= transcripts[j].first )
+				/*bufferTable.Assign( transcripts[i].seVector ) ;
+				bufferTable.And( transcripts[j].seVector ) ;
+				
+				if ( !bufferTable.IsAllZero() )*/
+					break ;
+			}
+			if ( j >= tcnt && transcripts[i].FPKM >= FPKMFraction * nonOverlapMaxFPKM[ txptGid[i] - baseGeneId ] )
+			{
+				//transcripts[i].abundance = -transcripts[i].abundance ;	
+				rescueList.push_back( i ) ;
+			}
+		}
+		
+		int size = rescueList.size() ;
+		for ( i = 0 ; i < size ; ++i )
+			transcripts[ rescueList[i] ].abundance *= -1 ;
+	}
+	
+	for ( i = 0 ; i < tcnt ; ++i )
+	{
+		if ( transcripts[i].abundance >= 0 )
 		{
 			int len = GetTranscriptLengthFromAbundanceAndFPKM( transcripts[i].abundance, transcripts[i].FPKM ) ;
 			double cov = ( transcripts[i].abundance * alignments.readLen ) / len ;
@@ -2107,11 +2161,11 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 			}
 		}
 	}
-
 	tcnt = RemoveNegativeAbundTranscripts( transcripts )  ;
 	delete []geneMaxCov ;
 	bufferTable.Release() ;
 	delete []geneMaxFPKM ;
+	delete []geneMaxFPKMTag ;
 	delete []txptGid ;
 
 	/*==================================================================
