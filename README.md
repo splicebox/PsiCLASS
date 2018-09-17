@@ -22,7 +22,7 @@ PsiCLASS is a reference-based transcriptome assembler for single or multiple RNA
 1. Clone the [GitHub repo](https://github.com/splicebox/psiclass), e.g. with `git clone https://github.com/splicebox/psiclass.git`
 2. Run `make` in the repo directory
 
-You will find the executable files in the downloaded directory. If you want to run PsiCLASS without specifying the directory, you can either add the directory of PsiCLASS to the environment variable *PATH* or create a soft link ("ln -s") of the file "psiclass" to a directory in PATH.
+You will find the executable files in the downloaded directory. If you want to run PsiCLASS without specifying the directory, you can either add the directory of PsiCLASS to the environment variable PATH or create a soft link ("ln -s") of the file "psiclass" to a directory in PATH.
 
 PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and samtools depends on [zlib](http://en.wikipedia.org/wiki/Zlib).
 
