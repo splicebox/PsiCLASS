@@ -62,7 +62,7 @@ When running PsiCLASS with STAR alignments, run STAR with the option `--outSAMst
 	
 *Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting stage (see [Usage](#usage) above) with different cutoffs, and assess the performance against a reference set of gene annotations, such as [GENCODE](https://www.gencodegenes.org). Note that the per sample sets of transcripts will remain unchanged.        
 
-*Add gene name.* For many applications, it would be desirable to associate the known (annotated) gene name with each transcript. PsiCLASS provides the program "add-genename" for such purpose. "add-genename" takes as input the GTF file containing a reference gene annotation set and a file listing the raw GTF files, and generates a new GTF file for each input raw GTF file by appending the annotated gene names. If a gene is not found in the annotation, "add-genename" will use "novel_INT" to represent its gene name. The program can be run as:
+*Add gene name.* For many applications, it would be desirable to associate the known (annotated) gene name with each transcript. PsiCLASS provides the program "add-genename" for such purpose. "add-genename" takes as input a GTF file containing a reference set of gene annotations and a file listing the raw GTF files, and generates a new GTF file for each input raw GTF file by appending the annotated gene names. If a gene is not found in the annotation, "add-genename" will use "novel_INT" to represent its gene name. The program can be run as:
 
 	./add-genename annotation.gtf gtflist
 
