@@ -259,7 +259,7 @@ public:
 		{
 			struct _outputTranscript &t = outputQueue[i] ;
 			char *chrom = alignments.GetChromName( t.chrId ) ;
-			fprintf( outputFPs[t.sampleId], "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
+			fprintf( outputFPs[t.sampleId], "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
 					chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 					prefix, chrom, t.geneId,
 					prefix, chrom, t.geneId, t.transcriptId, t.FPKM, t.TPM ) ;

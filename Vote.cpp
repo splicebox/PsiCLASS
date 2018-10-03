@@ -418,7 +418,7 @@ int main( int argc, char *argv[] )
 		else
 			++transcriptId ;*/
 		transcriptId = outputTranscripts[i].transcriptId ;
-		fprintf( stdout, "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"\n",
+		fprintf( stdout, "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
 				chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 				prefix, chrom, t.geneId,
 				prefix, chrom, t.geneId, transcriptId, t.FPKM, t.TPM ) ;
