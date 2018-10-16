@@ -209,7 +209,7 @@ void SubexonGraph::UpdateGeneId( struct _subexon *subexons, int seCnt )
 		for ( i = 0 ; i < seCnt ; ++i )
 		{
 			//printf( "%d (%d %d) %d.\n", i, subexons[i].start + 1, subexons[i].end + 1, subexons[i].geneId ) ;
-			if ( ( subexons[i].geneId == -1 && subexons[i].rightStrand == strand ) 
+			if ( ( subexons[i].geneId == -1 && ( ( strand == 1 && subexons[i].rightStrand == 0 ) || subexons[i].rightStrand == strand ) )
 					|| ( strand == 1 && baseGeneId <= subexons[i].geneId && subexons[i].geneId <= lastMinusStrandGeneId && subexons[i].rightStrand == strand ) )
 			{
 				SetGeneId( i, strand, subexons, seCnt, usedGeneId ) ;

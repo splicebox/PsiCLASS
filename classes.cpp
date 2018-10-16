@@ -127,7 +127,7 @@ int main( int argc, char *argv[] )
 		{
 			Alignments a ;
 			a.Open( optarg ) ;
-			a.SetAllowClip( false ) ;
+			//a.SetAllowClip( false ) ;
 			alignmentFiles.push_back( a ) ;
 		}
 		else if ( c == 'c' )
