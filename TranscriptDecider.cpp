@@ -1167,7 +1167,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		double cor = 2.0 ;
 		int s = subexonInd.size() ;
 		for ( j = 0 ; j < s ; ++j )
-			for ( k = j + 1 ; j < s ; ++j )
+			for ( k = j + 1 ; k < s ; ++k )
 			{
 				double tmp = correlation.Query( subexonInd[j], subexonInd[k] ) ;
 				if ( tmp < cor )					
