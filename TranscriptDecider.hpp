@@ -23,6 +23,7 @@ struct _transcript
 
 	int first, last ; // indicate the index of the first and last subexons.
 	bool partial ; // wehther this is a partial transcript.
+	int id ; // the id for various usage: i.e transcript index in the alltranscripts.
 } ;
 
 struct _outputTranscript
@@ -364,6 +365,19 @@ private:
 		else
 			return false ;
 	} 
+	
+	static bool CompSortPairs( const struct _pair32 &x, const struct _pair32 &y )
+	{
+		if ( x.a != y.a )
+			return x.a < y.a ;
+		else 
+			return x.b < y.b ;
+	}
+
+	static bool CompSortPairsByB( const struct _pair32 &x, const struct _pair32 &y )
+	{
+		return x.b < y.b ;
+	}
 
 	static int CompPairsByB( const void *p1, const void *p2 )
 	{
@@ -429,7 +443,7 @@ private:
 		
 	void AbundanceEstimation( struct _subexon *subexons, int seCnt, Constraints &constraints, std::vector<struct _transcript> &transcripts ) ;
 
-	int RefineTranscripts( struct _subexon *subexons, int seCnt, bool aggressive, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
+	int RefineTranscripts( struct _subexon *subexons, int seCnt, bool aggressive, std::map<int, int> *subexonChainSupport, int *txptSampleSupport, int sampleCnt, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
 
 	void OutputTranscript( int sampleId, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
