@@ -1284,7 +1284,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 	double maxAbundance = -1 ; // The abundance of the most-abundant transcript
 	double *adjustScore = new double[atcnt] ;
 	memset( adjustScore, 0, sizeof( double ) * atcnt ) ;
-	if ( atcnt > 0 && alltranscripts[0].abundance == -1 )
+	if ( atcnt > 0 /*&& alltranscripts[0].abundance == -1*/ )
 	{
 		struct _pair32 *chain = new struct _pair32[seCnt] ;
 		bool *covered = new bool[seCnt] ;
@@ -1620,11 +1620,14 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 				continue ;
 			cnt *= coveredPortion[i] ;
 
-			double seCntAdjust = 1 ;
+			double weight = 1 ;
 			//if ( maxAbundance >= 1 && value / maxAbundance >= 0.2 )
 			//	seCntAdjust = sqrt( (double)( transcriptSeCnt[i] ) / seCnt ) ;//< 0.5 ? 0.5 : (double)( transcriptSeCnt[i] ) / seCnt ;
+			
+			if ( alltranscripts[i].abundance > 0 )
+				weight = alltranscripts[i].abundance ;
 
-			double score = ComputeScore( cnt, seCntAdjust, value, maxAbundance, alltranscripts[i].correlationScore ) ;
+			double score = ComputeScore( cnt, weight, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;
 			score += adjustScore[i] ;
@@ -2205,13 +2208,13 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	memset( used, false, sizeof( bool ) * tcnt ) ;
 
 	// Obtain the list of transcripts that should be recovered.
-	for ( i = 0 ; i < seCnt && sampleCnt > 1 ; ++i )
+	for ( i = 0 ; i < seCnt && sampleCnt > 1  ; ++i )
 	{
 		double maxFPKM = -1 ;
 		for ( std::map<int, int>::iterator it = subexonChainSupport[i].begin() ; 
 			it != subexonChainSupport[i].end() ; ++it )
 		{
-			if ( sampleCnt >= 0 && ( it->second <= 2 || it->second <= (int)( 0.02 * sampleCnt ) ) && it->second <= sampleCnt / 2 )	
+			if ( sampleCnt >= 0 && ( it->second < 3 || it->second < (int)( 0.1 * sampleCnt ) ) && it->second <= sampleCnt / 2 )	
 				continue ;
 			
 			bool recover = true ;
@@ -2221,6 +2224,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 			tmpC.first = i ; 
 			tmpC.last = it->first ;
 
+	
 			for ( j = 0 ; j < tcnt ; ++j )
 			{
 				if ( transcripts[j].abundance < 0 )
@@ -2282,9 +2286,9 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	// Recover the candidates in the order of reliability
 	int *geneRecoverCnt = new int[ usedGeneId - baseGeneId ] ;
 	memset( geneRecoverCnt, 0, sizeof( int ) * ( usedGeneId - baseGeneId ) ) ;
-	int round = size ;
-	if ( aggressive && size > 2 )
-		round = 2 ;
+	int round = 1 ;
+	//if ( aggressive && size > 1 )
+	//	round = 1 ;
 		
 	for ( i = 0 ; i < size ; ++i )
 	{
@@ -2353,7 +2357,8 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 			}
 		}
 
-		if ( maxTag == -1 || txptSampleSupport[ transcripts[ maxTag ].id ] <= 1 )
+		if ( maxTag == -1 || txptSampleSupport[ transcripts[ maxTag ].id ] <= 2 
+			|| txptSampleSupport[ transcripts[maxTag].id ] < 0.5 * sampleCnt )
 			break ;
 		
 		used[maxTag] = true ;
@@ -2381,7 +2386,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 			}
 		}
 
-		if ( cnt > 0 ) 
+		if ( cnt >= 2 ) 
 		{
 			transcripts[maxTag].abundance *= -1 ;
 		}
@@ -2663,7 +2668,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		for ( j = 0 ; j < tcCnt ; ++j )
 		{
 			struct _constraint c = constraints[i].constraints[j] ;
-			if ( c.uniqSupport < 0.95 * c.support /*&& c.support >= 2*/ )
+			if ( c.uniqSupport != c.support || c.support < 5 )
 				continue ;
 			
 			subexonIdx.clear() ;
@@ -2901,15 +2906,18 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	atCnt = alltranscripts.size() ;
 	int *txptSampleSupport = new int[atCnt] ;
 	memset( txptSampleSupport, 0, sizeof( int ) * atCnt ) ;
+	for ( i = 0 ; i < atCnt ; ++i )
+		alltranscripts[i].abundance = 0 ;
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		int size = predTranscripts[i].size() ;
 		for ( j = 0 ; j < size ; ++j )
 		{
 			++txptSampleSupport[ predTranscripts[i][j].id ] ;
+			++alltranscripts[ predTranscripts[i][j].id ].abundance ;
 		}
 	}
-
+	
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		// Do the filtration.

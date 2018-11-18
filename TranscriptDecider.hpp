@@ -384,12 +384,12 @@ private:
 		return ((struct _pair32 *)p1)->b - ((struct _pair32 *)p2)->b ;
 	}
 
-	double ComputeScore( double cnt, double seCnt, double a, double A, double correlation )
+	double ComputeScore( double cnt, double weight, double a, double A, double correlation )
 	{
 		if ( a > A * 0.1 )
-			return ( cnt / seCnt ) * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
+			return ( cnt * weight ) * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
 		else
-			return ( cnt / seCnt ) * ( 1 + a / A ) + correlation ;
+			return ( cnt * weight ) * ( 1 + a / A ) + correlation ;
 		//return ( cnt ) * ( exp( 1 + a / A ) ) + correlation ; 
 	}
 
