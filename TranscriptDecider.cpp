@@ -1624,9 +1624,6 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			//if ( maxAbundance >= 1 && value / maxAbundance >= 0.2 )
 			//	seCntAdjust = sqrt( (double)( transcriptSeCnt[i] ) / seCnt ) ;//< 0.5 ? 0.5 : (double)( transcriptSeCnt[i] ) / seCnt ;
 			
-			if ( alltranscripts[i].abundance > 0 )
-				weight = alltranscripts[i].abundance ;
-
 			double score = ComputeScore( cnt, weight, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;
