@@ -95,6 +95,16 @@ void TranscriptDecider::OutputTranscript( int sampleId, struct _subexon *subexon
 		}
 		t.ecnt = size ;
 		t.strand = strand[0] ;
+
+		if ( size > 0 )
+		{
+			t.score = transcript.correlationScore / size ;
+		}
+		else 
+		{
+			t.score = 1 ;
+		}
+
 		if ( numThreads > 1 )
 			outputHandler->Add( t ) ;
 		else
@@ -1624,6 +1634,9 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			//if ( maxAbundance >= 1 && value / maxAbundance >= 0.2 )
 			//	seCntAdjust = sqrt( (double)( transcriptSeCnt[i] ) / seCnt ) ;//< 0.5 ? 0.5 : (double)( transcriptSeCnt[i] ) / seCnt ;
 			
+			//if ( alltranscripts[i].FPKM > 0 )
+			//	weight = alltranscripts[i].FPKM ;
+
 			double score = ComputeScore( cnt, weight, value, maxAbundance, alltranscripts[i].correlationScore ) ;
 			if ( cnt > maxcnt )
 				maxcnt = cnt ;
@@ -2205,13 +2218,16 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	memset( used, false, sizeof( bool ) * tcnt ) ;
 
 	// Obtain the list of transcripts that should be recovered.
+	// Seems recovering is not good.
 	for ( i = 0 ; i < seCnt && sampleCnt > 1  ; ++i )
 	{
+		break ;
+
 		double maxFPKM = -1 ;
 		for ( std::map<int, int>::iterator it = subexonChainSupport[i].begin() ; 
 			it != subexonChainSupport[i].end() ; ++it )
 		{
-			if ( sampleCnt >= 0 && ( it->second < 3 || it->second < (int)( 0.1 * sampleCnt ) ) && it->second <= sampleCnt / 2 )	
+			if ( sampleCnt >= 0 && ( it->second < 3 || it->second < (int)( 0.5 * sampleCnt ) ) && it->second <= sampleCnt / 2 )	
 				continue ;
 			
 			bool recover = true ;
@@ -2521,6 +2537,40 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	return transcripts.size() ;
 }
 
+void TranscriptDecider::ComputeTranscriptsScore( struct _subexon *subexons, int seCnt, std::map<int, int> *subexonChainSupport, std::vector<struct _transcript> &transcripts ) 
+{
+	int i, j ;
+	int tcnt = transcripts.size() ;
+	struct _constraint tmpC ;
+	tmpC.vector.Init( seCnt ) ;
+
+	for ( i = 0 ; i < tcnt ; ++i )
+		transcripts[i].correlationScore = 0 ;
+	
+	for ( i = 0 ; i < seCnt ; ++i )
+	{
+		for ( std::map<int, int>::iterator it = subexonChainSupport[i].begin() ; 
+				it != subexonChainSupport[i].end() ; ++it )
+		{
+			if ( sampleCnt >= 0 && ( it->second < 3 || it->second < (int)( 0.1 * sampleCnt ) ) && it->second <= sampleCnt / 2 )	
+				continue ;
+
+			tmpC.vector.Reset() ;
+			tmpC.vector.Set( i ) ;
+			tmpC.vector.Set( it->first ) ;
+			tmpC.first = i ; 
+			tmpC.last = it->first ;
+			
+			for ( j = 0 ; j < tcnt ; ++j )
+			{
+				if ( IsConstraintInTranscript( transcripts[j], tmpC ) )
+					++transcripts[j].correlationScore ;
+			}
+		}
+	}
+	
+	tmpC.vector.Release() ;
+}
 
 int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation )
 {
@@ -2904,17 +2954,17 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	int *txptSampleSupport = new int[atCnt] ;
 	memset( txptSampleSupport, 0, sizeof( int ) * atCnt ) ;
 	for ( i = 0 ; i < atCnt ; ++i )
-		alltranscripts[i].abundance = 0 ;
+		alltranscripts[i].FPKM = 0 ;
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		int size = predTranscripts[i].size() ;
 		for ( j = 0 ; j < size ; ++j )
 		{
 			++txptSampleSupport[ predTranscripts[i][j].id ] ;
-			++alltranscripts[ predTranscripts[i][j].id ].abundance ;
+			//++alltranscripts[ predTranscripts[i][j].id ].FPKM ;
 		}
 	}
-	
+
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		// Do the filtration.
@@ -2930,6 +2980,8 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		for ( j = 0 ; j < size ; ++j )
 			ConvertTranscriptAbundanceToFPKM( subexons, predTranscripts[i][j] ) ;
 		size = RefineTranscripts( subexons, seCnt, true, subexonChainSupport, txptSampleSupport, sampleCnt, predTranscripts[i], constraints[i] ) ;
+		
+		//ComputeTranscriptsScore( subexons, seCnt, subexonChainSupport, sampleCnt, predTranscripts[i] ) ;
 
 		InitTranscriptId() ;
 		for ( j = 0 ; j < size ; ++j )

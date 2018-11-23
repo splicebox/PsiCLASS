@@ -13,7 +13,7 @@ while ( <FP1> )
 	chomp ;
 	my @cols = split /\s+/, $_ ;
 	my $key = $cols[0]." ".$cols[1]." ".$cols[2] ;
-	$trustedSplices{ $key } = 1 ;
+	$trustedSplices{ $key } = $cols[4] ;
 }
 close FP1 ;
 
@@ -25,13 +25,22 @@ while ( <FP1> )
 	my $key = $cols[0]." ".$cols[1]." ".$cols[2] ;
 	next if ( !defined $trustedSplices{ $key } ) ;
 	
+	my $trustedStrand = $trustedSplices{ $key } ;
 	if ( $cols[3] <= 0 )
 	{
-		print $cols[0], " ", $cols[1], " ", $cols[2], " 1 ", $cols[4], " 1 0 0 0\n" ;
+		print $cols[0], " ", $cols[1], " ", $cols[2], " 1 ", $trustedStrand, " 1 0 0 0\n" ;
 	}
 	else
 	{
-		print $_, "\n" ;
+		if ( $cols[4] eq $trustedStrand )
+		{
+			print $_, "\n" ;
+		}
+		else
+		{
+			$cols[4] = $trustedStrand ;
+			print join( " ", @cols ), "\n" ;
+		}
 	}
 
 }

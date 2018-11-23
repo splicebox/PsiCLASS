@@ -279,6 +279,47 @@ int main( int argc, char *argv[] )
 			if ( flag == 1 )
 				continue ;
 		}*/
+		
+		// Since the strand is uncertain, the alinger may make different decision sample from sample. 
+		//	To keep this intron, one of its splice sites must be more supported than adjacent splice sites.
+		if ( introns[i].strand == '?' && introns[i].sampleSupport <= 0.5 * sampleCnt ) 
+		{
+			int s, e ;
+			int l ;
+			int cnt = 0 ;
+			for ( l = 0 ; l < 2 ; ++l )
+			{
+				int ind = ( l == 0 ) ? a : b ;
+				double max = sites[ind].support ;
+				int maxTag = ind ;
+				for ( s = ind - 1 ; s >= 0 && sites[s].chrId == sites[ind].chrId ; --s )
+				{
+					if ( sites[s].pos + 7 < sites[s + 1].pos )
+						break ;
+					if ( sites[s].support >= max )
+					{
+						max = sites[s].support ;
+						maxTag = s ;
+					}
+				}
+
+				for ( e = ind + 1 ; e < siteCnt && sites[e].chrId == sites[ind].chrId ; ++e )
+				{
+					if ( sites[e].pos - 7 > sites[e - 1].pos )
+						break ;
+					if ( sites[e].support >= max )
+					{
+						max = sites[e].support ;
+						maxTag = e ;
+					}
+				}
+
+				if ( maxTag == ind )
+					++cnt ;
+			}
+			if ( cnt == 0 )
+				continue ;
+		}
 
 		if ( introns[i].end - introns[i].start + 1 >= 100000 )
 		{

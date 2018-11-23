@@ -82,13 +82,14 @@ void FilterAndSortSplitSites( std::vector<struct _splitSite> &sites )
 				maxSupport = sites[k].support ;
 		
 		int strandCnt[2] = {0, 0} ;
-		char strand = '.' ;
+		char strand = sites[i].strand ;
 		for ( k = i ; k < j ; ++k )
 		{
 			if ( sites[k].strand == '-' )
 				strandCnt[0] += sites[k].support ; 
 			else if ( sites[k].strand == '+' )
 				strandCnt[1] += sites[k].support ;
+			
 		}
 		if ( strandCnt[0] > strandCnt[1] )
 			strand = '-' ;
@@ -110,7 +111,7 @@ void FilterAndSortSplitSites( std::vector<struct _splitSite> &sites )
 				}
 			}
 		}
-
+		
 		for ( k = i ; k < j ; ++k )
 		{
 			if ( ( sites[k].support < 0.01 * maxSupport && sites[k].support <= 3 ) 
@@ -166,6 +167,8 @@ void FilterAndSortSplitSites( std::vector<struct _splitSite> &sites )
 		if ( sites[i].support > 0 )
 		{
 			sites[k] = sites[i] ;
+			if ( sites[k].strand == '?' )
+				sites[k].strand = '.' ;
 			++k ;
 		}
 	}
@@ -217,7 +220,9 @@ void FilterNearSplitSites( std::vector< struct _splitSite> &sites )
 	{
 		if ( sites[i].support < 0 || sites[i].type != sites[i + 1].type || sites[i].chrId != sites[i + 1].chrId )	
 			continue ;
-		if ( sites[i + 1].pos - sites[i].pos <= 7 && sites[i + 1].strand != sites[i].strand ) 	
+		if ( sites[i + 1].pos - sites[i].pos <= 7 && 
+			( sites[i + 1].strand != sites[i].strand || 
+				sites[i].strand == '?' ) ) 	
 		{
 			int tag = i ;
 			if ( sites[i + 1].support < sites[i].support )
@@ -855,18 +860,18 @@ int main( int argc, char *argv[] )
 	regions.FilterSplitSitesInRegions( splitSites ) ;
 	regions.FilterGeneMergeSplitSites( splitSites ) ;
 
-	//for ( i = 0 ; i < splitSites.size() ; ++i )
-	//	printf( "%d %d\n", splitSites[i].pos + 1, splitSites[i].oppositePos + 1 ) ;
 
 	allSplitSites = splitSites ;
 	KeepUniqSplitSites( splitSites ) ;
 	
+	//for ( i = 0 ; i < splitSites.size() ; ++i )
+	//	printf( "%d %d\n", splitSites[i].pos + 1, splitSites[i].oppositePos + 1 ) ;
 	// Split the blocks using split site
 	regions.SplitBlocks( alignments, splitSites ) ;
 	//printf( "%d\n", regions.exonBlocks.size() ) ;
-	/*for ( i = 0 ; i < 1 ; ++i )
+	/*for ( i = 0 ; i < regions.exonBlocks.size() ; ++i )
 	{
-		struct _block &e = regions.exonBlocks[ regions.exonBlocks.size() - 1 ] ;
+		struct _block &e = regions.exonBlocks[i] ;
 		printf( "%s %" PRId64 " %" PRId64 " %d %d\n", alignments.GetChromName( e.chrId ), e.start + 1, e.end + 1,  e.leftType, e.rightType ) ;
 	}
 	return 0 ;*/

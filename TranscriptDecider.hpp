@@ -37,6 +37,7 @@ struct _outputTranscript
 
 	double FPKM ;
 	double TPM ;
+	double score ;
 } ;
 
 struct _dp
@@ -260,18 +261,21 @@ public:
 		{
 			struct _outputTranscript &t = outputQueue[i] ;
 			char *chrom = alignments.GetChromName( t.chrId ) ;
-			fprintf( outputFPs[t.sampleId], "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
+			if ( sampleCnt <= 1 )
+				t.score = 1 ;
+
+			fprintf( outputFPs[t.sampleId], "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"; score \"%.6lf\";\n",
 					chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 					prefix, chrom, t.geneId,
-					prefix, chrom, t.geneId, t.transcriptId, t.FPKM, t.TPM ) ;
+					prefix, chrom, t.geneId, t.transcriptId, t.FPKM, t.TPM, t.score ) ;
 			for ( j = 0 ; j < t.ecnt ; ++j )
 			{
 				fprintf( outputFPs[ t.sampleId ], "%s\tPsiCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
-						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
+						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"; score \"%.6lf\";\n",
 						chrom, t.exons[j].a, t.exons[j].b, t.strand,
 						prefix, chrom, t.geneId,
 						prefix, chrom, t.geneId, t.transcriptId,
-						j + 1, t.FPKM, t.TPM ) ;
+						j + 1, t.FPKM, t.TPM, t.score ) ;
 			}
 			delete []t.exons ;
 		}
@@ -445,6 +449,8 @@ private:
 
 	int RefineTranscripts( struct _subexon *subexons, int seCnt, bool aggressive, std::map<int, int> *subexonChainSupport, int *txptSampleSupport, int sampleCnt, std::vector<struct _transcript> &transcripts, Constraints &constraints ) ;
 
+	void ComputeTranscriptsScore( struct _subexon *subexons, int seCnt, std::map<int, int> *subexonChainSupport, std::vector<struct _transcript> &transcripts ) ;
+
 	void OutputTranscript( int sampleId, struct _subexon *subexons, struct _transcript &transcript ) ;
 public:
 	TranscriptDecider( double f, double c, double d, int sampleCnt, Alignments &a ): alignments( a )  
@@ -472,6 +478,7 @@ public:
 		}
 		delete[] dpHash ;
 	}
+
 
 	// @return: the number of assembled transcript 
 	int Solve( struct _subexon *subexons, int seCnt, std::vector<Constraints> &constraints, SubexonCorrelation &subexonCorrelation ) ;
