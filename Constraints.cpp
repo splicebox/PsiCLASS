@@ -23,11 +23,12 @@ bool Constraints::ConvertAlignmentToBitTable( struct _pair *segments, int segCnt
 				break ;
 			if ( segments[i].a > subexons[k].end )
 				continue ;
-			
+
+			int relaxedWidth = 0 ;	
 			if ( ( subexons[k].start >= segments[i].a && subexons[k].end <= segments[i].b ) 
-				|| ( i == 0 && subexons[k].start < segments[i].a && subexons[k].end <= segments[i].b ) 
-				|| ( i == segCnt - 1 && subexons[k].start >= segments[i].a && subexons[k].end > segments[i].b ) 
-				|| ( i == 0 && i == segCnt - 1 && subexons[k].start < segments[i].a && subexons[k].end > segments[i].b ) )
+				|| ( i == 0 && subexons[k].start - relaxedWidth < segments[i].a && subexons[k].end <= segments[i].b ) 
+				|| ( i == segCnt - 1 && subexons[k].start >= segments[i].a && subexons[k].end + relaxedWidth > segments[i].b ) 
+				|| ( i == 0 && i == segCnt - 1 && subexons[k].start - relaxedWidth < segments[i].a && subexons[k].end + relaxedWidth > segments[i].b ) )
 			{
 				if ( leftIdx == -1 )
 					leftIdx = k ;

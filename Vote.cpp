@@ -29,6 +29,22 @@ char usage[] = "./transcript-vote [OPTIONS] > output.gtf:\n"
 	int sampleId ;
 } ;*/
 
+void GetGTFField( char *s, const char *field, char *ret )
+{
+	char *p = strstr( s, field ) ;
+	if ( p == NULL )
+		return ;
+	for ( ; *p != ' ' ; ++p )
+		;
+	p += 2 ; // add extra 1 to skip \"
+	sscanf( p, "%s", ret ) ;
+	//printf( "+%s %d\n", tid, strlen( tid )  ) ;
+	p = ret + strlen( ret ) ;
+	while ( *p != '\"' )
+		--p ;
+	*p = '\0' ;
+}
+
 int GetTailNumber( char *s )
 {
 	int len = strlen( s ) ;
@@ -109,7 +125,7 @@ int main( int argc, char *argv[] )
 	int chrIdUsed = 0 ;
 	char cStrand = '.' ;
 	char prefix[50] ;
-	double FPKM = 0, TPM = 0 ;
+	double FPKM = 0, TPM = 0, score = 0 ;
 
 	while ( fgets( buffer, sizeof( buffer ), fpGTFlist ) != NULL )
 	{
@@ -143,6 +159,7 @@ int main( int argc, char *argv[] )
 					nt.exons = new struct _pair32[nt.ecnt] ;
 					nt.FPKM = FPKM ;
 					nt.TPM = TPM ;
+					nt.score = score ;
 					for ( i = 0 ; i < nt.ecnt ; ++i )
 						nt.exons[i] = tmpExons[i] ;
 					tmpExons.clear() ;
@@ -163,53 +180,20 @@ int main( int argc, char *argv[] )
 			else
 				chrId = chrNameToId[ std::string( chrom ) ] ;
 
-			char *p = strstr( line, "gene_id" ) ;
-			for ( ; *p != ' ' ; ++p )
-				;
-			p += 2 ; // add extra 1 to skip \"
-			sscanf( p, "%s", buffer ) ;
-			//printf( "+%s %d\n", tid, strlen( tid )  ) ;
-			p = buffer + strlen( buffer ) ;
-			while ( *p != '\"' )
-				--p ;
-			*p = '\0' ;
+			GetGTFField( line, "gene_id", buffer ) ;
 			gid = GetTailNumber( buffer ) ;
 			
-			p = strstr( line, "transcript_id" ) ;
-			for ( ; *p != ' ' ; ++p )
-				;
-			p += 2 ; // add extra 1 to skip \"
-			sscanf( p, "%s", buffer ) ;
-			//printf( "+%s %d\n", tid, strlen( tid )  ) ;
-			p = buffer + strlen( buffer ) ;
-			while ( *p != '\"' )
-				--p ;
-			*p = '\0' ;
+			GetGTFField( line, "transcript_id", buffer ) ;
 			tid = GetTailNumber( buffer ) ;
 
-			p = strstr( line, "FPKM" ) ;
-			for ( ; *p != ' ' ; ++p )
-				;
-			p += 2 ; // add extra 1 to skip \"
-			sscanf( p, "%s", buffer ) ;
-			//printf( "+%s %d\n", tid, strlen( tid )  ) ;
-			p = buffer + strlen( buffer ) ;
-			while ( *p != '\"' )
-				--p ;
-			*p = '\0' ;
+			GetGTFField( line, "FPKM", buffer ) ;
 			FPKM = atof( buffer ) ;
 			
-			p = strstr( line, "TPM" ) ;
-			for ( ; *p != ' ' ; ++p )
-				;
-			p += 2 ; // add extra 1 to skip \"
-			sscanf( p, "%s", buffer ) ;
-			//printf( "+%s %d\n", tid, strlen( tid )  ) ;
-			p = buffer + strlen( buffer ) ;
-			while ( *p != '\"' )
-				--p ;
-			*p = '\0' ;
+			GetGTFField( line, "TPM", buffer ) ;
 			TPM = atof( buffer ) ;
+
+			//GetGTFField( line, "score", buffer ) ;
+			//score = atof( buffer ) ;
 
 			cStrand = strand[0] ;
 
@@ -255,6 +239,7 @@ int main( int argc, char *argv[] )
 			nt.exons = new struct _pair32[nt.ecnt] ;
 			nt.FPKM = FPKM ;
 			nt.TPM = TPM ;
+			nt.score = score ;
 			for ( i = 0 ; i < nt.ecnt ; ++i )
 				nt.exons[i] = tmpExons[i] ;
 			tmpExons.clear() ;
@@ -302,7 +287,9 @@ int main( int argc, char *argv[] )
 		transcripts[k].FPKM = sumFPKM / ( j - i ) ;
 		transcripts[k].TPM = sumTPM / ( j - i ) ;
 		
-		if ( j - i < int( fraction * sampleCnt ) || j - i <  minSampleCnt )
+		if ( ( j - i < int( fraction * sampleCnt ) || j - i <  minSampleCnt ) )
+		//if ( transcripts[k].score * ( j - i ) < 1 && ( j - i ) < sampleCnt * 0.5 )
+		//if ( sumTPM < sampleCnt || sumFPKM < sampleCnt )
 		{
 			transcripts[k].FPKM = -1 ;
 		}
