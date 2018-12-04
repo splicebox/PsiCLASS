@@ -73,7 +73,7 @@ int CompDouble( const void *p1, const void *p2 )
 int main( int argc, char *argv[] )
 {
 	int i, j, k ;
-	double fraction = 0.25 ;
+	double fraction = 1 ;
 	int minSampleCnt = 3 ;
 	std::map<std::string, int> chrNameToId ;
 	std::map<int, std::string> chrIdToName ;
@@ -125,7 +125,7 @@ int main( int argc, char *argv[] )
 	int chrIdUsed = 0 ;
 	char cStrand = '.' ;
 	char prefix[50] ;
-	double FPKM = 0, TPM = 0, score = 0 ;
+	double FPKM = 0, TPM = 0, cov = 0 ;
 
 	while ( fgets( buffer, sizeof( buffer ), fpGTFlist ) != NULL )
 	{
@@ -159,7 +159,7 @@ int main( int argc, char *argv[] )
 					nt.exons = new struct _pair32[nt.ecnt] ;
 					nt.FPKM = FPKM ;
 					nt.TPM = TPM ;
-					nt.score = score ;
+					nt.cov = cov ;
 					for ( i = 0 ; i < nt.ecnt ; ++i )
 						nt.exons[i] = tmpExons[i] ;
 					tmpExons.clear() ;
@@ -192,8 +192,8 @@ int main( int argc, char *argv[] )
 			GetGTFField( line, "TPM", buffer ) ;
 			TPM = atof( buffer ) ;
 
-			//GetGTFField( line, "score", buffer ) ;
-			//score = atof( buffer ) ;
+			GetGTFField( line, "cov", buffer ) ;
+			cov = atof( buffer ) ;
 
 			cStrand = strand[0] ;
 
@@ -239,7 +239,7 @@ int main( int argc, char *argv[] )
 			nt.exons = new struct _pair32[nt.ecnt] ;
 			nt.FPKM = FPKM ;
 			nt.TPM = TPM ;
-			nt.score = score ;
+			nt.cov = cov ;
 			for ( i = 0 ; i < nt.ecnt ; ++i )
 				nt.exons[i] = tmpExons[i] ;
 			tmpExons.clear() ;
@@ -274,10 +274,12 @@ int main( int argc, char *argv[] )
 
 		double sumFPKM = 0 ;
 		double sumTPM = 0 ;
+		double sumCov = 0 ;
 		for ( l = i ; l < j ; ++l )
 		{
 			sumFPKM += transcripts[l].FPKM ;
 			sumTPM += transcripts[l].TPM ;
+			sumCov += transcripts[l].cov ;
 		}
 
 		transcripts[k] = transcripts[i] ;
@@ -286,14 +288,17 @@ int main( int argc, char *argv[] )
 
 		transcripts[k].FPKM = sumFPKM / ( j - i ) ;
 		transcripts[k].TPM = sumTPM / ( j - i ) ;
+		transcripts[k].cov = sumCov / ( j - i ) ;
 		
-		if ( ( j - i < int( fraction * sampleCnt ) || j - i <  minSampleCnt ) )
+		//if ( ( j - i < int( fraction * sampleCnt ) || j - i <  minSampleCnt ) && sumCov < 5.0 * ( j - i ) )
 		//if ( transcripts[k].score * ( j - i ) < 1 && ( j - i ) < sampleCnt * 0.5 )
 		//if ( sumTPM < sampleCnt || sumFPKM < sampleCnt )
+		if ( sumCov < fraction * sampleCnt )
 		{
 			transcripts[k].FPKM = -1 ;
 		}
-		sampleSupport.push_back( j - i ) ;
+		else
+			sampleSupport.push_back( j - i ) ;
 		++k ;
 		i = j ;
 	}
@@ -405,18 +410,19 @@ int main( int argc, char *argv[] )
 		else
 			++transcriptId ;*/
 		transcriptId = outputTranscripts[i].transcriptId ;
-		fprintf( stdout, "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
+		fprintf( stdout, "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"; cov \"%.6lf\"; sample_cnt \"%d\";\n",
 				chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 				prefix, chrom, t.geneId,
-				prefix, chrom, t.geneId, transcriptId, t.FPKM, t.TPM ) ;
+				prefix, chrom, t.geneId, transcriptId, t.FPKM, t.TPM, t.cov, sampleSupport[i] ) ;
 		for ( j = 0 ; j < t.ecnt ; ++j )
 		{
 			fprintf( stdout, "%s\tPsiCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
-					"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
+					"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"; cov \"%.6lf\"; sample_cnt \"%d\";\n",
 					chrom, t.exons[j].a, t.exons[j].b, t.strand,
 					prefix, chrom, t.geneId,
 					prefix, chrom, t.geneId, transcriptId,
-					j + 1, t.FPKM, t.TPM ) ;
+					j + 1, t.FPKM, t.TPM, t.cov,
+					sampleSupport[i] ) ;
 		}
 
 		prevGid = t.geneId ;

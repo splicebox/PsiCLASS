@@ -1290,7 +1290,16 @@ int main( int argc, char *argv[] )
 									break ;
 								if ( subexons[l].rightType == 2 )
 								{
-									subexons[l].rightClassifier -= 2.0 * log( GetPValueOfGeneEnd( se.avgDepth ) ) ; 			
+									double adjustAvgDepth = se.avgDepth ;
+									if ( se.end - se.start + 1 >= 100 )
+										adjustAvgDepth += se.avgDepth * 100.0 / ( se.end - se.start + 1 ) ;
+									else
+										adjustAvgDepth *= 2 ;
+									double p = GetPValueOfGeneEnd( adjustAvgDepth ) ;
+									//if ( se.end - se.start + 1 >= 500 && p > 0.001 )
+									//	p = 0.001 ;
+									
+									subexons[l].rightClassifier -= 2.0 * log( p ) ; 			
 									++subexons[l].rcCnt ;
 									break ;
 								}
@@ -1319,7 +1328,15 @@ int main( int argc, char *argv[] )
 									break ;
 								if ( subexons[l].leftType == 1 )
 								{
-									subexons[l].leftClassifier -= 2.0 * log( GetPValueOfGeneEnd( se.avgDepth ) ) ; 			
+									double adjustAvgDepth = se.avgDepth ;
+									if ( se.end - se.start + 1 >= 100 )
+										adjustAvgDepth += se.avgDepth * 100.0 / ( se.end - se.start + 1 ) ;
+									else
+										adjustAvgDepth *= 2 ;
+									double p = GetPValueOfGeneEnd( adjustAvgDepth ) ;
+									//if ( se.end - se.start + 1 >= 500 && p >= 0.001 )
+									//	p = 0.001 ;
+									subexons[l].leftClassifier -= 2.0 * log( p ) ; 			
 									++subexons[l].lcCnt ;
 									break ;
 								}

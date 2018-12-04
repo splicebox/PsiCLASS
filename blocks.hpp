@@ -1152,7 +1152,9 @@ class Blocks
 			{
 				if ( rawExonBlocks[i].chrId == exonBlocks[k].chrId 
 					&& rawExonBlocks[i].leftType == 0 && exonBlocks[k].rightType == 0 
-					&& rawExonBlocks[i].start - exonBlocks[k].end - 1 <= 50 )
+					&& rawExonBlocks[i].start - exonBlocks[k].end - 1 <= 50 
+					&& rawExonBlocks[i].depthSum / double( rawExonBlocks[i].end - rawExonBlocks[i].start + 1 ) < 3.0 
+					&& exonBlocks[k].depthSum / double( exonBlocks[k].end - exonBlocks[i].start + 1 ) < 3.0 )
 				{
 					exonBlocks[k].end = rawExonBlocks[i].end ;
 					exonBlocks[k].rightType = rawExonBlocks[i].rightType ;

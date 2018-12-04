@@ -37,7 +37,7 @@ struct _outputTranscript
 
 	double FPKM ;
 	double TPM ;
-	double score ;
+	double cov ;
 } ;
 
 struct _dp
@@ -261,21 +261,19 @@ public:
 		{
 			struct _outputTranscript &t = outputQueue[i] ;
 			char *chrom = alignments.GetChromName( t.chrId ) ;
-			if ( sampleCnt <= 1 )
-				t.score = 1 ;
 
-			fprintf( outputFPs[t.sampleId], "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
+			fprintf( outputFPs[t.sampleId], "%s\tPsiCLASS\ttranscript\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; transcript_id \"%s%s.%d.%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"; cov \"%.6lf\";\n",
 					chrom, t.exons[0].a, t.exons[t.ecnt - 1].b, t.strand,
 					prefix, chrom, t.geneId,
-					prefix, chrom, t.geneId, t.transcriptId, t.FPKM, t.TPM ) ;
+					prefix, chrom, t.geneId, t.transcriptId, t.FPKM, t.TPM, t.cov ) ;
 			for ( j = 0 ; j < t.ecnt ; ++j )
 			{
 				fprintf( outputFPs[ t.sampleId ], "%s\tPsiCLASS\texon\t%d\t%d\t1000\t%c\t.\tgene_id \"%s%s.%d\"; "
-						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\";\n",
+						"transcript_id \"%s%s.%d.%d\"; exon_number \"%d\"; FPKM \"%.6lf\"; TPM \"%.6lf\"; cov \"\%.6lf\";\n",
 						chrom, t.exons[j].a, t.exons[j].b, t.strand,
 						prefix, chrom, t.geneId,
 						prefix, chrom, t.geneId, t.transcriptId,
-						j + 1, t.FPKM, t.TPM ) ;
+						j + 1, t.FPKM, t.TPM, t.cov ) ;
 			}
 			delete []t.exons ;
 		}
@@ -340,7 +338,7 @@ private:
 		d.timeStamp = -1 ;
 	}
 
-
+	void AugmentTranscripts( struct _subexon *subexons, std::vector<struct _transcript> &alltranscripts, bool extend ) ;
 	// Test whether a constraints is compatible with the transcript.
 	// Return 0 - uncompatible or does not overlap at all. 1 - fully compatible. 2 - Head of the constraints compatible with the tail of the transcript
 	int IsConstraintInTranscript( struct _transcript transcript, struct _constraint &c ) ;
@@ -392,7 +390,7 @@ private:
 	{
 		if ( a > A * 0.1 )
 			return ( cnt * weight ) * ( 1 + pow( a / A, 0.25 ) ) + correlation ;
-		else
+		else 
 			return ( cnt * weight ) * ( 1 + a / A ) + correlation ;
 		//return ( cnt ) * ( exp( 1 + a / A ) ) + correlation ; 
 	}
@@ -409,12 +407,18 @@ private:
 		size = subexonInd.size() ;
 		for ( i = 0 ; i < size ; ++i )
 			txptLen += ( subexons[ subexonInd[i] ].end - subexons[ subexonInd[i] ].start + 1 ) ;
-		t.FPKM = t.abundance / ( ( readCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
+		double factor = 1 ;
+		if ( alignments.matePaired )
+			factor = 0.5 ;
+		t.FPKM = t.abundance * factor / ( ( readCnt / 1000000.0 ) * ( txptLen / 1000.0 ) ) ;
 	}
 
 	int GetTranscriptLengthFromAbundanceAndFPKM( double abundance, double FPKM, int readCnt = 1000000 )
 	{
-		return int( abundance / ( FPKM / 1000.0 ) / ( readCnt / 1000000.0  ) + 0.5 ) ;
+		double factor = 1 ;
+		if ( alignments.matePaired )
+			factor = 0.5 ;
+		return int( abundance * factor / ( FPKM / 1000.0 ) / ( readCnt / 1000000.0  ) + 0.5 ) ;
 	}
 
 	void CoalesceSameTranscripts( std::vector<struct _transcript> &t ) ;

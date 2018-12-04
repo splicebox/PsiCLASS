@@ -30,6 +30,7 @@ struct _site
 	int pos ;
 	double support ;
 
+	char strand ;
 	int associatedIntronCnt ; 
 } ;
 
@@ -187,6 +188,7 @@ int main( int argc, char *argv[] )
 		ns.chrId = introns[i].chrId ;
 		ns.associatedIntronCnt = 1 ;
 		ns.support = introns[i].support ;
+		ns.strand = introns[i].strand ;
 
 		ns.pos = introns[i].start ;
 		sites.push_back( ns ) ;
@@ -321,6 +323,55 @@ int main( int argc, char *argv[] )
 				continue ;
 		}
 
+		// Test whether this a intron coming from a wrong strand
+		/*if ( b - a + 1 >= 10 && introns[i].strand != '?' && introns[i].sampleSupport <= 0.5 * sampleCnt )
+		{
+			int plusStrand = 0 ;
+			int minusStrand = 0 ;
+			int l ;
+			int s, e ;
+
+			if ( introns[i].strand == '+' )
+				plusStrand = 2 ;
+			else
+				minusStrand = 2 ;
+
+			for ( l = 0 ; l < 2 ; ++l )
+			{
+				int ind = ( l == 0 ) ? a : b ;
+				for ( s = ind - 1 ; s >= 0 && sites[s].chrId == sites[ind].chrId ; --s )
+				{
+					if ( sites[s].pos + 10000 < sites[s + 1].pos )
+						break ;
+					
+					if ( sites[s].strand == '+' )
+						++plusStrand ; 
+					else if ( sites[s].strand == '-' ) 
+						++minusStrand ; 
+				}
+
+				for ( e = ind + 1 ; e < siteCnt && sites[e].chrId == sites[ind].chrId ; ++e )
+				{
+					if ( sites[e].pos - 10000 > sites[e - 1].pos )
+						break ;
+					
+					if ( sites[e].strand == '+' )
+						++plusStrand ; 
+					else if ( sites[e].strand == '-' ) 
+						++minusStrand ;
+				}
+			}
+
+			if ( introns[i].start == 161517978 )
+				printf( "capture: %d %d %d %d\n", a, b, minusStrand, plusStrand) ;
+			
+			if ( introns[i].strand == '+' && minusStrand >= 20  && plusStrand == 2 )
+				continue ;
+			else if ( introns[i].strand == '-' && plusStrand >= 20 && minusStrand == 2 )
+				continue ;
+
+		}*/
+		// Test for long intron
 		if ( introns[i].end - introns[i].start + 1 >= 100000 )
 		{
 			int needSample = MIN( ( ( introns[i].end - introns[i].start + 1 ) / 100000 + 1 ) * unit, sampleCnt ) ;
