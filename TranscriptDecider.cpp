@@ -2579,7 +2579,7 @@ int TranscriptDecider::RefineTranscripts( struct _subexon *subexons, int seCnt, 
 	// Recover the candidates in the order of reliability
 	int *geneRecoverCnt = new int[ usedGeneId - baseGeneId ] ;
 	memset( geneRecoverCnt, 0, sizeof( int ) * ( usedGeneId - baseGeneId ) ) ;
-	int round = tcnt ;
+	int round = 1 ;
 	if ( aggressive && size > 1 )
 		round = 1 ;
 		
