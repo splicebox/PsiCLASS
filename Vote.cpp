@@ -14,8 +14,8 @@ char usage[] = "./transcript-vote [OPTIONS] > output.gtf:\n"
 	"Required:\n"
 	"\t--lg: path to the list of GTF files.\n"
 	"Optional:\n" 
-	"\t-f FLOAT: the fraction of samples the transcript showed up. (default: 0.25)\n"
-	"\t-n INT: the number of samples a transcript showed up. (default: 3)\n"
+	"\t-d FLOAT: threshold of average coverage depth across all the samples. (default: 1)\n"
+	//"\t-n INT: the number of samples a transcript showed up. (default: 3)\n"
 	;
 
 
@@ -87,16 +87,16 @@ int main( int argc, char *argv[] )
 			fpGTFlist = fopen( argv[i + 1], "r" ) ;
 			++i ;
 		}
-		else if ( !strcmp( argv[i], "-f" ) )
+		else if ( !strcmp( argv[i], "-d" ) )
 		{
 			fraction = atof( argv[i + 1] ) ;
 			++i ;
 		}
-		else if ( !strcmp( argv[i], "-n" ) )
+		/*else if ( !strcmp( argv[i], "-n" ) )
 		{
 			minSampleCnt = atoi( argv[i + 1] ) ;
 			++i ;
-		}
+		}*/
 		else 
 		{
 			printf( "%s", usage ) ;

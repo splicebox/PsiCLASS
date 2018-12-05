@@ -85,11 +85,23 @@ public:
 					|| ( se.leftType == 2 && se.rightType == 0 ) ) // if the overhang is too small
 				{
 					if ( se.end - se.start + 1 <= 7 )
+					{
+						if ( se.next )
+							delete[] se.next ;
+						if ( se.prev )
+							delete[] se.prev ;
 						continue ;
+					}
 				}
 
 				if ( se.leftClassifier >= classifierThreshold || se.leftClassifier < 0 )
+				{
+					if ( se.next )
+						delete[] se.next ;
+					if ( se.prev )
+						delete[] se.prev ;
 					continue ;
+				}
 			}
 			
 			// Adjust the coordinate.

@@ -3259,6 +3259,13 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		for ( j = 0 ; j < size ; ++j )
 			alltranscripts[j].abundance = -1 ;
 		//printf( "pick: %d: %d %d\n", i, constraints[i].matePairs.size(), alltranscripts.size() ) ;
+		
+		size = predTranscripts[i].size() ;
+		for ( j = 0 ; j < size ; ++j )
+		{
+			predTranscripts[i][j].seVector.Release() ;
+			delete[] predTranscripts[i][j].constraintsSupport ;
+		}
 		predTranscripts[i].clear() ;
 		PickTranscripts( subexons, alltranscripts, constraints[i], subexonCorrelation, predTranscripts[i] ) ;
 	}

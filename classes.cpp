@@ -457,5 +457,7 @@ int main( int argc, char *argv[] )
 	outputHandler.ComputeFPKMTPM( alignmentFiles ) ;
 	outputHandler.Flush() ;
 	
+	for ( i = 0 ; i < sampleCnt ; ++i )
+		alignmentFiles[i].Close() ;
 	return 0 ;
 }
