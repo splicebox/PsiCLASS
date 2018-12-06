@@ -430,6 +430,11 @@ int main( int argc, char *argv[] )
 		pthread_attr_destroy( &pthreadAttr ) ;
 		pthread_mutex_destroy( &ftLock ) ;
 		pthread_cond_destroy( &fullWorkCond ) ;
+
+		delete[] threads ;
+		delete[] getConstraintsThreads ;
+		delete[] initThreads ;
+		delete[] freeThreads ;
 	} // end of else for multi-thread.
 
 	outputHandler.OutputCommandInfo( argc, argv ) ; 

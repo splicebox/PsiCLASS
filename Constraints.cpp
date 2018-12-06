@@ -285,6 +285,8 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 		ct.vector.Init( seCnt ) ;
 		//printf( "%s %d: %lld-%lld | %d-%d\n", __func__, alignments.segCnt, alignments.segments[0].a, alignments.segments[0].b, subexons[tag].start, subexons[tag].end ) ;
 		ct.weight = 1.0 / alignments.GetNumberOfHits() ;
+		if ( alignments.IsGCRich() )
+			ct.weight *= 10 ;
 		ct.normAbund = 0 ;
 		ct.support = 1 ;
 		ct.uniqSupport = alignments.IsUnique() ? 1 : 0 ;

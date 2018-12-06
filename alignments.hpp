@@ -451,6 +451,20 @@ public:
 		allowClip = in ;
 	}
 
+	bool IsGCRich( bool threshold = 0.9 )
+	{
+		int i = 0 ;
+		int gcCnt = 0 ;
+		for ( i = 0 ; i < b->core.l_qseq ; ++i )
+		{
+			int bit = bam1_seqi( bam1_seq( b ), i ) ;
+			if ( bit == 2 || bit == 4 )
+				++gcCnt ;		
+		}
+		if ( gcCnt >= threshold * b->core.l_qseq )
+			return true ;
+	}
+
 	void GetGeneralInfo( bool stopEarly = false )
 	{
 		int i, k ;
