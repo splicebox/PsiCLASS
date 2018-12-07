@@ -338,7 +338,7 @@ private:
 		d.timeStamp = -1 ;
 	}
 
-	void AugmentTranscripts( struct _subexon *subexons, std::vector<struct _transcript> &alltranscripts, bool extend ) ;
+	void AugmentTranscripts( struct _subexon *subexons, std::vector<struct _transcript> &alltranscripts, int limit, bool extend ) ;
 	// Test whether a constraints is compatible with the transcript.
 	// Return 0 - uncompatible or does not overlap at all. 1 - fully compatible. 2 - Head of the constraints compatible with the tail of the transcript
 	int IsConstraintInTranscript( struct _transcript transcript, struct _constraint &c ) ;

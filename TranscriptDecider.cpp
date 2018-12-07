@@ -1202,7 +1202,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 
 
 // Add the preifx/suffix of transcripts to the list
-void TranscriptDecider::AugmentTranscripts( struct _subexon *subexons, std::vector<struct _transcript> &alltranscripts, bool extend )
+void TranscriptDecider::AugmentTranscripts( struct _subexon *subexons, std::vector<struct _transcript> &alltranscripts, int limit, bool extend )
 {
 	int i, j, k ;
 	int size = alltranscripts.size() ;
@@ -1227,8 +1227,10 @@ void TranscriptDecider::AugmentTranscripts( struct _subexon *subexons, std::vect
 				nt.correlationScore = 0 ;
 				nt.abundance = 0 ;
 				nt.constraintsSupport = NULL ;
-
+				
 				alltranscripts.push_back( nt ) ;
+				if ( alltranscripts.size() >= limit )
+					return ;
 			}
 		}
 		
@@ -1248,6 +1250,8 @@ void TranscriptDecider::AugmentTranscripts( struct _subexon *subexons, std::vect
 				nt.constraintsSupport = NULL ;
 
 				alltranscripts.push_back( nt ) ;
+				if ( alltranscripts.size() >= limit )
+					return ;
 			}
 		}
 
@@ -1290,6 +1294,8 @@ void TranscriptDecider::AugmentTranscripts( struct _subexon *subexons, std::vect
 								nt.constraintsSupport = NULL ;
 
 								alltranscripts.push_back( nt ) ;
+								if ( alltranscripts.size() >= limit )
+									return ;
 							}
 
 							if ( subexons[idx].nextCnt == 1 )
@@ -1338,6 +1344,8 @@ void TranscriptDecider::AugmentTranscripts( struct _subexon *subexons, std::vect
 								nt.constraintsSupport = NULL ;
 
 								alltranscripts.push_back( nt ) ;
+								if ( alltranscripts.size() >= limit )
+									return ;
 							}
 
 							if ( subexons[idx].prevCnt == 1 )
@@ -3099,6 +3107,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	
 	if ( !useDP )
 	{
+		int origSize = atCnt ;
 		alltranscripts.resize( atCnt ) ;
 		for ( i = 0 ; i < atCnt ; ++i )
 		{
@@ -3112,6 +3121,10 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			if ( subexons[i].canBeStart )
 				EnumerateTranscript( i, 0, f, 0, subexons, subexonCorrelation, 1, alltranscripts, atCnt ) ;
 		}
+
+		for ( i = atCnt ; i < origSize ; ++i )
+			alltranscripts[i].seVector.Release() ;
+
 		alltranscripts.resize( atCnt ) ;
 		//printf( "transcript cnt: %d\n", atCnt ) ;
 		//printf( "%d %d\n", alltranscripts[0].seVector.Test( 1 ), constraints[0].matePairs.size() ) ;
@@ -3192,7 +3205,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			// we can further pick a smaller subsets of transcripts here if the number is still to big.
 			CoalesceSameTranscripts( alltranscripts ) ;
 		
-			AugmentTranscripts( subexons, alltranscripts, false ) ;
+			AugmentTranscripts( subexons, alltranscripts, 1000, false ) ;
 		}
 
 		// release the memory.
@@ -3220,6 +3233,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	atCnt = alltranscripts.size() ;
 	for ( i = 0 ; i < atCnt ; ++i )
 		alltranscripts[i].FPKM = 0 ;
+	
 	for ( i = 0 ; i < sampleCnt ; ++i )
 	{
 		int size = alltranscripts.size() ;
@@ -3356,7 +3370,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 
 		if ( 0 ) //size == 1 )
 		{
-			AugmentTranscripts( subexons, predTranscripts[i], false ) ;	
+			//AugmentTranscripts( subexons, predTranscripts[i], false ) ;	
 			
 			int l = predTranscripts[i].size() ;
 			int tcCnt = constraints[i].matePairs.size() ;

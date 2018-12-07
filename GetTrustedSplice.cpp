@@ -371,6 +371,28 @@ int main( int argc, char *argv[] )
 				continue ;
 
 		}*/
+	
+		// Filter a intron if one of its splice site associated with too many introns.
+		/*if ( sites[a].associatedIntronCnt >= 10 )
+		{
+			int needSample = MIN( sites[a].associatedIntronCnt / 100 * sampleCnt, sampleCnt ) ;
+			if ( introns[i].support < sites[a].support / 100 && 
+				introns[i].sampleSupport < needSample )
+			{
+				continue ;		
+			}
+		}
+		if ( sites[b].associatedIntronCnt >= 10 )
+		{
+			int needSample = MIN( sites[b].associatedIntronCnt / 100 * sampleCnt, sampleCnt ) ;
+			if ( introns[i].support < sites[b].support / 100 && 
+				introns[i].sampleSupport < needSample )
+			{
+				continue ;
+			}
+		}*/
+
+
 		// Test for long intron
 		if ( introns[i].end - introns[i].start + 1 >= 100000 )
 		{
