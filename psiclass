@@ -269,7 +269,9 @@ if ( $stage <= 0 )
 # Get subexons from each bam file
 sub threadRunSubexonInfo
 {
-	my $tid = threads->tid() - $numThreads - 1 ;
+	my $tidAdjust = 0 ;
+	$tidAdjust = $numThreads if ( $stage < 1 ) ;
+	my $tid = threads->tid() - $tidAdjust - 1 ;
 	my $i ;
 	for ( $i = 0 ; $i < scalar( @bamFiles ) ; ++$i )	
 	{
@@ -281,7 +283,6 @@ sub threadRunSubexonInfo
 
 if ( $stage <= 1 )
 {
-
 	if ( $numThreads == 1 )
 	{
 		for ( $i = 0 ; $i < @bamFiles ; ++$i )
