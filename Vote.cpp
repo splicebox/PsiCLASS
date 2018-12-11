@@ -73,7 +73,8 @@ int CompDouble( const void *p1, const void *p2 )
 int main( int argc, char *argv[] )
 {
 	int i, j, k ;
-	double fraction = 1 ;
+	double minAvgDepth = 1.0 ;
+	double fraction = 1.0 ;
 	int minSampleCnt = 3 ;
 	std::map<std::string, int> chrNameToId ;
 	std::map<int, std::string> chrIdToName ;
@@ -89,7 +90,7 @@ int main( int argc, char *argv[] )
 		}
 		else if ( !strcmp( argv[i], "-d" ) )
 		{
-			fraction = atof( argv[i + 1] ) ;
+			minAvgDepth = atof( argv[i + 1] ) ;
 			++i ;
 		}
 		/*else if ( !strcmp( argv[i], "-n" ) )
@@ -290,10 +291,10 @@ int main( int argc, char *argv[] )
 		transcripts[k].TPM = sumTPM / ( j - i ) ;
 		transcripts[k].cov = sumCov / ( j - i ) ;
 		
-		//if ( ( j - i < int( fraction * sampleCnt ) || j - i <  minSampleCnt ) && sumCov < 5.0 * ( j - i ) )
+		if ( ( j - i < int( fraction * sampleCnt ) || j - i <  minSampleCnt ) && sumCov < minAvgDepth * sampleCnt )
 		//if ( transcripts[k].score * ( j - i ) < 1 && ( j - i ) < sampleCnt * 0.5 )
 		//if ( sumTPM < sampleCnt || sumFPKM < sampleCnt )
-		if ( sumCov < fraction * sampleCnt )
+		//if ( sumCov < minAvgDepthn * sampleCnt )
 		{
 			transcripts[k].FPKM = -1 ;
 		}
