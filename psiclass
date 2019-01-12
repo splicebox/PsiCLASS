@@ -18,9 +18,9 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-s STRING: path to the trusted splice file (default: not used)\n".
     "\t-o STRING: prefix of output files (default: ./psiclass)\n". 
     "\t-p INT: number of processes/threads (default: 1)\n".
-    "\t-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)\n".
-    "\t--sa FLOAT: the minimum average number of supported read for retained introns. (default: 0.5)\n".
-    "\t--vn INT |--vf FLOAT : minimum number | fraction of samples a transcript must appear in to be reported (defaults: 3, 0.25)\n".
+    "\t-c FLOAT: only use the subexons with classifier score <= than the given number (default: 0.05)\n".
+    "\t--sa FLOAT: the minimum average number of supported read for retained introns (default: 0.5)\n".
+    "\t--vd FLOAT : the minimum total coverage depth of a transcript to be reported (defaults: 1.0)\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning - building splice sites for each sample\n".
@@ -138,16 +138,10 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 		$trustSpliceOpt .= " -a ".$ARGV[$i + 1] ;
 		++$i ;
 	}
-	elsif ( $ARGV[ $i ] eq "--vf" )
+	elsif ( $ARGV[ $i ] eq "--vd" )
 	{
-		$voteOpt .= " -f ".$ARGV[$i + 1] ;
+		$voteOpt .= " -d ".$ARGV[$i + 1] ;
 		++$i ;
-	}
-	elsif ( $ARGV[ $i ] eq "--vn" )
-	{
-		$voteOpt .= " -n ".$ARGV[$i + 1] ;
-		++$i ;
-		
 	}
 	else
 	{
