@@ -20,6 +20,7 @@ struct _intron
 	int uniqSupport ;
 	int secSupport ;
 	char strand ;
+	int editDist ;
 
 	int sampleSupport ;
 } ;
@@ -172,6 +173,7 @@ int main( int argc, char *argv[] )
 			ni.uniqSupport = uniqSupport ;
 			ni.secSupport = secSupport ;
 			ni.sampleSupport = 1 ;
+			ni.editDist = uniqEditDistance + secEditDistance ;
 			introns.push_back( ni ) ;
 		}
 		fclose( fp ) ;
@@ -281,6 +283,9 @@ int main( int argc, char *argv[] )
 			if ( flag == 1 )
 				continue ;
 		}*/
+		if ( introns[i].strand == '?' && sampleCnt == 1 && 
+			( introns[i].support < 5 || introns[i].uniqSupport == 0 || introns[i].support < 2 * introns[i].editDist ) )
+			continue ;
 		
 		// Since the strand is uncertain, the alinger may make different decision sample from sample. 
 		//	To keep this intron, one of its splice sites must be more supported than adjacent splice sites.

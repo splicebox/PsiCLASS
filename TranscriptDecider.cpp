@@ -1883,7 +1883,7 @@ void TranscriptDecider::PickTranscripts( struct _subexon *subexons, std::vector<
 			//if ( maxAbundance >= 1 && value / maxAbundance >= 0.2 )
 			//	seCntAdjust = sqrt( (double)( transcriptSeCnt[i] ) / seCnt ) ;//< 0.5 ? 0.5 : (double)( transcriptSeCnt[i] ) / seCnt ;
 			
-			if ( alltranscripts[i].FPKM > 0 )
+			if ( alltranscripts[i].FPKM > 0 && sampleCnt > 1 )
 				weight = ( 1 + alltranscripts[i].FPKM / sampleCnt ) ;
 
 			double score = ComputeScore( cnt, weight, value, maxAbundance, alltranscripts[i].correlationScore ) ;

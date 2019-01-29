@@ -922,14 +922,16 @@ int main( int argc, char *argv[] )
 		for ( j = i + 1 ; j < seCnt ; ++j )
 		{
 			if ( rawSubexons[j - 1].chrId != rawSubexons[j].chrId || rawSubexons[j - 1].rightType != 0 || rawSubexons[j].leftType != 0 
-				|| rawSubexons[j - 1].end + 1 != rawSubexons[j].start )
+				|| ( fileCnt > 1 && rawSubexons[j - 1].end + 1 != rawSubexons[j].start )
+				|| ( fileCnt == 1 && rawSubexons[j - 1].end + 50 < rawSubexons[j].start ) )
 				break ;
 		}
 		// rawsubexons[i...j-1] will be merged.
 
-		/*if ( rawSubexons[i].start == 144177116 )
+		/*if ( rawSubexons[i].start == 119625875 )
 		{
-			printf( "merge j-1: %d %d\n", rawSubexons[j - 1].end, rawSubexons[j - 1].rightType  ) ;
+			printf( "merge j-1: %d %d %d %d\n", rawSubexons[j - 1].end, rawSubexons[j - 1].rightType,
+				rawSubexons[j].start, rawSubexons[j].leftType ) ;
 		}*/
 		bool merge = true ;
 		if ( rawSubexons[i].leftType == 1 && rawSubexons[j - 1].rightType == 2 && j - i > 1 
