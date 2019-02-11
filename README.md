@@ -3,7 +3,7 @@ PsiCLASS
 
 Described in: 
 
-Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increases the accuracy of transcript assembly, *Submitted*. 
+Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increases the accuracy of transcript assembly, *Under review following revision*. 
 
 	Copyright (C) 2018- and GNU GPL by Li Song, Liliana Florea
 
@@ -15,7 +15,7 @@ Commands, scripts and supporting data for the paper can be found [here](https://
 
 ### What is PsiCLASS?
 
-PsiCLASS is a reference-based transcriptome assembler for single or multiple RNA-seq samples. Unlike conventional methods that analyze each sample separately and then merge the outcomes to create a unified set of meta-annotations, PsiCLASS takes a multi-sample approach, simultaneously analyzing all RNA-seq data sets in an experiment. PsiCLASS is both a transcript assembler and a meta-assembler, producing  separate transcript sets for the individual samples and a unified set of meta-annotations. The algorithmic underpinnings of PsiCLASS include using a global subexon splice graph, statistical cross-sample feature (intron, subexon) selection methods, and an efficient dynamic programming algorithm to select a subset of transcripts from among those encoded in the graph, based on the read support in each sample. Lastly, the set of meta-annotations is selected from among the transcripts generated for individual samples by voting. While PsiCLASS is highly accurate and efficient for medium-to-large collections of RNA-seq data, its accuracy is equally high for small RNA-seq data sets (2-10 samples) and even for individual samples, and therefore can be effectively used both as a multi-sample and as a conventional single-sample assembler. 
+PsiCLASS is a reference-based transcriptome assembler for single or multiple RNA-seq samples. Unlike conventional methods that analyze each sample separately and then merge the outcomes to create a unified set of meta-annotations, PsiCLASS takes a multi-sample approach, simultaneously analyzing all RNA-seq data sets in an experiment. PsiCLASS is both a transcript assembler and a meta-assembler, producing  separate transcript sets for the individual samples and a unified set of meta-annotations. The algorithmic underpinnings of PsiCLASS include using a global subexon splice graph, statistical cross-sample feature (intron, subexon) selection methods, and an efficient dynamic programming algorithm to select a subset of transcripts from among those encoded in the graph, based on the read support in each sample. Lastly, the set of meta-annotations is selected from among the transcripts generated for individual samples by voting. While PsiCLASS is highly accurate and efficient for medium-to-large collections of RNA-seq data, its accuracy is equally high for small RNA-seq data sets (2-10 samples) and is competitive to reference methods for single samples. Additionally, its performance is robust with the aggregation method used, including the built-in voting or assembly-based approaches such as StringTie and TACO. Therefore, it can be effectively used as a multi-sample and as a single-sample assembler, as well as in conventional assemble-and-merge protocols. 
 
 ### Install
 
@@ -39,8 +39,7 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
           		-o STRING: prefix of output files (default: ./psiclass)
           		-p INT: number of threads (default: 1)
 			-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)
-			-vn INT |-vf FLOAT : minimum number | fraction of samples a transcript must appear in to be reported 
-				(defaults: 3, 0.25)
+			-vd FLOAT : cutoff for (weighted) voting score (default: 1.0)
               		--stage INT:  (default: 0)
                      		0-start from the beginning - building the splice site file for each sample
                      		1-start from building the subexon file for each samples
@@ -60,7 +59,7 @@ When running PsiCLASS with STAR alignments, run STAR with the option `--outSAMst
 
 	chr_name start_site end_site
 	
-*Voting optimization.* The default parameters for voting may not be optimal for all types of data, for instance a lower voting cutoff may be more appropriate for sparse rRNA depleted total RNA samples. To determine a better cutoff value, one can run the voting stage (see [Usage](#usage) above) with different cutoffs, and assess the performance against a reference set of gene annotations, such as [GENCODE](https://www.gencodegenes.org). Note that the per sample sets of transcripts will remain unchanged.        
+*Voting optimization.* The default parameters for voting have been calibrated and perform near-optimally for a wide variety of data, including with varying levels of coverage and different library construction protocols. However, if further optimization is desired, to determine a better cutoff value one can run the voting stage (see [Usage](#usage) above) with different parameter values, and assess the performance against a reference set of gene annotations, such as [GENCODE](https://www.gencodegenes.org). The program 'grader', included in the package, can be used for this purpose. Note that the per sample sets of transcripts will remain unchanged.        
 
 *Add gene name.* For many applications, it would be desirable to associate the known (annotated) gene name with each transcript. PsiCLASS provides the program "add-genename" for such purpose. "add-genename" takes as input a GTF file containing a reference set of gene annotations and a file listing the raw GTF files, and generates a new GTF file for each input raw GTF file by appending the annotated gene names. If a gene is not found in the annotation, "add-genename" will use "novel_INT" to represent its gene name. The program can be run as:
 
