@@ -40,7 +40,7 @@ my $numThreads = 1 ;
 sub system_call
 {
 	print $_[0], "\n" ;
-	system( $_[0] ) ;
+	system( $_[0] ) == 0 or die "Terminated\n" ;
 }
 
 # Process the arguments
