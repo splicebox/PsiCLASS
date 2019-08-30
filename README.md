@@ -34,7 +34,7 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                 	-b STRING: paths to the alignment BAM files; use comma to separate multiple BAM files
                         	or
                		--lb STRING: path to the file listing the alignment BAM files
-       		Optional:
+		Optional:
 			-s STRING: path to the trusted splice file (default: not used)
 			-o STRING: prefix of output files (default: ./psiclass)
 			-p INT: number of threads (default: 1)
