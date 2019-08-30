@@ -35,12 +35,12 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
                         	or
                		--lb STRING: path to the file listing the alignment BAM files
        		Optional:
-               		-s STRING: path to the trusted splice file (default: not used)
-          		-o STRING: prefix of output files (default: ./psiclass)
-          		-p INT: number of threads (default: 1)
+			-s STRING: path to the trusted splice file (default: not used)
+			-o STRING: prefix of output files (default: ./psiclass)
+			-p INT: number of threads (default: 1)
 			-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)
 			-vd FLOAT : cutoff for (weighted) voting score (default: 1.0)
-              		--stage INT:  (default: 0)
+			--stage INT:  (default: 0)
                      		0-start from the beginning - building the splice site file for each sample
                      		1-start from building the subexon file for each samples
                      		2-start from combining the subexon files across samples
