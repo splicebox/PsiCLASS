@@ -3,7 +3,7 @@ PsiCLASS
 
 Described in: 
 
-Song, L., Sabunciyan, S., and Florea, L. (2018). A multi-sample approach increases the accuracy of transcript assembly, *Under review following revision*. 
+Song, L., Sabunciyan, S., Yang, G. and Florea, L. . A multi-sample approach increases the accuracy of transcript assembly. Nat Commun 10, 5000 (2019)
 
 	Copyright (C) 2018- and GNU GPL by Li Song, Liliana Florea
 
@@ -39,7 +39,9 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
 			-o STRING: prefix of output files (default: ./psiclass)
 			-p INT: number of threads (default: 1)
 			-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)
-			-vd FLOAT : cutoff for (weighted) voting score (default: 1.0)
+			--sa FLOAT: the minimum average number of supported read for retained introns (default: 0.5)
+			--vd FLOAT : the minimum average coverage depth of a transcript to be reported in voting (defaults: 1.0)
+			--primaryParalog: use primary alignment to retain paralog genes (default: use unique alignments)
 			--stage INT:  (default: 0)
                      		0-start from the beginning - building the splice site file for each sample
                      		1-start from building the subexon file for each samples
