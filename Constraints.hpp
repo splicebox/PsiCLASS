@@ -236,7 +236,7 @@ class Constraints
 {
 private:
 	int prevStart, prevEnd ;	
-
+	bool usePrimaryAsUnique ;
 	MateReadIds mateReadIds ;
 
 	Alignments *pAlignments ;
@@ -286,6 +286,7 @@ public:
 	
 	Constraints() 
 	{
+		usePrimaryAsUnique = false ;
 	} 
 
 	Constraints( Alignments *a ): pAlignments( a ) 
@@ -313,6 +314,11 @@ public:
 	void SetAlignments( Alignments *a )
 	{
 		pAlignments = a ;
+	}
+
+	void SetUsePrimaryAsUnique( bool in )
+	{
+		usePrimaryAsUnique = in ;
 	}
 
 	void Assign( Constraints &c )

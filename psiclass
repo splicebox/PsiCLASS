@@ -21,6 +21,7 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-c FLOAT: only use the subexons with classifier score <= than the given number (default: 0.05)\n".
     "\t--sa FLOAT: the minimum average number of supported read for retained introns (default: 0.5)\n".
     "\t--vd FLOAT : the minimum average coverage depth of a transcript to be reported (defaults: 1.0)\n".
+    "\t--primaryParalog: use primary alignment to retain paralog genes (default: use unique alignments)\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning - building splice sites for each sample\n".
@@ -142,6 +143,10 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 	{
 		$voteOpt .= " -d ".$ARGV[$i + 1] ;
 		++$i ;
+	}
+	elsif ( $ARGV[$i] eq "--primaryParalog" )
+	{
+		$classesOpt .= " --primaryParalog" ;
 	}
 	else
 	{

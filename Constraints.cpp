@@ -281,6 +281,13 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			break ;
 		if ( alignments.segments[ alignments.segCnt - 1 ].b < subexons[tag].start )
 			continue ;
+		
+		int uniqSupport = 0 ;
+		if ( usePrimaryAsUnique )
+			uniqSupport = alignments.IsPrimary() ? 1 : 0 ;
+		else
+			uniqSupport = alignments.IsUnique() ? 1 : 0 ;
+
 		struct _constraint ct ;
 		ct.vector.Init( seCnt ) ;
 		//printf( "%s %d: %lld-%lld | %d-%d\n", __func__, alignments.segCnt, alignments.segments[0].a, alignments.segments[0].b, subexons[tag].start, subexons[tag].end ) ;
@@ -289,7 +296,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 			ct.weight *= 10 ;
 		ct.normAbund = 0 ;
 		ct.support = 1 ;
-		ct.uniqSupport = alignments.IsUnique() ? 1 : 0 ;
+		ct.uniqSupport = uniqSupport ;
 		ct.maxReadLen = alignments.GetRefCoverLength() ;
 		
 		if ( alignments.IsPrimary() && ConvertAlignmentToBitTable( alignments.segments, alignments.segCnt, 
@@ -339,7 +346,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 							nm.j = constraints.size() - 1 ;
 							nm.abundance = 0 ;
 							nm.support = 1 ;
-							nm.uniqSupport = alignments.IsUnique() ? 1 : 0 ;				
+							nm.uniqSupport = uniqSupport ; 
 							nm.effectiveCount = 2 ;
 							matePairs.push_back( nm ) ;
 						}
@@ -357,7 +364,7 @@ int Constraints::BuildConstraints( struct _subexon *subexons, int seCnt, int sta
 							nm.j = constraints.size() - 1 ;
 							nm.abundance = 0 ;
 							nm.support = 1 ;
-							nm.uniqSupport = alignments.IsUnique() ? 1 : 0 ;				
+							nm.uniqSupport = uniqSupport ; 
 							nm.effectiveCount = 2 ;
 							matePairs.push_back( nm ) ;
 						}

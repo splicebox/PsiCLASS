@@ -23,6 +23,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t-d FLOAT: filter the transcript whose average read depth is less than the given number. (default: 2.5)\n"
 	"\t--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)\n"
 	"\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n"
+	"\t--primaryParalog: use primary alignment to retain paralog genes instead of unique alignments. (default: not used)\n"
 	;
 
 static const char *short_options = "s:b:f:o:d:p:c:h" ;
@@ -31,6 +32,7 @@ static struct option long_options[] =
 		{ "ls", required_argument, 0, 10000 },
 		{ "lb", required_argument, 0, 10001 },
 		{ "hasMateIdSuffix", no_argument, 0, 10002 },
+		{ "primaryParalog", no_argument, 0, 10003 },
 		{ (char *)0, 0, 0, 0} 
 	} ;
 
@@ -108,6 +110,7 @@ int main( int argc, char *argv[] )
 	char outputPrefix[1024] = "" ;
 	int numThreads = 1 ;
 	bool hasMateReadIdSuffix = false ;
+	bool usePrimaryAsUnique = false ;
 	
 	std::vector<Alignments> alignmentFiles ;
 	SubexonCorrelation subexonCorrelation ;
@@ -175,6 +178,10 @@ int main( int argc, char *argv[] )
 		else if ( c == 10002 ) // the mate pair read id has suffix.
 		{
 			hasMateReadIdSuffix = true ;
+		}
+		else if ( c == 10003 ) // do not check unique alignment
+		{
+			usePrimaryAsUnique = true ;
 		}
 		else
 		{
@@ -244,7 +251,7 @@ int main( int argc, char *argv[] )
 	{
 		Constraints constraints( &alignmentFiles[i] ) ;
 		constraints.SetHasMateReadIdSuffix( hasMateReadIdSuffix ) ;
-
+		constraints.SetUsePrimaryAsUnique( usePrimaryAsUnique ) ;
 		multiSampleConstraints.push_back( constraints ) ;
 	}
 	MultiThreadOutputTranscript outputHandler( sampleCnt, alignmentFiles[0] ) ;
