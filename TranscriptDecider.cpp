@@ -3000,7 +3000,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	if ( defaultGeneId[0] == -1 )
 		defaultGeneId[0] = baseGeneId ;
 	if ( defaultGeneId[1] == -1 )
-		defaultGeneId[1] = baseGeneId ;
+		defaultGeneId[1] = usedGeneId - 1 ;
 
 	// Go through the constraints to find the chain of subexons that should be kept.
 	std::map<int, int> *subexonChainSupport = new std::map<int, int>[ seCnt ] ; 
