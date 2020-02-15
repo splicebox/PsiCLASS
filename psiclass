@@ -21,6 +21,7 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-c FLOAT: only use the subexons with classifier score <= than the given number (default: 0.05)\n".
     "\t--sa FLOAT: the minimum average number of supported read for retained introns (default: 0.5)\n".
     "\t--vd FLOAT : the minimum average coverage depth of a transcript to be reported (defaults: 1.0)\n".
+    "\t--bamGroup STRING: path to the file listing the group id of BAMs in the --lb file (default: not used)\n".
     "\t--primaryParalog: use primary alignment to retain paralog genes (default: use unique alignments)\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
     "\t--stage INT:  (default: 0)\n".
@@ -56,6 +57,7 @@ my $voteOpt = "" ;
 my $outdir = "." ;
 my $mateIdx = -1 ;
 my $spliceAvgSupport = 0.5 ;
+my $bamGroup = "" ;
 for ( $i = 0 ; $i < @ARGV ; ++$i )
 {
 	if ( $ARGV[$i] eq "--lb" )
@@ -134,6 +136,11 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 		}
 		++$i ;
 	}
+	elsif ( $ARGV[$i] eq "--bamGroup" )
+	{
+		$bamGroup = $ARGV[$i + 1] ;
+		++$i ;
+	}
 	elsif ( $ARGV[ $i ] eq "--sa" )
 	{
 		$trustSpliceOpt .= " -a ".$ARGV[$i + 1] ;
@@ -197,7 +204,6 @@ for ( $i = 0 ; $i < $numThreads ; ++$i )
 	push @threads, $i ;
 }
 
-
 sub threadRunSplice
 {
 	my $tid = threads->tid() - 1 ;
@@ -240,27 +246,69 @@ if ( $stage <= 0 )
 		}
 	}
 	
-	open FPls, ">$outdir/splice/${prefix}splice.list" ;
-	for ( $i = 0 ; $i < @bamFiles ; ++$i )
+	if ( $bamGroup eq "" || $spliceFile ne "" )
 	{
-		print FPls  "$outdir/splice/${prefix}bam_$i.raw_splice\n" ;
-	}
-	close FPls ;
-
-	if ( $spliceFile ne "" )
-	{
+		open FPls, ">$outdir/splice/${prefix}splice.list" ;
 		for ( $i = 0 ; $i < @bamFiles ; ++$i )
 		{
-			system_call( "perl $WD/FilterSplice.pl $outdir/splice/${prefix}bam_$i.raw_splice $spliceFile > $outdir/splice/${prefix}bam_$i.splice" ) ;
+			print FPls  "$outdir/splice/${prefix}bam_$i.raw_splice\n" ;
+		}
+		close FPls ;
+
+		if ( $spliceFile ne "" )
+		{
+			for ( $i = 0 ; $i < @bamFiles ; ++$i )
+			{
+				system_call( "perl $WD/FilterSplice.pl $outdir/splice/${prefix}bam_$i.raw_splice $spliceFile > $outdir/splice/${prefix}bam_$i.splice" ) ;
+			}
+		}
+		else
+		{
+			system_call( "$WD/trust-splice $outdir/splice/${prefix}splice.list ". $bamFiles[0] ." $trustSpliceOpt > $outdir/splice/${prefix}bam.trusted_splice" ) ;
+			for ( $i = 0 ; $i < @bamFiles ; ++$i )
+			{
+				system_call( "perl $WD/FilterSplice.pl $outdir/splice/${prefix}bam_$i.raw_splice $outdir/splice/${prefix}bam.trusted_splice > $outdir/splice/${prefix}bam_$i.splice" ) ;
+			}
 		}
 	}
 	else
 	{
-		system_call( "$WD/trust-splice $outdir/splice/${prefix}splice.list ". $bamFiles[0] ." $trustSpliceOpt > $outdir/splice/${prefix}bam.trusted_splice" ) ;
-		for ( $i = 0 ; $i < @bamFiles ; ++$i )
+		my @bamToGroupId ;
+		my %groupNameToId ;
+		open FPbg, $bamGroup ;
+		my $groupUsed = 0 ;
+		while (<FPbg>) 
 		{
-			system_call( "perl $WD/FilterSplice.pl $outdir/splice/${prefix}bam_$i.raw_splice $outdir/splice/${prefix}bam.trusted_splice > $outdir/splice/${prefix}bam_$i.splice" ) ;
+			chomp ;
+			if ( !defined $groupNameToId{$_} )
+			{
+				$groupNameToId{$_} = $groupUsed ;
+				++$groupUsed ;
+			}
+			push @bamToGroupId, $groupNameToId{$_} ;	
 		}
+		close FPbg ;
+		
+		# Process each group one by one
+		my $group ;
+		for ( $group = 0 ; $group < $groupUsed ; ++$group )
+		{
+			open FPls, ">$outdir/splice/${prefix}splice_$group.list" ;
+			for ( $i = 0 ; $i < @bamFiles ; ++$i )
+			{
+				next if ( $bamToGroupId[$i] != $group ) ;
+				print FPls  "$outdir/splice/${prefix}bam_$i.raw_splice\n" ;
+			}
+			close FPls ;
+
+			system_call( "$WD/trust-splice $outdir/splice/${prefix}splice_$group.list ". $bamFiles[0] ." $trustSpliceOpt > $outdir/splice/${prefix}bam_$group.trusted_splice" ) ;
+			for ( $i = 0 ; $i < @bamFiles ; ++$i )
+			{
+				next if ( $bamToGroupId[$i] != $group ) ;
+				system_call( "perl $WD/FilterSplice.pl $outdir/splice/${prefix}bam_$i.raw_splice $outdir/splice/${prefix}bam_$group.trusted_splice > $outdir/splice/${prefix}bam_$i.splice" ) ;
+			}
+		}
+
 	}
 }
 
