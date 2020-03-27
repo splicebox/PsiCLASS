@@ -3,6 +3,8 @@
 
 #include <pthread.h>
 #include <map>
+#include <time.h>
+#include <stdarg.h>
 
 #include "alignments.hpp"
 #include "SubexonGraph.hpp"
@@ -10,7 +12,7 @@
 #include "BitTable.hpp"
 #include "Constraints.hpp"
 
-#define HASH_MAX 100003 
+#define HASH_MAX 100003 // default HASH_MAX
 #define USE_DP 200000
 
 struct _transcript
@@ -287,6 +289,7 @@ private:
 	int numThreads ;
 	double FPKMFraction ;
 	double txptMinReadDepth ;
+	int hashMax ;
 
 	Constraints *constraints ;
 	//struct _subexon *subexons ;
@@ -455,6 +458,22 @@ private:
 	void ComputeTranscriptsScore( struct _subexon *subexons, int seCnt, std::map<int, int> *subexonChainSupport, std::vector<struct _transcript> &transcripts ) ;
 
 	void OutputTranscript( int sampleId, struct _subexon *subexons, struct _transcript &transcript ) ;
+
+	void PrintLog( const char *fmt, ... )
+	{
+		char buffer[10021] ;
+		va_list args ;
+		va_start( args, fmt ) ;
+		vsprintf( buffer, fmt, args ) ;
+
+		time_t mytime = time(NULL) ;
+		struct tm *localT = localtime( &mytime ) ;
+		char stime[500] ;
+		strftime( stime, sizeof( stime ), "%c", localT ) ;
+		fprintf( stderr, "[%s] %s\n", stime, buffer ) ;
+	}
+
+
 public:
 	TranscriptDecider( double f, double c, double d, int sampleCnt, Alignments &a ): alignments( a )  
 	{
@@ -466,7 +485,7 @@ public:
 		defaultGeneId[1] = -1 ;
 		numThreads = 1 ;
 		this->sampleCnt = sampleCnt ;
-		dpHash = new struct _dp[ HASH_MAX ] ;
+		dpHash = new struct _dp[ HASH_MAX ] ; // pre-allocated buffer to hold dp information.
 	}
 	~TranscriptDecider() 
 	{

@@ -672,9 +672,9 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 	{
 		int key = 0 ;	
 		for ( i = 0 ; i < vcnt ; ++i )
-			key = ( key * attr.seCnt + visit[i] ) % HASH_MAX ;
+			key = ( key * attr.seCnt + visit[i] ) % hashMax ;
 		if ( key < 0 )
-			key += HASH_MAX ;
+			key += hashMax ;
 
 		if ( attr.hash[key].cover != -1 && attr.hash[key].cnt == vcnt && attr.hash[key].strand == strand && 
 			( attr.hash[key].first == visit[0] )  &&
@@ -840,9 +840,9 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 	{
 		int key = 0 ;	
 		for ( i = 0 ; i < vcnt ; ++i )
-			key = ( key * attr.seCnt + visit[i] ) % HASH_MAX ;
+			key = ( key * attr.seCnt + visit[i] ) % hashMax ;
 		if ( key < 0 )
-			key += HASH_MAX ;
+			key += hashMax ;
 
 		//static int hashUsed = 0 ;
 		//if (  attr.hash[key].cover == -1 )
@@ -884,7 +884,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	for ( i = 0 ; i < seCnt ; ++i )
 		for ( j = i ; j < seCnt ; ++j )
 			ResetDpContent( attr.f2[i][j] ) ;
-	for ( i = 0 ; i < HASH_MAX ; ++i )
+	for ( i = 0 ; i < hashMax ; ++i )
 		ResetDpContent( attr.hash[i] ) ;
 
 	// Set the uncovered pair
@@ -964,7 +964,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				maxAbundance = tmp.cover ;
 		}
 	}
-	//printf( "maxAbundance=%lf\n", maxAbundance ) ;
+	//PrintLog( "maxAbundance=%lf", maxAbundance ) ;
 	//exit( 1 ) ;
 
 	// Pick the transcripts. Quantative Set-Cover
@@ -1065,7 +1065,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 				if ( ComputeScore( maxCoverDp.cover, 1.0, maxAbundance, maxAbundance, 0 ) < bestScore )
 					break ;
 			}
-			//printf( "normAbund=%lf maxCoverDp.cover=%lf score=%lf timeStamp=%d\n", min, maxCoverDp.cover, score, attr.timeStamp ) ;
+			//PrintLog( "normAbund=%lf maxCoverDp.cover=%lf score=%lf timeStamp=%d", min, maxCoverDp.cover, score, attr.timeStamp ) ;
 			attr.minAbundance = min ;
 		} // end of iteration for minAbundance.
 
@@ -1104,7 +1104,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 		}
 		update *= ( 1 + iterCnt / 50 ) ;//* ( 1 + iterCnt / 50 )  ; 
 
-		//printf( "%d: update=%lf %d %d. %d %d %d\n", iterCnt, update, coveredTcCnt, tcCnt, 
+		//PrintLog( "%d: update=%lf %d %d. %d %d %d", iterCnt, update, coveredTcCnt, tcCnt, 
 		//	bestDp.first, bestDp.last, subexons[ bestDp.first ].start ) ;
 		//bestDp.seVector.Print() ;
 
@@ -3108,7 +3108,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 	}
 
 	int atCnt = cnt ;
-	printf( "%d: atCnt=%d %d %d %d\n", subexons[0].start + 1, atCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
+	printf( "%d: atCnt=%d seCnt=%d %d %d %d\n", subexons[0].start + 1, atCnt, seCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	fflush( stdout ) ;
 	std::vector<struct _transcript> alltranscripts ;
 	
@@ -3146,7 +3146,19 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		attr.f2 = new struct _dp*[seCnt] ;
 		for ( i = 0 ; i < seCnt ; ++i )
 			attr.f2[i] = new struct _dp[seCnt] ;
-		attr.hash = dpHash ; //new struct _dp[HASH_MAX] ;
+		
+		hashMax = HASH_MAX ;
+		if (seCnt > 500)
+			hashMax = 1000003 ;
+		else if (seCnt > 1000)
+			hashMax = 10000019 ; 
+		else if (seCnt > 1500)
+			hashMax = 20000003 ;
+
+		attr.hash = dpHash ; 
+		if ( hashMax != HASH_MAX )
+			attr.hash = new struct _dp[hashMax] ;
+
 		for ( i = 0 ; i < seCnt ; ++i )
 		{
 			attr.f1[i].seVector.Nullify() ;
@@ -3157,7 +3169,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 				attr.f2[i][j].seVector.Init( seCnt ) ;
 			}
 		}
-		for ( i = 0 ; i < HASH_MAX ; ++i )
+		for ( i = 0 ; i < hashMax ; ++i )
 		{
 			attr.hash[i].seVector.Nullify() ;
 			attr.hash[i].seVector.Init( seCnt ) ;
@@ -3223,14 +3235,15 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			for ( j = i ; j < seCnt ; ++j )
 				attr.f2[i][j].seVector.Release() ;
 		}
-		for ( i = 0 ; i < HASH_MAX ; ++i )
+		for ( i = 0 ; i < hashMax ; ++i )
 			attr.hash[i].seVector.Release() ;
 
 		delete[] attr.f1 ;
 		for ( i = 0 ; i < seCnt ; ++i )
 			delete[] attr.f2[i] ;
 		delete[] attr.f2 ;
-		//delete[] attr.hash ;
+		if (hashMax != HASH_MAX)
+			delete[] attr.hash ;
 
 	}
 	
