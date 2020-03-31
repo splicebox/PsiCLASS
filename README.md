@@ -42,6 +42,7 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
 			--sa FLOAT: the minimum average number of supported read for retained introns (default: 0.5)
 			--vd FLOAT : the minimum average coverage depth of a transcript to be reported in voting (defaults: 1.0)
 			--primaryParalog: use primary alignment to retain paralog genes (default: use unique alignments)
+			--version: print version and exit
 			--stage INT:  (default: 0)
                      		0-start from the beginning - building the splice site file for each sample
                      		1-start from building the subexon file for each samples
