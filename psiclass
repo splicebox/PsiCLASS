@@ -24,6 +24,7 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t--bamGroup STRING: path to the file listing the group id of BAMs in the --lb file (default: not used)\n".
     "\t--primaryParalog: use primary alignment to retain paralog genes (default: use unique alignments)\n".
     #"\t--mateIdx INT: the read id has suffix such as .1, .2 for a mate pair. (default: auto)\n".
+    "\t--version: print version and exit\n".
     "\t--stage INT:  (default: 0)\n".
     "\t\t0-start from beginning - building splice sites for each sample\n".
     "\t\t1-start from building subexon files for each sample\n".
@@ -154,6 +155,10 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 	elsif ( $ARGV[$i] eq "--primaryParalog" )
 	{
 		$classesOpt .= " --primaryParalog" ;
+	}
+	elsif ( $ARGV[$i] eq "--version" )
+	{
+		die "PsiCLASS v1.0.1\n" ;
 	}
 	else
 	{
