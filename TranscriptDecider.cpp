@@ -657,7 +657,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 			return attr.f1[ visit[0] ] ;
 		}
 	}
-	else if ( vcnt == 2 )
+	else if ( vcnt == 2 && attr.f2 )
 	{
 		int a = visit[0] ;
 		int b = visit[1] ;
@@ -830,7 +830,7 @@ struct _dp TranscriptDecider::SolveSubTranscript( int visit[], int vcnt, int str
 		visitdp.seVector.Release() ;
 		return attr.f1[ visit[0] ] ;
 	}
-	else if ( vcnt == 2 )
+	else if ( vcnt == 2 && attr.f2 )
 	{
 		SetDpContent( attr.f2[ visit[0] ][ visit[1] ], visitdp, attr ) ;
 		visitdp.seVector.Release() ;
@@ -881,7 +881,7 @@ void TranscriptDecider::PickTranscriptsByDP( struct _subexon *subexons, int seCn
 	memset( attr.hash, -1, sizeof( struct _dp ) * HASH_MAX ) ;*/
 	for ( i = 0 ; i < seCnt ; ++i )
 		ResetDpContent( attr.f1[i] ) ;
-	for ( i = 0 ; i < seCnt ; ++i )
+	for ( i = 0 ; i < seCnt && attr.f2 ; ++i )
 		for ( j = i ; j < seCnt ; ++j )
 			ResetDpContent( attr.f2[i][j] ) ;
 	for ( i = 0 ; i < hashMax ; ++i )
@@ -3106,7 +3106,7 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			}
 		}
 	}
-
+	
 	int atCnt = cnt ;
 	printf( "%d: atCnt=%d seCnt=%d %d %d %d\n", subexons[0].start + 1, atCnt, seCnt, useDP, (int)constraints[0].constraints.size(), (int)constraints[0].matePairs.size() ) ;
 	fflush( stdout ) ;
@@ -3143,9 +3143,14 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		// pre allocate the memory.
 		struct _dpAttribute attr ;
 		attr.f1 = new struct _dp[seCnt] ;
-		attr.f2 = new struct _dp*[seCnt] ;
-		for ( i = 0 ; i < seCnt ; ++i )
-			attr.f2[i] = new struct _dp[seCnt] ;
+		if ( seCnt <= 10000 )
+		{
+			attr.f2 = new struct _dp*[seCnt] ;
+			for ( i = 0 ; i < seCnt ; ++i )
+				attr.f2[i] = new struct _dp[seCnt] ;
+		}
+		else 
+			attr.f2 = NULL ;
 		
 		hashMax = HASH_MAX ;
 		if (seCnt > 500)
@@ -3232,14 +3237,14 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 		for ( i = 0 ; i < seCnt ; ++i )	
 		{
 			attr.f1[i].seVector.Release() ;
-			for ( j = i ; j < seCnt ; ++j )
+			for ( j = i ; j < seCnt && attr.f2 ; ++j )
 				attr.f2[i][j].seVector.Release() ;
 		}
 		for ( i = 0 ; i < hashMax ; ++i )
 			attr.hash[i].seVector.Release() ;
 
 		delete[] attr.f1 ;
-		for ( i = 0 ; i < seCnt ; ++i )
+		for ( i = 0 ; i < seCnt && attr.f2 ; ++i )
 			delete[] attr.f2[i] ;
 		delete[] attr.f2 ;
 		if (hashMax != HASH_MAX)

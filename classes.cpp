@@ -174,6 +174,7 @@ int main( int argc, char *argv[] )
 				a.Open( buffer ) ;
 				alignmentFiles.push_back( a ) ;
 			}
+			fclose( fp ) ;
 		}
 		else if ( c == 10002 ) // the mate pair read id has suffix.
 		{
@@ -471,5 +472,6 @@ int main( int argc, char *argv[] )
 	
 	for ( i = 0 ; i < sampleCnt ; ++i )
 		alignmentFiles[i].Close() ;
+	fclose( fpSubexon ) ;
 	return 0 ;
 }
