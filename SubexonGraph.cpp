@@ -236,5 +236,6 @@ void SubexonGraph::UpdateGeneId( struct _subexon *subexons, int seCnt )
 	/*for ( i = 0 ; i < seCnt ; ++i ) 
 	  {
 	  printf( "geneId %d: %d-%d %d\n", i, subexons[i].start + 1, subexons[i].end + 1, subexons[i].geneId ) ;
-	  }*/
+	  }
+	printf("%d %d\n", baseGeneId, usedGeneId ) ;*/
 }

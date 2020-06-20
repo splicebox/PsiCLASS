@@ -3203,7 +3203,8 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 			//		alltranscripts.size(), iterBound ) ; fflush( stdout ) ;	
 			if ( ( constraints[ sampleComplexity[i].a ].constraints.size() > 1000 
 				&& constraints[ sampleComplexity[i].a ].constraints.size() * 10 < constraints[ sampleComplexity[i].a ].matePairs.size() ) 
-				|| ( downsampleCnt > 0 && (int)constraints[ sampleComplexity[i].a ].constraints.size() >= downsampleCnt ) )
+				|| ( downsampleCnt > 0 && (int)constraints[ sampleComplexity[i].a ].constraints.size() >= downsampleCnt ) 
+				|| seCnt >= 1500 )
 			{
 				Constraints downsampledConstraints ;
 				int stride = (int)constraints[ sampleComplexity[i].a ].matePairs.size() / (int)constraints[ sampleComplexity[i].a ].constraints.size() ;
