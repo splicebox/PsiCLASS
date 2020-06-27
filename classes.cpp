@@ -192,7 +192,7 @@ int main( int argc, char *argv[] )
 	}
 	if ( fpSubexon == NULL )			
 	{
-		printf( "Must use -s option to speicfy subexon file.\n" ) ;
+		printf( "Cannot find combined subexon file.\n" ) ;
 		exit( 1 ) ;
 	}
 	if ( alignmentFiles.size() < 1 )
