@@ -3460,6 +3460,7 @@ void *TranscriptDeciderSolve_Wrapper( void *a )
 	
 	int start = arg.subexons[0].start ;
 	int end = arg.subexons[ arg.seCnt - 1 ].end ;
+	int chrId = arg.subexons[0].chrId ;
 	// Release memory
 	for ( i = 0 ; i < arg.seCnt ; ++i )
 	{
@@ -3475,7 +3476,7 @@ void *TranscriptDeciderSolve_Wrapper( void *a )
 	if ( *( arg.ftCnt ) == 1 )
 		pthread_cond_signal( arg.fullWorkCond ) ;
 	pthread_mutex_unlock( arg.ftLock) ;
-	printf( "Thread %d: %d-%d finished.\n", arg.tid, start + 1, end + 1 ) ;
+	printf( "Thread %d: %s %d %d finished.\n", arg.tid, arg.alignments->GetChromName(chrId), start + 1, end + 1 ) ;
 	fflush( stdout ) ;
 
 

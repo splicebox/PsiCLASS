@@ -268,10 +268,12 @@ int main( int argc, char *argv[] )
 		for ( i = 0 ; i < giCnt ; ++i )
 		{
 			struct _geneInterval gi = subexonGraph.geneIntervals[i] ;
-			printf( "%d: %d %d %d\n", i, gi.endIdx - gi.startIdx + 1, gi.start + 1, gi.end + 1 ) ;	
-			fflush( stdout ) ;
 			struct _subexon *intervalSubexons = new struct _subexon[ gi.endIdx - gi.startIdx + 1 ] ;
 			subexonGraph.ExtractSubexons( gi.startIdx, gi.endIdx, intervalSubexons ) ;
+			printf( "%d: %d %s %d %d\n", i, gi.endIdx - gi.startIdx + 1, 
+					alignmentFiles[0].GetChromName( intervalSubexons[0].chrId ), 
+					gi.start + 1, gi.end + 1 ) ;	
+			fflush( stdout ) ;
 
 			subexonCorrelation.ComputeCorrelation( intervalSubexons, gi.endIdx - gi.startIdx + 1, alignmentFiles[0] ) ;
 			for ( j = 0 ; j < sampleCnt ; ++j )
@@ -345,11 +347,13 @@ int main( int argc, char *argv[] )
 		for ( i = 0 ; i < giCnt ; ++i )
 		{
 			struct _geneInterval gi = subexonGraph.geneIntervals[i] ;
-			printf( "%d: %d %d %d. Free threads: %d/%d\n", i, gi.endIdx - gi.startIdx + 1, gi.start + 1, gi.end + 1, ftCnt, numThreads + 1 ) ;	
-			fflush( stdout ) ;
 			struct _subexon *intervalSubexons = new struct _subexon[ gi.endIdx - gi.startIdx + 1 ] ;
 			subexonGraph.ExtractSubexons( gi.startIdx, gi.endIdx, intervalSubexons ) ;
 			subexonCorrelation.ComputeCorrelation( intervalSubexons, gi.endIdx - gi.startIdx + 1, alignmentFiles[0] ) ;
+			printf( "%d: %d %s %d %d. Free threads: %d/%d\n", i, gi.endIdx - gi.startIdx + 1, 
+					alignmentFiles[0].GetChromName( intervalSubexons[0].chrId ), 
+					gi.start + 1, gi.end + 1, ftCnt, numThreads + 1 ) ;	
+			fflush( stdout ) ;
 			
 			int gctCnt = ftCnt ;
 			if ( gctCnt > 1 && sampleCnt > 1 )
