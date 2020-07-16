@@ -223,7 +223,15 @@ int main( int argc, char *argv[] )
 	double unit = sampleCnt / 50 ;
 	if ( unit < 1 )
 		unit = 1 ;
-
+	
+	int longIntronSize ; 
+	std::vector<int> intronSizes ;
+	for (i = 0 ; i < intronCnt ; ++i)
+		intronSizes.push_back( introns[i].end - introns[i].start + 1 ) ;
+	std::sort( intronSizes.begin(), intronSizes.end() ) ;
+	longIntronSize = intronSizes[ int(intronCnt * 0.99) ] ;
+	if ( longIntronSize > 100000 )
+		longIntronSize = 100000 ;
 	for ( i = 0 ; i < intronCnt ; ++i )
 	{
 		if ( introns[i].support / sampleCnt < averageSupportThreshold )
@@ -399,15 +407,15 @@ int main( int argc, char *argv[] )
 
 
 		// Test for long intron
-		if ( introns[i].end - introns[i].start + 1 >= 100000 )
+		if ( introns[i].end - introns[i].start + 1 >= longIntronSize )
 		{
-			int needSample = MIN( ( ( introns[i].end - introns[i].start + 1 ) / 100000 + 1 ) * unit, sampleCnt ) ;
+			int needSample = MIN( ( ( introns[i].end - introns[i].start + 1 ) / longIntronSize + 1 ) * unit, sampleCnt ) ;
 			int flag = 0 ;
 			if ( (double)introns[i].uniqSupport / ( introns[i].uniqSupport + introns[i].secSupport ) < 0.1 
 				|| introns[i].uniqSupport / sampleCnt < 1 
 				|| introns[i].sampleSupport < needSample )
 				flag = 1 ;
-			if ( flag == 1 && introns[i].end - introns[i].start + 1 >= 300000 )
+			if ( flag == 1 && introns[i].end - introns[i].start + 1 >= 3 * longIntronSize )
 				continue ;
 			if ( flag == 1 && ( sites[a].associatedIntronCnt > 1 || sites[b].associatedIntronCnt > 1 || introns[i].sampleSupport <= 1 ) ) // an intron may connect two genes
 				continue ;
