@@ -3,7 +3,7 @@ PsiCLASS
 
 Described in: 
 
-Song, L., Sabunciyan, S., Yang, G. and Florea, L. . [A multi-sample approach increases the accuracy of transcript assembly](https://www.nature.com/articles/s41467-019-12990-0). *Nat Commun* 10, 5000 (2019)
+Song, L., Sabunciyan, S., Yang, G. and Florea, L. [A multi-sample approach increases the accuracy of transcript assembly](https://www.nature.com/articles/s41467-019-12990-0). *Nat Commun* 10, 5000 (2019)
 
 	Copyright (C) 2018- and GNU GPL by Li Song, Liliana Florea
 
