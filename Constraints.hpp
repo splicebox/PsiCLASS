@@ -396,7 +396,43 @@ public:
 		// mate pairs is not used. if we down-sampling
 		pAlignments = c.pAlignments ;
 	}
+	
+	void TruncateConstraintsCoverFrom( Constraints &c, int seCnt, int maxConstraintSize )
+	{
+		int i ;
+		int size = constraints.size() ;
 
+		if ( size > 0 )
+		{
+			for ( i = 0 ; i < size ; ++i )
+				constraints[i].vector.Release() ;
+			constraints.clear() ;
+			std::vector<struct _constraint>().swap( constraints ) ;
+		}
+		matePairs.clear() ;
+		std::vector<struct _matePairConstraint>().swap( matePairs ) ;
+
+		//constraints.resize( c.constraints.size() ) ;
+		//constraints = c.constraints ;
+		size = c.constraints.size() ;
+		for ( i = 0 ; i < size ; ++i  )
+		{
+			constraints.push_back( c.constraints[i] ) ;
+			constraints[i].vector.Nullify() ; // so that it won't affect the BitTable in "c"
+			constraints[i].vector.Init( seCnt ) ;
+			std::vector<int> seIdx ;
+			c.constraints[i].vector.GetOnesIndices( seIdx ) ; 
+			int j, l = seIdx.size() ;
+			for ( j = 0 ; j < maxConstraintSize && j < l ; ++j )
+			{
+				constraints[i].vector.Set( seIdx[j] ) ;
+			}
+			constraints[i].last = seIdx[j - 1] ;
+		}
+		// mate pairs is not used. if we down-sampling
+		pAlignments = c.pAlignments ;
+	}
+		
 	void SetHasMateReadIdSuffix( bool in )
 	{
 		mateReadIds.SetHasMateReadIdSuffix( in ) ;

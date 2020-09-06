@@ -86,6 +86,7 @@ struct _transcriptDeciderThreadArg
 	int sampleCnt ;
 	int numThreads ;
 
+	int maxDpConstraintSize ;
 	double FPKMFraction, classifierThreshold, txptMinReadDepth ;
 	Alignments *alignments ;
 	std::vector<Constraints> constraints ;
@@ -212,7 +213,7 @@ public:
 		int j ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
-			fprintf( outputFPs[i], "#PsiCLASS_v1.0.0\n#" ) ;	
+			fprintf( outputFPs[i], "#PsiCLASS_v1.0.1\n#" ) ;	
 			for ( j = 0 ; j < argc - 1 ; ++j )
 			{
 				fprintf( outputFPs[i], "%s ", argv[j] ) ;
@@ -290,6 +291,7 @@ private:
 	double FPKMFraction ;
 	double txptMinReadDepth ;
 	int hashMax ;
+	int maxDpConstraintSize ;
 
 	Constraints *constraints ;
 	//struct _subexon *subexons ;
@@ -483,6 +485,7 @@ public:
 		usedGeneId = 0 ;
 		defaultGeneId[0] = -1 ;
 		defaultGeneId[1] = -1 ;
+		maxDpConstraintSize = -1 ;
 		numThreads = 1 ;
 		this->sampleCnt = sampleCnt ;
 		dpHash = new struct _dp[ HASH_MAX ] ; // pre-allocated buffer to hold dp information.
@@ -528,6 +531,11 @@ public:
 	void SetNumThreads( int t )
 	{
 		numThreads = t ;
+	}
+
+	void SetMaxDpConstraintSize(int size)
+	{
+		maxDpConstraintSize = size ;
 	}
 } ;
 

@@ -23,6 +23,7 @@ char usage[] = "./classes [OPTIONS]:\n"
 	"\t-d FLOAT: filter the transcript whose average read depth is less than the given number. (default: 2.5)\n"
 	"\t--ls STRING: path to the file of the list of single-sample subexon files. (default: not used)\n"
 	"\t--hasMateIdSuffix: the read id has suffix such as .1, .2 for a mate pair. (default: false)\n"
+	"\t--maxDpConstraintSize: the maximum number of subexons a constraint can cover in dynamic programming. (default: 7; -1 for inf)\n"
 	"\t--primaryParalog: use primary alignment to retain paralog genes instead of unique alignments. (default: not used)\n"
 	;
 
@@ -33,6 +34,7 @@ static struct option long_options[] =
 		{ "lb", required_argument, 0, 10001 },
 		{ "hasMateIdSuffix", no_argument, 0, 10002 },
 		{ "primaryParalog", no_argument, 0, 10003 },
+		{ "maxDpConstraintSize", required_argument, 0, 10004 },
 		{ (char *)0, 0, 0, 0} 
 	} ;
 
@@ -111,6 +113,7 @@ int main( int argc, char *argv[] )
 	int numThreads = 1 ;
 	bool hasMateReadIdSuffix = false ;
 	bool usePrimaryAsUnique = false ;
+	int maxDpConstraintSize = 7 ;
 	
 	std::vector<Alignments> alignmentFiles ;
 	SubexonCorrelation subexonCorrelation ;
@@ -183,6 +186,10 @@ int main( int argc, char *argv[] )
 		else if ( c == 10003 ) // do not check unique alignment
 		{
 			usePrimaryAsUnique = true ;
+		}
+		else if ( c == 10004 ) // maxDpConstraintSize
+		{
+			maxDpConstraintSize = atoi(optarg) ;
 		}
 		else
 		{
@@ -264,6 +271,8 @@ int main( int argc, char *argv[] )
 		
 		transcriptDecider.SetMultiThreadOutputHandler( &outputHandler ) ;
 		transcriptDecider.SetNumThreads( numThreads ) ;
+		transcriptDecider.SetMaxDpConstraintSize( maxDpConstraintSize ) ;
+
 		int giCnt = subexonGraph.geneIntervals.size() ;
 		for ( i = 0 ; i < giCnt ; ++i )
 		{
@@ -319,6 +328,7 @@ int main( int argc, char *argv[] )
 			pArgs[i].tid = i ;
 			pArgs[i].sampleCnt = sampleCnt ;
 			pArgs[i].numThreads = numThreads ;
+			pArgs[i].maxDpConstraintSize = maxDpConstraintSize ;
 			pArgs[i].FPKMFraction = FPKMFraction ;
 			pArgs[i].classifierThreshold = classifierThreshold ;
 			pArgs[i].txptMinReadDepth = txptMinReadDepth ;

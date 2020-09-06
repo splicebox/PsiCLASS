@@ -3201,7 +3201,14 @@ int TranscriptDecider::Solve( struct _subexon *subexons, int seCnt, std::vector<
 				iterBound = 10 ;
 			//printf( "%d %d: %d %d %d %d\n", subexons[0].start + 1, sampleComplexity[i].a, constraints[ sampleComplexity[i].a ].constraints.size(), constraints[ sampleComplexity[i].a ].matePairs.size(),
 			//		alltranscripts.size(), iterBound ) ; fflush( stdout ) ;	
-			if ( ( constraints[ sampleComplexity[i].a ].constraints.size() > 1000 
+			if ( maxDpConstraintSize > 0 )
+			{
+				Constraints truncatedConstraints ;
+				truncatedConstraints.TruncateConstraintsCoverFrom( constraints[ sampleComplexity[i].a ], seCnt, maxDpConstraintSize ) ;
+				PickTranscriptsByDP( subexons, seCnt, iterBound, truncatedConstraints, 
+						subexonCorrelation, attr, sampleTranscripts ) ;		
+			}
+			else if ( ( constraints[ sampleComplexity[i].a ].constraints.size() > 1000 
 				&& constraints[ sampleComplexity[i].a ].constraints.size() * 10 < constraints[ sampleComplexity[i].a ].matePairs.size() ) 
 				|| ( downsampleCnt > 0 && (int)constraints[ sampleComplexity[i].a ].constraints.size() >= downsampleCnt ) 
 				|| seCnt >= 1500 )
@@ -3456,6 +3463,7 @@ void *TranscriptDeciderSolve_Wrapper( void *a )
 	TranscriptDecider transcriptDecider( arg.FPKMFraction, arg.classifierThreshold, arg.txptMinReadDepth, arg.sampleCnt, *( arg.alignments ) ) ;
 	transcriptDecider.SetNumThreads( arg.numThreads + 1 ) ;
 	transcriptDecider.SetMultiThreadOutputHandler( arg.outputHandler ) ;
+	transcriptDecider.SetMaxDpConstraintSize( arg.maxDpConstraintSize ) ;
 	transcriptDecider.Solve( arg.subexons, arg.seCnt, arg.constraints, arg.subexonCorrelation ) ;
 	
 	int start = arg.subexons[0].start ;
