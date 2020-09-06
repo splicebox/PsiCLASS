@@ -41,6 +41,7 @@ PsiCLASS depends on [pthreads](http://en.wikipedia.org/wiki/POSIX_Threads) and s
 			-c FLOAT: only use the subexons with classifier score <= than the given number. (default: 0.05)
 			--sa FLOAT: the minimum average number of supported read for retained introns (default: 0.5)
 			--vd FLOAT : the minimum average coverage depth of a transcript to be reported in voting (defaults: 1.0)
+			--maxDpConstraintSize: the number of subexons a constraint can cover in DP. (default: 7. -1 for inf)
 			--primaryParalog: use primary alignment to retain paralog genes (default: use unique alignments)
 			--version: print version and exit
 			--stage INT:  (default: 0)
