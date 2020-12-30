@@ -504,14 +504,14 @@ void GradientDescentGammaDistribution( double &k, double &theta, double initK, d
 double MixtureGammaEM( double *x, int n, double &pi, double *k, double *theta, int tries, double meanBound[2], int iter = 1000 )
 {
 	int i ;
+	if ( n <= 0 )	
+		return 0 ;
 	double *z = new double[n] ; // the expectation that it assigned to model 0.
 	double *oneMinusZ = new double[n] ;
 	int t = 0 ;
 	double history[5] = {-1, -1, -1, -1, -1} ;
 	double maxX = -1 ;
 	double sumX = 0 ;
-	if ( n <= 0 )	
-		return 0 ;
 
 	for ( i = 0 ; i < n ; ++i )
 	{

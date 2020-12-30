@@ -884,7 +884,7 @@ class Blocks
 					break ;
 				}
 				
-				if ( sites[k].chrId > exonBlocks[i].chrId || sites[k].pos > farthest )
+				if ( k >= ssize || sites[k].chrId > exonBlocks[i].chrId || sites[k].pos > farthest )
 				{
 					i = j ;
 					continue ;
