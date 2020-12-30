@@ -213,7 +213,7 @@ public:
 		int j ;
 		for ( i = 0 ; i < sampleCnt ; ++i )
 		{
-			fprintf( outputFPs[i], "#PsiCLASS_v1.0.1\n#" ) ;	
+			fprintf( outputFPs[i], "#PsiCLASS_v1.0.2\n#" ) ;	
 			for ( j = 0 ; j < argc - 1 ; ++j )
 			{
 				fprintf( outputFPs[i], "%s ", argv[j] ) ;
