@@ -164,7 +164,7 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 	}
 	elsif ( $ARGV[$i] eq "--version" )
 	{
-		die "PsiCLASS v1.0.1\n" ;
+		die "PsiCLASS v1.0.2\n" ;
 	}
 	else
 	{
