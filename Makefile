@@ -6,6 +6,11 @@ LINKFLAGS = -lbam -lz -lm -lpthread
 DEBUG=
 OBJECTS = stats.o subexon-graph.o 
 
+ifneq ($(asan),)
+	CXXFLAGS+=-fsanitize=address -g
+	LDFLAGS+=-fsanitize=address -ldl -g
+endif
+
 all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice add-genename addXS
 
 subexon-info: subexon-info.o $(OBJECTS)
