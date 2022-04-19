@@ -158,7 +158,7 @@ int main( int argc, char *argv[] )
 	
 	if ( argc < 3 )
 	{	
-		fprintf( stderr, "%s", usage ) ;
+		fprintf( stderr, "%s\n", usage ) ;
 		exit( 1 ) ;
 	}
 

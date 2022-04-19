@@ -1,14 +1,15 @@
 CXX = g++
-CXXFLAGS= -Wall -O3 -g #-std=c++11 #-Wall #-g
+CXXFLAGS= -Wall -O3 #-g #-std=c++11 #-Wall #-g
 #CXXFLAGS= -Wall -g #-std=c++11 #-Wall #-g
 LINKPATH= -I./samtools-0.1.19 -L./samtools-0.1.19
 LINKFLAGS = -lbam -lz -lm -lpthread 
 DEBUG=
 OBJECTS = stats.o subexon-graph.o 
 
+#asan=1
 ifneq ($(asan),)
 	CXXFLAGS+=-fsanitize=address -g
-	LDFLAGS+=-fsanitize=address -ldl -g
+	LINKFLAGS+=-fsanitize=address -ldl -g
 endif
 
 all: subexon-info combine-subexons classes vote-transcripts junc grader trust-splice add-genename addXS
