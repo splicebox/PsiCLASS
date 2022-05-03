@@ -21,6 +21,7 @@ die "Usage: ./psiclass [OPTIONS]\n".
     "\t-c FLOAT: only use the subexons with classifier score <= than the given number (default: 0.05)\n".
     "\t--sa FLOAT: the minimum average number of supported read for retained introns (default: 0.5)\n".
     "\t--vd FLOAT : the minimum average coverage depth of a transcript to be reported (defaults: 1.0)\n".
+		"\t--stranded STRING: un/rf/fr for library unstranded/fr-firstand/fr-secondstrand (default: not used)\n".
     "\t--maxDpConstraintSize: the number of subexons a constraint can cover in DP. (default: 7. -1 for inf)\n".
     "\t--bamGroup STRING: path to the file listing the group id of BAMs in the --lb file (default: not used)\n".
     "\t--primaryParalog: use primary alignment to retain paralog genes (default: use unique alignments)\n".
@@ -170,9 +171,15 @@ for ( $i = 0 ; $i < @ARGV ; ++$i )
 		$combineSubexonsOpt .= "-q ".$ARGV[$i + 1] ;
 		++$i ;
 	}
+	elsif ( $ARGV[$i] eq "--stranded" )
+	{
+		$juncOpt .= " --stranded ".$ARGV[$i + 1] ;
+		$classesOpt .= " --stranded ".$ARGV[$i + 1] ;
+		++$i ;
+	}
 	elsif ( $ARGV[$i] eq "--version" )
 	{
-		die "PsiCLASS v1.0.2\n" ;
+		die "PsiCLASS v1.0.3\n" ;
 	}
 	else
 	{
