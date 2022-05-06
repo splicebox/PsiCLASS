@@ -414,13 +414,13 @@ public:
 		else if (strandedLib != 0)
 		{
 			int flag = b->core.flag ;
-			if (flag & 0x80 == 0) // first read or single-end case
+			if ((flag & 0x80) == 0) // first read or single-end case
 			{
-				return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? 1 : -1 ;
+				return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? -1 : 1 ;
 			}
 			else
 			{
-				return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? -1 : 1 ;
+				return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? 1 : -1 ;
 			}
 		}
 		else
