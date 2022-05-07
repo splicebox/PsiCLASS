@@ -26,6 +26,7 @@ private:
 	bool allowClip ;
 	bool hasClipHead, hasClipTail ;
 	int segmentsSum ; // the sum of segments.
+	int strandedLib ; // 0-unstranded, 1-rf, 2-fr
 
 	bool atBegin ;
 	bool atEnd ;
@@ -77,7 +78,10 @@ public:
 		fragStdev = 0 ;
 		readLen = 0 ;
 		matePaired = false ;
+
+		strandedLib = 0 ;
 	}
+	
 	~Alignments() 
 	{
 		if ( b )
@@ -132,6 +136,11 @@ public:
 	bool HasClipTail()
 	{
 		return hasClipTail ;
+	}
+
+	void SetStrandedLib(int libtype)
+	{
+		strandedLib = libtype ;
 	}
 
 	int Next()
@@ -393,7 +402,7 @@ public:
 	// -1:minus, 0: unknown, 1:plus
 	int GetStrand()
 	{
-		if ( segCnt == 1 )
+		if ( segCnt == 1 && strandedLib == 0)
 			return 0 ;
 		if ( bam_aux_get( b, "XS" ) )
 		{
@@ -401,6 +410,18 @@ public:
 				return -1 ;	
 			else
 				return 1 ;
+		}
+		else if (strandedLib != 0)
+		{
+			int flag = b->core.flag ;
+			if ((flag & 0x80) == 0) // first read or single-end case
+			{
+				return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? -1 : 1 ;
+			}
+			else
+			{
+				return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? 1 : -1 ;
+			}
 		}
 		else
 			return 0 ;

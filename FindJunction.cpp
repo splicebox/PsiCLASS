@@ -64,6 +64,7 @@ bool flagStrict ;
 int junctionCnt ;
 bool anchorBoth ; 
 bool validRead ;
+int strandedLib ; // 0-unstranded, 1-rf, 2-fr
 
 int flank ;
 struct _cigarSeg
@@ -88,6 +89,7 @@ void PrintHelp()
 	    "\t-j xx [-B]: Output the junctions using 1-based coordinates. The format is \"reference id\" start end \"# of read\" strand.(They are sorted)\n and the xx is an integer means the maximum unqualified anchor length for a splice junction(default=8). If -B, the splice junction must be supported by a read whose both anchors are longer than xx.\n"
 	    "\t-a: Output all the junctions, and use non-positive support number to indicate unqualified junctions.\n"
 	    "\t-y: If the bits from YS field of bam matches the argument, we filter the alignment (default: 4).\n"
+			"\t--stranded un/rf/fr: stranded library fr-firststrand/secondstrand (default: not set).\n"
 	      ) ;
 }
 
@@ -741,7 +743,19 @@ void cigar2string( bam1_core_t *c, uint32_t *in_cigar, char *out_cigar )
 	}
 }
 
-
+char GetStrandFromStrandedLib(int flag)
+{
+	if (strandedLib == 0)
+		return '?' ;
+	if ((flag & 0x80) == 0) // first read or single-end case
+	{
+		return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? '-' : '+' ;
+	}
+	else
+	{
+		return  (((flag >> 4) & 1) ^ (strandedLib & 1)) ? '+' : '-' ;
+	}
+}
 
 int main( int argc, char *argv[] ) 
 {
@@ -768,6 +782,7 @@ int main( int argc, char *argv[] )
 	flagPrintJunction = true ;
 	flank = 8 ;
 	filterYS = 4 ;
+	strandedLib = 0 ;
 
 	contradictedReads = NULL ;
 	
@@ -812,6 +827,16 @@ int main( int argc, char *argv[] )
 		else if ( !strcmp( argv[i], "--hasMateIdSuffix" ) )
 		{
 			hasMateReadIdSuffix = true ;
+			++i ;
+		}
+		else if ( !strcmp( argv[i], "--stranded" ) )
+		{
+			if ( !strcmp(argv[i + 1], "un") ) 
+				strandedLib = 0 ;
+			else if ( !strcmp(argv[i + 1], "rf") )
+				strandedLib = 1 ;
+			else if ( !strcmp(argv[i + 1], "fr" ) )
+				strandedLib = 2 ;
 			++i ;
 		}
 		else if ( i > 1 )
@@ -1021,6 +1046,11 @@ int main( int argc, char *argv[] )
 					noncanonStrandInfo = -1 ;
 				}
 			}
+			else if ( strandedLib != 0 ) 
+			{
+				strand = GetStrandFromStrandedLib(flag) ;
+				noncanonStrandInfo = -1 ;
+			}
 			else
 			{
 				strand = '?' ;
@@ -1034,6 +1064,11 @@ int main( int argc, char *argv[] )
 				strand = '-' ;
 			else if ( strstr( line, "XS:A:+" ) )
 				strand = '+' ;
+			else if ( strandedLib != 0) 
+			{
+				strand = GetStrandFromStrandedLib(flag) ;
+				noncanonStrandInfo = -1 ;
+			}
 			else
 			{
 				strand = '?' ;
