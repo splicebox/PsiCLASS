@@ -12,7 +12,7 @@
 
 #include "sam.h"
 
-#define LINE_SIZE 4097
+#define LINE_SIZE 8193
 #define QUEUE_SIZE 10001
 #define HASH_MAX 1000003
 
