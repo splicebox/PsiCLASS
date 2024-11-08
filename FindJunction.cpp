@@ -546,7 +546,7 @@ bool CompareJunctions( int startLocation, char *cigar )
 					case 'I':
 						{
 							for ( j = 0 ; j < cigarSeg[i].len ; ++j )
-								++count[ nucToNum[  col[9][pos + j] - 'A' ] ] ;
+								++count[ (unsigned char) nucToNum[  col[9][pos + j] - 'A' ] ] ;
 							pos += j ;
 						} break ;
 					case 'N':
