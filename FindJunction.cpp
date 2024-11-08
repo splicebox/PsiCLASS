@@ -974,7 +974,7 @@ int main( int argc, char *argv[] )
 					col[5], col[6], col[7], col[8], col[9],  col[10] ) ;
 					
 			flag = atoi( col[1] ) ;
-			if ( p = strstr( line, "NH" ) )
+			if ( (p = strstr( line, "NH" )) )
 			{
 				int k = 0 ;
 				p += 5 ;
