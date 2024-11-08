@@ -523,6 +523,8 @@ bool CompareJunctions( int startLocation, char *cigar )
 		}
 		else
 		{
+			/*
+			 * REMOVED: Unused variables
 			int softStart = -1 ;
 			int softEnd = 0 ;
 			if ( cigarSeg[0].type == 'S' )
@@ -530,6 +532,7 @@ bool CompareJunctions( int startLocation, char *cigar )
 			if ( cigarSeg[ ccnt - 1 ].type == 'S' )
 				softEnd = cigarSeg[ ccnt - 1 ].len ;
 			int readLen = strlen( col[9] ) ;
+			*/
 			int count[5] = { 0, 0, 0, 0, 0 } ;
 
 			int pos = 0 ;
