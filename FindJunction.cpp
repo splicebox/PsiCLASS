@@ -970,8 +970,8 @@ int main( int argc, char *argv[] )
 				break ;
 			if ( line[0] == '\0' || line[0] == '@' )
 				continue ;
-			sscanf( line, "%s%s%s%s%s%s%s%s%s%s%s", col, col + 1, col + 2, col + 3, col + 4, 
-					col + 5, col + 6, col + 7, col + 8, col + 9,  col + 10 ) ;
+			sscanf( line, "%s%s%s%s%s%s%s%s%s%s%s", col[0], col[1], col[2], col[3], col[4], 
+					col[5], col[6], col[7], col[8], col[9],  col[10] ) ;
 					
 			flag = atoi( col[1] ) ;
 			if ( p = strstr( line, "NH" ) )
