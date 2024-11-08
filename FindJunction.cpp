@@ -559,8 +559,9 @@ bool CompareJunctions( int startLocation, char *cigar )
 									max = count[j] ;
 								sum += count[j] ;
 							}
-							if ( max > 0.8 * sum )
+							if ( max > 0.8 * sum ) {
 								validRead = false ;
+							}
 							count[0] = count[1] = count[2] = count[3] = count[4] = 0 ;
 						} break ;
 					case 'H':
@@ -574,8 +575,9 @@ bool CompareJunctions( int startLocation, char *cigar )
 			int sum = 0 ;
 			for ( j = 0 ; j < 5 ; ++j )
 			{
-				if ( count[j] > max )
+				if ( count[j] > max ) {
 					max = count[j] ;
+				}
 				sum += count[j] ;
 			}
 			if ( max > 0.8 * sum )
