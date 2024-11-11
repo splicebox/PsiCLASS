@@ -13,7 +13,7 @@ char usage[] =
 char samLine[65537] ;
 char seq[65537] ;
 
-char nucToNum[26] = { 0, -1, 1, -1, -1, -1, 2,
+signed char nucToNum[26] = { 0, -1, 1, -1, -1, -1, 2,
 			-1, -1, -1, -1, -1, -1, 0, // Regard 'N' as 'A' 
 			-1, -1, -1, -1, -1, 3,
 			-1, -1, -1, -1, -1, -1 } ;
