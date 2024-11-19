@@ -378,6 +378,10 @@ class Blocks
 
 				for ( i = 0 ; i < segCnt ; ++i )
 				{
+					// skip bizzare segment that pops up in minimap alignments
+					if ( segments[i].a >= segments[i].b ) {
+						break;
+					}
 					//if ( i == 0 )
 					//	printf( "hi %d %s %d %d\n", i, alignments.GetReadId(), segments[i].a, segments[i].b ) ;
 					for ( j = tag ; j < (int)exonBlocks.size() ; ++j )
