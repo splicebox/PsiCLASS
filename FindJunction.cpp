@@ -12,7 +12,7 @@
 
 #include "sam.h"
 
-#define LINE_SIZE 4097
+#define LINE_SIZE 8193
 #define QUEUE_SIZE 10001
 #define HASH_MAX 1000003
 
@@ -490,7 +490,7 @@ bool CompareJunctions( int startLocation, char *cigar )
 	int num ;
 	int newJuncCnt = 0 ; // The # of junctions in the read, and the # of new junctions among them.
 	
-	struct _cigarSeg cigarSeg[1000] ; // A segment of the cigar.
+	struct _cigarSeg cigarSeg[2000] ; // A segment of the cigar.
 	int ccnt = 0 ; // cigarSeg cnt
 
 	j = 0 ;
@@ -523,6 +523,8 @@ bool CompareJunctions( int startLocation, char *cigar )
 		}
 		else
 		{
+			/*
+			 * REMOVED: Unused variables
 			int softStart = -1 ;
 			int softEnd = 0 ;
 			if ( cigarSeg[0].type == 'S' )
@@ -530,6 +532,7 @@ bool CompareJunctions( int startLocation, char *cigar )
 			if ( cigarSeg[ ccnt - 1 ].type == 'S' )
 				softEnd = cigarSeg[ ccnt - 1 ].len ;
 			int readLen = strlen( col[9] ) ;
+			*/
 			int count[5] = { 0, 0, 0, 0, 0 } ;
 
 			int pos = 0 ;
@@ -543,7 +546,7 @@ bool CompareJunctions( int startLocation, char *cigar )
 					case 'I':
 						{
 							for ( j = 0 ; j < cigarSeg[i].len ; ++j )
-								++count[ nucToNum[  col[9][pos + j] - 'A' ] ] ;
+								++count[ (unsigned char) nucToNum[  col[9][pos + j] - 'A' ] ] ;
 							pos += j ;
 						} break ;
 					case 'N':
@@ -556,8 +559,9 @@ bool CompareJunctions( int startLocation, char *cigar )
 									max = count[j] ;
 								sum += count[j] ;
 							}
-							if ( max > 0.8 * sum )
+							if ( max > 0.8 * sum ) {
 								validRead = false ;
+							}
 							count[0] = count[1] = count[2] = count[3] = count[4] = 0 ;
 						} break ;
 					case 'H':
@@ -571,8 +575,9 @@ bool CompareJunctions( int startLocation, char *cigar )
 			int sum = 0 ;
 			for ( j = 0 ; j < 5 ; ++j )
 			{
-				if ( count[j] > max )
+				if ( count[j] > max ) {
 					max = count[j] ;
+				}
 				sum += count[j] ;
 			}
 			if ( max > 0.8 * sum )
@@ -965,11 +970,11 @@ int main( int argc, char *argv[] )
 				break ;
 			if ( line[0] == '\0' || line[0] == '@' )
 				continue ;
-			sscanf( line, "%s%s%s%s%s%s%s%s%s%s%s", col, col + 1, col + 2, col + 3, col + 4, 
-					col + 5, col + 6, col + 7, col + 8, col + 9,  col + 10 ) ;
+			sscanf( line, "%s%s%s%s%s%s%s%s%s%s%s", col[0], col[1], col[2], col[3], col[4], 
+					col[5], col[6], col[7], col[8], col[9],  col[10] ) ;
 					
 			flag = atoi( col[1] ) ;
-			if ( p = strstr( line, "NH" ) )
+			if ( (p = strstr( line, "NH" )) )
 			{
 				int k = 0 ;
 				p += 5 ;
