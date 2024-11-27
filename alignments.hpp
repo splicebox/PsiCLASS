@@ -484,6 +484,7 @@ public:
 		}
 		if ( gcCnt >= threshold * b->core.l_qseq )
 			return true ;
+        return false;
 	}
 
 	void GetGeneralInfo( bool stopEarly = false )
