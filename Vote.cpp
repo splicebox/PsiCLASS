@@ -283,6 +283,7 @@ int main( int argc, char *argv[] )
 			sumCov += transcripts[l].cov ;
 		}
 
+        k = 0 ;
 		transcripts[k] = transcripts[i] ;
 		for ( l = i + 1 ; l < j ; ++l )
 			delete[] transcripts[l].exons ;
