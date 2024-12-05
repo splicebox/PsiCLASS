@@ -72,7 +72,7 @@ int CompDouble( const void *p1, const void *p2 )
 
 int main( int argc, char *argv[] )
 {
-	int i, j, k ;
+	int i, j, k = 0 ;
 	double minAvgDepth = 1.0 ;
 	double fraction = 1.0 ;
 	int minSampleCnt = 3 ;
