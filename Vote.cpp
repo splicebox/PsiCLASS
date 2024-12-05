@@ -72,7 +72,7 @@ int CompDouble( const void *p1, const void *p2 )
 
 int main( int argc, char *argv[] )
 {
-	int i, j, k ;
+	int i, j, k = 0 ;
 	double minAvgDepth = 1.0 ;
 	double fraction = 1.0 ;
 	int minSampleCnt = 3 ;
@@ -283,7 +283,6 @@ int main( int argc, char *argv[] )
 			sumCov += transcripts[l].cov ;
 		}
 
-        k = 0 ;
 		transcripts[k] = transcripts[i] ;
 		for ( l = i + 1 ; l < j ; ++l )
 			delete[] transcripts[l].exons ;
