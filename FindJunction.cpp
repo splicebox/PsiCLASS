@@ -541,7 +541,7 @@ bool CompareJunctions( int startLocation, char *cigar )
 				switch ( cigarSeg[i].type )
 				{
 					case 'S':
-						pos += cigarSeg[i].len ;
+						pos += cigarSeg[i].len ; break ;
 					case 'M':
 					case 'I':
 						{
