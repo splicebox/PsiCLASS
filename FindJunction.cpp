@@ -46,7 +46,7 @@ struct _junction
 char line[LINE_SIZE] ;
 char col[11][LINE_SIZE] ; // The option fields is not needed.
 char strand ; // Extract XS field
-char noncanonStrandInfo ;
+signed char noncanonStrandInfo ;
 //bool secondary ;
 int NH ;
 int editDistance ;
